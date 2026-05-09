@@ -10,7 +10,8 @@ class URLService:
     
     def shorten(self, db: Session, long_url: str) -> str:
         """Create a short URL in a single database transaction."""
-        url = self.repo.create(db, long_url)
+        long_url_str = str(long_url)
+        url = self.repo.create(db, long_url_str)
         code = encode_base62(url.id)
         self.repo.update_code(db, url, code)
         db.commit() 
