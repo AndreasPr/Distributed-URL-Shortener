@@ -8,6 +8,7 @@ Tech stack:
 - Uvicorn
 - SQLAlchemy
 - PostgreSQL
+- SQL
 - Redis
 - Kafka (Confluent)
 - kafka-python
@@ -23,6 +24,7 @@ Table of Contents
 - Full stack with Docker Compose
 - Configuration
 - API reference
+- Rate limiting
 - Database
 - Testing & verification
 - Troubleshooting
@@ -148,6 +150,38 @@ API Reference
 	- Returns `{ short_code, total_clicks, timestamps }`
 - GET `/health/redis`
 	- Health check for Redis connectivity
+
+Rate Limiting
+-------------
+
+A distributed, sliding-window rate limiter protects against abuse and ensures fair resource usage across instances.
+
+**Strategy:**
+- Redis-backed (atomic, shared across API instances)
+- Per-IP address + per-route
+- Sliding 60-second window for smooth traffic control
+
+**Current limits:**
+- POST `/shorten` — **20 requests per 60 seconds** (strict for write operations)
+- All other routes — **100 requests per 60 seconds**
+
+**Rate limit response (HTTP 429):**
+
+```json
+{
+  "error": "Rate limit exceeded",
+  "path": "/shorten",
+  "limit": 20,
+  "window_seconds": 60,
+  "retry_after_seconds": 45
+}
+```
+
+**Response headers:**
+- `Retry-After`: Seconds to wait before retrying
+- `X-RateLimit-Limit`: Current route limit
+- `X-RateLimit-Remaining`: Requests remaining in window (on success)
+
 
 Database
 --------
