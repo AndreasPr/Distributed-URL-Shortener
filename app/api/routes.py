@@ -2,13 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from cache.redis_client import redis_client
-from schemas.url_schema import URLCreate, URLResponse
-from services.url_service import URLService
-from db.database import get_db
+from app.cache.redis_client import redis_client
+from app.db.database import get_db
+from app.schemas.url_schema import URLCreate, URLResponse
+from app.services.analytics_service import AnalyticsService
+from app.services.url_service import URLService
 
 router = APIRouter()
 service = URLService()
+analytics_service = AnalyticsService()
 
 @router.post("/shorten", response_model=URLResponse)
 def create_short_url(req: URLCreate, db: Session = Depends(get_db)):
@@ -24,6 +26,11 @@ def redirect(code: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Not found")
     
     return RedirectResponse(url=long_url)
+
+
+@router.get("/analytics/{short_code}")
+def analytics(short_code: str, db: Session = Depends(get_db)):
+    return analytics_service.get_analytics(db, short_code)
 
 
 @router.get("/health/redis")

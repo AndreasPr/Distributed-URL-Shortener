@@ -1,7 +1,9 @@
 from sqlalchemy.orm import Session
-from repositories.url_repository import URLRepository
-from utils.base62 import encode_base62
-from cache.redis_client import get_cache, set_cache
+
+from app.cache.redis_client import get_cache, set_cache
+from app.kafka.producer import publish_click_event
+from app.repositories.url_repository import URLRepository
+from app.utils.base62 import encode_base62
 
 class URLService:
     def __init__(self):
@@ -21,6 +23,7 @@ class URLService:
         """Resolve short code to long URL with caching."""
         cached = get_cache(code)
         if cached:
+            publish_click_event(code)
             return cached.decode()
 
         url = self.repo.get_by_code(db, code)
@@ -29,4 +32,5 @@ class URLService:
         
         # Cache for 24 hours
         set_cache(code, url.long_url, ttl=self.CACHE_TTL)
+        publish_click_event(code)
         return url.long_url

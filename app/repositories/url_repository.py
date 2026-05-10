@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from models.url import URL
+from app.models.url import URL
 
 class URLRepository:
     
