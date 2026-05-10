@@ -29,5 +29,4 @@ class URLService:
         
         # Cache for 24 hours
         set_cache(code, url.long_url, ttl=self.CACHE_TTL)
-        
         return url.long_url
