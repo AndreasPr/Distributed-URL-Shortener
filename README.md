@@ -25,6 +25,7 @@ Table of Contents
 - Configuration
 - API reference
 - Rate limiting
+- Batch analytics writes
 - Database
 - Testing & verification
 - Troubleshooting
@@ -36,7 +37,7 @@ Project summary
 
 - Generates compact short codes for long URLs.
 - Fast redirects using a Redis cache and asynchronous analytics via Kafka.
-- Background worker consumes click events and writes analytics to PostgreSQL.
+- Background worker consumes click events and writes analytics to PostgreSQL in batches.
 
 Architecture
 ------------
@@ -48,6 +49,25 @@ User → HTTP (FastAPI)
 Kafka → topic `url-events` → analytics worker consumes → inserts into `analytics` table (Postgres)
 Redis → cache `short_code` → `long_url` mapping (TTL)
 Postgres → durable store for `urls` and `analytics`
+
+Batch Analytics Writes
+----------------------
+
+The analytics worker no longer writes one database row per Kafka event. Instead, it buffers click events and flushes them in batches for better throughput and lower database overhead.
+
+**How it works:**
+- Kafka events are accumulated in memory by the worker.
+- When the buffer reaches **100 events**, the worker performs a single batch insert.
+- A timeout flush ensures smaller bursts are still persisted promptly.
+- Any remaining buffered events are flushed before shutdown.
+
+**Why it matters:**
+- Fewer database round-trips
+- Lower commit overhead
+- Better throughput under traffic spikes
+- More realistic production-style ingestion pattern
+
+This means the system now behaves more like a real event pipeline: fast writes to Kafka on the request path, then efficient batched persistence in the analytics worker.
 
 Repository layout
 -----------------

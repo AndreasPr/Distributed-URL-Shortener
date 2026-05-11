@@ -1,3 +1,5 @@
+from typing import List
+
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -8,6 +10,20 @@ class AnalyticsRepository:
             text("INSERT INTO analytics (short_code) VALUES (:short_code)"),
             {"short_code": short_code},
         )
+
+    def batch_create_clicks(self, db: Session, short_codes: List[str]) -> int:
+        """Insert multiple clicks in a single batch. Returns count inserted."""
+        if not short_codes:
+            return 0
+
+        placeholders = ",".join([f"(:{i})" for i in range(len(short_codes))])
+        params = {str(i): code for i, code in enumerate(short_codes)}
+
+        db.execute(
+            text(f"INSERT INTO analytics (short_code) VALUES {placeholders}"),
+            params,
+        )
+        return len(short_codes)
 
     def get_click_count(self, db: Session, short_code: str) -> int:
         result = db.execute(
