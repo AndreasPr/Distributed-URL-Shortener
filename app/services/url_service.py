@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from app.cache.redis_client import get_cache, set_cache
 from app.kafka.producer import publish_click_event
 from app.repositories.url_repository import URLRepository
-from app.utils.base62 import encode_base62
 
 class URLService:
     def __init__(self):
@@ -11,11 +10,9 @@ class URLService:
         self.CACHE_TTL = 86400  
     
     def shorten(self, db: Session, long_url: str) -> str:
-        """Create a short URL in a single database transaction."""
+        """Create a short URL and return the code."""
         long_url_str = str(long_url)
-        url = self.repo.create(db, long_url_str)
-        code = encode_base62(url.id)
-        self.repo.update_code(db, url, code)
+        code = self.repo.create_with_code(db, long_url_str)
         db.commit() 
         return code
     

@@ -10,3 +10,13 @@ CREATE TABLE analytics (
     short_code VARCHAR(10) NOT NULL,
     clicked_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Composite index for analytics queries: filter by short_code, order by clicked_at DESC
+-- Enables efficient range queries: SELECT clicked_at FROM analytics WHERE short_code = ? ORDER BY clicked_at DESC
+-- Without: PostgreSQL fetches all matching rows then sorts (O(n log n))
+-- With: PostgreSQL uses index scan directly for sorted result (O(log n) lookup + sequential read)
+CREATE INDEX idx_analytics_short_code_clicked_at ON analytics(short_code, clicked_at DESC);
+
+-- Foreign key constraint for data integrity and cascading deletes
+ALTER TABLE analytics ADD CONSTRAINT fk_analytics_short_code
+  FOREIGN KEY (short_code) REFERENCES urls(short_code) ON DELETE CASCADE;

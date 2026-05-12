@@ -8,18 +8,14 @@ from app.services.url_service import URLService
 def test_shorten_creates_code_and_commits(monkeypatch):
     service = URLService()
     fake_repo = MagicMock()
-    fake_url = SimpleNamespace(id=125, short_code=None, long_url="https://example.com")
-    fake_repo.create.return_value = fake_url
-    fake_repo.update_code.side_effect = lambda db, url, code: setattr(url, "short_code", code)
+    fake_repo.create_with_code.return_value = "cb"
     service.repo = fake_repo
-    monkeypatch.setattr(url_service_module, "encode_base62", lambda num: "cb")
     db = MagicMock()
 
     code = service.shorten(db, "https://example.com")
 
     assert code == "cb"
-    fake_repo.create.assert_called_once_with(db, "https://example.com")
-    fake_repo.update_code.assert_called_once_with(db, fake_url, "cb")
+    fake_repo.create_with_code.assert_called_once_with(db, "https://example.com")
     db.commit.assert_called_once()
 
 
