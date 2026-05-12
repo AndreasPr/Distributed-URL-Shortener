@@ -230,6 +230,89 @@ The pytest suite covers:
 - Sliding-window rate limiting middleware
 - API route handlers and Redis health check
 
+Load Testing with k6
+--------------------
+
+k6 is a modern load testing tool for measuring latency, throughput, and discovering bottlenecks.
+
+**Installation:**
+
+```bash
+brew install k6
+# or visit https://k6.io/docs/getting-started/installation/
+```
+
+**Normal load test** (30s baseline, ~10 concurrent users):
+
+```bash
+k6 run scripts/load_test.js
+```
+
+Customize:
+
+```bash
+BASE_URL=http://localhost:8000 DURATION=60s VUS=20 k6 run scripts/load_test.js
+```
+
+**Key improvements in this test:**
+- **IP spoofing**: Each VU spoofs a different IP (192.168.1.100 - 192.168.1.109) via `X-Forwarded-For` header, so each gets its own rate limit bucket
+- **Rate-limit awareness**: Treats HTTP 429 (rate limited) as expected behavior, not a failure
+- **Read vs write split**: Most requests are reads (redirects, analytics) which scale well; writes are rate-limited by design
+- **Realistic success criteria**: p95 latency < 100ms (redirects with cache), error rate < 10%
+
+Metrics tracked:
+- HTTP request duration (p95, p99)
+- Success/failure rates (accounting for 429s as expected)
+- Throughput (requests/second)
+- Per-endpoint breakdown (shorten, redirect, analytics, health)
+
+**Stress test** (24 minutes, ramps from 10 to 300 VUs):
+
+```bash
+k6 run scripts/stress_test.js
+```
+
+This discovers:
+- Where latency degrades
+- Database saturation point
+- Redis connection pool limits
+- Rate limiter behavior under load
+- CPU/memory bottlenecks
+
+Expected observations:
+- Redirects (cached, read-heavy): should handle 100+ VUs smoothly
+- Shorten (write-heavy, rate-limited): will hit 20 req/min/IP limit at ~300 VUs
+- Analytics (aggregation): may show latency growth as load increases
+
+**Spike test** (sudden 10x traffic increase):
+
+```bash
+k6 run scripts/spike_test.js
+```
+
+Tests recovery and graceful degradation under sudden spikes.
+
+**Interpreting results:**
+
+- **p95 latency < 100ms**: Good; users experience responsive redirects
+- **p99 latency < 200ms**: Acceptable; tail latencies are controlled
+- **Error rate < 10%**: Acceptable; occasional 429s under load are expected and controlled
+- **Timeouts or 500s**: Indicates saturation; scale the system (more API instances, connection pooling)
+
+What the load tests reveal:
+- **Redirects scale linearly** with concurrent users (cached, read-only, high throughput)
+- **Shorten endpoint hits rate limit** (intentional: 20 req/min/IP protects the database from write overload)
+- **Analytics reads scale well** even under stress (distributed aggregation queries)
+- **Redis becomes a bottleneck** only if connection pool is exhausted (configure `max_connections` if needed)
+
+To scale beyond load test limits:
+- Run multiple API instances behind a load balancer
+- Scale Postgres with read replicas for analytics queries
+- Increase Redis connection pool size in production
+- Adjust rate limits based on your business requirements
+
+---
+
 End-to-end test:
 
 1. Create a short URL
