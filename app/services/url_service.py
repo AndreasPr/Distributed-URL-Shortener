@@ -24,7 +24,7 @@ class URLService:
         cached = get_cache(code)
         if cached:
             publish_click_event(code)
-            return cached.decode()
+            return cached.decode() if isinstance(cached, bytes) else cached
 
         url = self.repo.get_by_code(db, code)
         if not url:

@@ -214,6 +214,22 @@ Schema is in `scripts/migrate.sql`. Two tables:
 Testing & verification
 ----------------------
 
+Run the unit tests with:
+
+```bash
+pytest
+```
+
+The pytest suite covers:
+
+- Base62 encoding utility
+- URL repository create / update / lookup flow
+- Analytics repository batch inserts and query helpers
+- URL service shorten / resolve paths with cache and publish behavior
+- Analytics service aggregation logic
+- Sliding-window rate limiting middleware
+- API route handlers and Redis health check
+
 End-to-end test:
 
 1. Create a short URL
