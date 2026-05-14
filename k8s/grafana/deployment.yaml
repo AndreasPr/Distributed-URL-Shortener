@@ -1,0 +1,256 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: url-shortener
+data:
+  prometheus.yaml: |
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      access: proxy
+      url: http://prometheus.url-shortener.svc.cluster.local:9090
+      isDefault: true
+      editable: true
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: url-shortener
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+    - name: 'Default'
+      orgId: 1
+      folder: ''
+      type: file
+      disableDeletion: false
+      updateIntervalSeconds: 10
+      allowUiUpdates: true
+      options:
+        path: /var/lib/grafana/dashboards
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-json
+  namespace: url-shortener
+data:
+  url-shortener-dashboard.json: |
+    {
+      "dashboard": {
+        "uid": "url-shortener",
+        "title": "URL Shortener - Production Observability",
+        "tags": ["url-shortener", "production"],
+        "timezone": "browser",
+        "schemaVersion": 30,
+        "version": 1,
+        "refresh": "10s",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Request Throughput (req/sec)",
+            "type": "graph",
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+            "targets": [
+              {
+                "expr": "rate(http_requests_total[1m])",
+                "refId": "A"
+              }
+            ]
+          },
+          {
+            "id": 2,
+            "title": "P95 Latency (ms)",
+            "type": "graph",
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) * 1000",
+                "refId": "A"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "Cache Hit Ratio (%)",
+            "type": "gauge",
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+            "targets": [
+              {
+                "expr": "cache_hits_total / (cache_hits_total + cache_misses_total) * 100",
+                "refId": "A"
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "title": "Redirect Requests (per min)",
+            "type": "stat",
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+            "targets": [
+              {
+                "expr": "increase(redirect_requests_total[1m])",
+                "refId": "A"
+              }
+            ]
+          },
+          {
+            "id": 5,
+            "title": "Error Rate (5xx/sec)",
+            "type": "graph",
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+            "targets": [
+              {
+                "expr": "rate(http_requests_total{status=~\"5..\"}[1m])",
+                "refId": "A"
+              }
+            ]
+          },
+          {
+            "id": 6,
+            "title": "Kafka Events (per min)",
+            "type": "stat",
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+            "targets": [
+              {
+                "expr": "increase(analytics_events_processed_total[1m])",
+                "refId": "A"
+              }
+            ]
+          },
+          {
+            "id": 7,
+            "title": "URL Shorten Latency (P95/P99 ms)",
+            "type": "graph",
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(shorten_request_duration_seconds_bucket[5m])) * 1000",
+                "refId": "A",
+                "legendFormat": "P95"
+              },
+              {
+                "expr": "histogram_quantile(0.99, rate(shorten_request_duration_seconds_bucket[5m])) * 1000",
+                "refId": "B",
+                "legendFormat": "P99"
+              }
+            ]
+          },
+          {
+            "id": 8,
+            "title": "Cache Operations (ops/min)",
+            "type": "graph",
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+            "targets": [
+              {
+                "expr": "increase(cache_hits_total[1m])",
+                "refId": "A",
+                "legendFormat": "Hits"
+              },
+              {
+                "expr": "increase(cache_misses_total[1m])",
+                "refId": "B",
+                "legendFormat": "Misses"
+              }
+            ]
+          }
+        ]
+      }
+    }
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: url-shortener
+spec:
+  type: ClusterIP
+  selector:
+    app: grafana
+  ports:
+    - port: 3000
+      targetPort: 3000
+      protocol: TCP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: url-shortener
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:latest
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: GF_SECURITY_ADMIN_USER
+          valueFrom:
+            secretKeyRef:
+              name: url-shortener-secrets
+              key: GRAFANA_ADMIN_USER
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: url-shortener-secrets
+              key: GRAFANA_ADMIN_PASSWORD
+        - name: GF_INSTALL_PLUGINS
+          value: ""
+        volumeMounts:
+        - name: datasources
+          mountPath: /etc/grafana/provisioning/datasources
+        - name: dashboards-config
+          mountPath: /etc/grafana/provisioning/dashboards
+        - name: dashboard-json
+          mountPath: /var/lib/grafana/dashboards
+        - name: storage
+          mountPath: /var/lib/grafana
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: datasources
+        configMap:
+          name: grafana-datasources
+      - name: dashboards-config
+        configMap:
+          name: grafana-dashboards
+      - name: dashboard-json
+        configMap:
+          name: grafana-dashboard-json
+      - name: storage
+        emptyDir: {}

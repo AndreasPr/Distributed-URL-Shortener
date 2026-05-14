@@ -1,0 +1,58 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrate
+  namespace: url-shortener
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      initContainers:
+      - name: wait-postgres
+        image: busybox:latest
+        command:
+          - sh
+          - -c
+          - |
+            echo "Waiting for PostgreSQL..."
+            until nc -z postgres.url-shortener.svc.cluster.local 5432; do
+              echo "PostgreSQL is unavailable - sleeping"
+              sleep 2
+            done
+            echo "PostgreSQL is up!"
+      containers:
+      - name: migrate
+        image: url-shortener:latest
+        imagePullPolicy: IfNotPresent
+        workingDir: /app
+        command: ["python", "scripts/migrate.py"]
+        env:
+        - name: DB_USER
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: url-shortener-secrets
+              key: DB_PASSWORD
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: DB_NAME
+        - name: DB_URL
+          value: "postgresql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)"

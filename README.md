@@ -25,12 +25,14 @@ Table of Contents
 - Repository layout
 - Quick start (local)
 - Full stack with Docker Compose
+- Kubernetes Deployment
 - Configuration
 - API reference
 - Rate limiting
 - Batch analytics writes
 - Database
 - Testing & verification
+- Observability
 - Troubleshooting
 - Developer notes
 - License & contact
@@ -150,6 +152,156 @@ Stop the stack:
 ```bash
 docker compose down
 ```
+
+Kubernetes Deployment
+---------------------
+
+Deploy the entire application to a Kubernetes cluster (Docker Desktop, minikube, GKE, EKS, etc.) for cloud-native, production-grade orchestration.
+
+### Prerequisites
+
+1. **Kubernetes cluster** running (Docker Desktop K8s enabled, or minikube)
+   ```bash
+   kubectl cluster-info
+   kubectl get nodes
+   ```
+
+2. **Docker image built**
+   ```bash
+   docker build -t localhost:5000/url-shortener:latest .
+   ```
+
+3. **kubectl** configured
+   ```bash
+   kubectl config current-context
+   ```
+
+### Quick Start
+
+Navigate to the `k8s/` directory and run the automated deployment:
+
+```bash
+cd k8s/
+chmod +x deploy.sh
+./deploy.sh
+```
+
+This will:
+- Create a `url-shortener` namespace
+- Deploy PostgreSQL, Redis, Kafka (with Zookeeper)
+- Run database migrations
+- Deploy the FastAPI API (2 replicas with HPA)
+- Deploy the analytics worker
+- Deploy Prometheus and Grafana for observability
+- Configure Ingress and Horizontal Pod Autoscaler
+
+### Access Services
+
+Using **port forwarding** (simplest):
+
+```bash
+# API
+kubectl port-forward svc/api 8000:8000 -n url-shortener
+# Visit: http://localhost:8000/docs
+
+# Grafana (admin/admin_password_k8s)
+kubectl port-forward svc/grafana 3000:3000 -n url-shortener
+
+# Prometheus
+kubectl port-forward svc/prometheus 9090:9090 -n url-shortener
+```
+
+Or use **Ingress** (production-like):
+1. Add to `/etc/hosts`: `127.0.0.1 api.local grafana.local prometheus.local`
+2. Visit: http://api.local, http://grafana.local, http://prometheus.local
+
+### Cloud-Native Features Demonstrated
+
+| Feature | Value |
+|---------|-------|
+| **StatefulSets** | Databases and Kafka with stable identities |
+| **Deployments** | Horizontally scalable API and worker |
+| **ConfigMaps** | Externalized, non-sensitive configuration |
+| **Secrets** | Secure credential storage |
+| **Probes** | Liveness, readiness, and startup health checks |
+| **Ingress** | External traffic routing |
+| **HPA** | Auto-scaling API from 2-5 replicas based on CPU/memory |
+| **Resource Limits** | Prevent resource starvation |
+| **Service Discovery** | Kubernetes DNS for internal pod communication |
+| **Jobs** | One-time database migration task |
+| **Observability** | Prometheus + Grafana stack integrated |
+
+### Manifest Structure
+
+```
+k8s/
+├── 0-namespace.yaml              # Namespace isolation
+├── 1-configmap.yaml              # Non-sensitive config
+├── 2-secrets.yaml                # Database/admin credentials
+├── 3-persistent-volumes.yaml     # Durable storage claims
+├── 4-db-migrate-job.yaml         # Database initialization
+├── 5-ingress.yaml                # External routing
+├── 6-hpa.yaml                    # Autoscaling rules
+├── api/deployment.yaml           # API + service
+├── worker/deployment.yaml        # Analytics worker
+├── postgres/statefulset.yaml     # PostgreSQL (5Gi PVC)
+├── redis/statefulset.yaml        # Redis (2Gi PVC)
+├── kafka/zookeeper.yaml          # Zookeeper coordinator
+├── kafka/kafka.yaml              # Kafka broker
+├── prometheus/deployment.yaml    # Prometheus monitoring
+├── grafana/deployment.yaml       # Grafana dashboards
+├── deploy.sh                     # Automation script
+└── README.md                     # Detailed guide
+```
+
+### Key Design Decisions
+
+1. **Namespace isolation** — All resources in `url-shortener` namespace
+2. **ConfigMaps + Secrets** — 12-factor app configuration management
+3. **StatefulSets for state** — PostgreSQL, Redis, Kafka maintain identity across restarts
+4. **Deployments for stateless** — API and worker scale horizontally
+5. **Health probes** — Ensure reliability (liveness/readiness/startup)
+6. **HPA** — Scales API 2-5 replicas based on actual load (70% CPU, 80% memory)
+7. **Resource requests/limits** — Prevent resource contention
+8. **Ingress** — Production-ready external access (optional, requires ingress controller)
+
+### Monitoring in Kubernetes
+
+The same Prometheus + Grafana stack runs in the cluster:
+- **Datasource**: Auto-provisioned Prometheus at `prometheus:9090`
+- **Dashboard**: Pre-configured with all 8 panels
+- **Service Discovery**: Kubernetes API scrape jobs for pods/endpoints
+
+### Troubleshooting
+
+```bash
+# Check pod status
+kubectl get pods -n url-shortener
+
+# View logs
+kubectl logs -f deployment/api -n url-shortener
+
+# Describe a pod for detailed info
+kubectl describe pod <pod-name> -n url-shortener
+
+# Access pod shell
+kubectl exec -it deployment/api -n url-shortener -- /bin/sh
+
+# Test internal connectivity
+kubectl run -it --rm debug --image=busybox --restart=Never -- sh
+# Inside: nc -zv api.url-shortener.svc.cluster.local 8000
+
+# Monitor HPA
+kubectl get hpa -n url-shortener -w
+```
+
+### Remove Everything
+
+```bash
+kubectl delete namespace url-shortener
+```
+
+See [k8s/README.md](k8s/README.md) for detailed configuration, production hardening, and advanced topics.
 
 Configuration
 -------------
