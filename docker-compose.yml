@@ -38,6 +38,22 @@ services:
     depends_on:
       - api
 
+  grafana:
+    image: grafana/grafana:latest
+    restart: on-failure
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+
   worker:
     build: .
     command: python -m app.workers.analytics_worker
@@ -103,3 +119,4 @@ services:
 
 volumes:
   postgres_data:
+  grafana_data:

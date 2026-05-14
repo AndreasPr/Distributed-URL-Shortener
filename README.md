@@ -221,6 +221,7 @@ Tracked metrics:
 | `cache_misses_total` | Cache miss pressure on the database |
 | `redirect_requests_total` | Redirect throughput |
 | `shorten_request_duration_seconds` | Write-path latency |
+| `analytics_events_processed_total` | Kafka event throughput in the analytics worker |
 
 Example PromQL:
 
@@ -236,11 +237,52 @@ histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
 cache_hits_total / (cache_hits_total + cache_misses_total)
 ```
 
-Local Prometheus:
+Grafana Dashboards
+-------------------
+
+Grafana visualizes the observability stack with pre-built dashboards.
+
+**Access Grafana:**
+
+When running `docker compose up`, Grafana is automatically available at:
+
+```
+http://localhost:3000
+```
+
+**Credentials:**
+- Username: `admin`
+- Password: `admin`
+
+**Dashboard:** "URL Shortener - Production Observability"
+- Automatically imported and provisioned
+- 8 panels covering request throughput, latency, cache efficiency, error rates, and Kafka activity
+- Refreshes every 10 seconds
+
+**Key Panels:**
+1. **Request Throughput (req/sec)** — Overall API request rate
+2. **P95 Latency (ms)** — 95th percentile response time (tail behavior under load)
+3. **Cache Hit Ratio** — Percentage of Redis hits vs. misses
+4. **Redirect Requests (per minute)** — Short URL redirect volume
+5. **Error Rate (5xx)** — Server error frequency
+6. **Kafka Events Processed (per minute)** — Analytics worker throughput
+7. **URL Shorten Latency (ms)** — Write-path P95/P99 latency
+8. **Cache Operations (per minute)** — Hit and miss rates
+
+**Export Dashboard for Portfolio:**
+
+The dashboard is stored in `grafana/dashboards/url-shortener-dashboard.json`
+
+Prometheus
+-----------
+
+Local Prometheus UI available at:
 
 ```bash
-docker compose up -d prometheus
+http://localhost:9090
 ```
+
+Query raw metrics or visualize using the expression browser.
 
 
 Database

@@ -3,6 +3,7 @@ import time
 
 from app.db.database import SessionLocal
 from app.kafka.consumer import create_consumer
+from app.observability.metrics import record_analytics_events_processed
 from app.repositories.analytics_repository import AnalyticsRepository
 
 logging.basicConfig(level=logging.INFO)
@@ -19,6 +20,7 @@ def _flush_batch(db, repository: AnalyticsRepository, batch: list) -> None:
     short_codes = [event["short_code"] for event in batch]
     count = repository.batch_create_clicks(db, short_codes)
     db.commit()
+    record_analytics_events_processed(count)
     logger.info("Flushed batch of %d analytics events", count)
 
 

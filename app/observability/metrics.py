@@ -26,6 +26,11 @@ shorten_request_duration_seconds = Histogram(
     "Latency for shortening URLs",
 )
 
+analytics_events_processed_total = Counter(
+    "analytics_events_processed_total",
+    "Total analytics events processed by the worker",
+)
+
 
 def configure_metrics(app) -> None:
     instrumentator.instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
@@ -47,3 +52,7 @@ def record_cache_miss() -> None:
 def track_shorten_latency():
     with shorten_request_duration_seconds.time():
         yield
+
+
+def record_analytics_events_processed(count: int) -> None:
+    analytics_events_processed_total.inc(count)

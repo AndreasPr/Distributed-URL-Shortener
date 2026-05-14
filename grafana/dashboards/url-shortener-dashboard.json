@@ -1,0 +1,227 @@
+{
+  "dashboard": {
+    "uid": "url-shortener",
+    "title": "URL Shortener - Production Observability",
+    "tags": ["url-shortener", "production"],
+    "timezone": "browser",
+    "schemaVersion": 30,
+    "version": 1,
+    "refresh": "10s",
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Request Throughput (req/sec)",
+        "type": "graph",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        },
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[1m])",
+            "legendFormat": "{{method}} {{path}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Requests/sec",
+            "format": "reqps"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "P95 Latency (ms)",
+        "type": "graph",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "P95 Latency",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Milliseconds",
+            "format": "ms"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Cache Hit Ratio",
+        "type": "gauge",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 8
+        },
+        "targets": [
+          {
+            "expr": "cache_hits_total / (cache_hits_total + cache_misses_total) * 100",
+            "legendFormat": "Hit Ratio %",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "custom": {},
+            "max": 100,
+            "min": 0
+          }
+        },
+        "options": {
+          "showThresholdLabels": false,
+          "showThresholdMarkers": true,
+          "orientation": "auto"
+        }
+      },
+      {
+        "id": 4,
+        "title": "Redirect Requests (per minute)",
+        "type": "graph",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 8
+        },
+        "targets": [
+          {
+            "expr": "increase(redirect_requests_total[1m])",
+            "legendFormat": "Redirects",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Redirects/min",
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Error Rate (5xx)",
+        "type": "graph",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 16
+        },
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{status=~\"5..\"}[1m])",
+            "legendFormat": "{{status}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Errors/sec",
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Kafka Events Processed (per minute)",
+        "type": "graph",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 16
+        },
+        "targets": [
+          {
+            "expr": "increase(analytics_events_processed_total[1m])",
+            "legendFormat": "Events processed",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Events/min",
+            "format": "short"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "URL Shorten Latency (ms)",
+        "type": "graph",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 24
+        },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(shorten_request_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "P95",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(shorten_request_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "P99",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Milliseconds",
+            "format": "ms"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Cache Operations (per minute)",
+        "type": "graph",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 24
+        },
+        "targets": [
+          {
+            "expr": "increase(cache_hits_total[1m])",
+            "legendFormat": "Cache Hits",
+            "refId": "A"
+          },
+          {
+            "expr": "increase(cache_misses_total[1m])",
+            "legendFormat": "Cache Misses",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {
+            "label": "Operations/min",
+            "format": "short"
+          }
+        ]
+      }
+    ]
+  },
+  "overwrite": true
+}
