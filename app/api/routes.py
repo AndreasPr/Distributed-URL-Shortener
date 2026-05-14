@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.cache.redis_client import redis_client
 from app.db.database import get_db
+from app.observability.metrics import record_redirect
 from app.schemas.url_schema import URLCreate, URLResponse
 from app.services.analytics_service import AnalyticsService
 from app.services.url_service import URLService
@@ -25,6 +26,7 @@ def redirect(code: str, db: Session = Depends(get_db)):
     if not long_url:
         raise HTTPException(status_code=404, detail="Not found")
     
+    record_redirect()
     return RedirectResponse(url=long_url)
 
 

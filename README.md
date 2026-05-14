@@ -12,6 +12,9 @@ Tech stack:
 - Redis
 - Kafka (Confluent)
 - kafka-python
+- Prometheus
+- prometheus-client
+- prometheus-fastapi-instrumentator
 - Docker & Docker Compose
 
 
@@ -110,10 +113,10 @@ pip install -r requirements.txt
 docker compose up -d postgres redis kafka zookeeper
 ```
 
-4. Apply DB migration (one-time):
+4. Apply DB migration (one-time, if you are running the API locally against the Docker services):
 
 ```bash
-cat scripts/migrate.sql | docker exec -i url_shortener_db psql -U user -d url_db
+python scripts/migrate.py
 ```
 
 5. Run the API locally (project root):
@@ -133,13 +136,14 @@ Now you can create short URLs, hit them to generate clicks, and query analytics.
 Run full stack in Docker
 ------------------------
 
-To run everything in containers (API + worker + infra):
+To run everything in containers (API + worker + infra), just run:
 
 ```bash
 docker compose up --build
-# or detached
 docker compose up -d
 ```
+
+The compose file now runs the database migration automatically before the API and worker start, so you do not need a separate migration step for the Docker flow.
 
 Stop the stack:
 
@@ -201,6 +205,42 @@ A distributed, sliding-window rate limiter protects against abuse and ensures fa
 - `Retry-After`: Seconds to wait before retrying
 - `X-RateLimit-Limit`: Current route limit
 - `X-RateLimit-Remaining`: Requests remaining in window (on success)
+
+Observability
+-------------
+
+The API exposes Prometheus metrics at `/metrics`, and Prometheus can scrape the app directly from Docker Compose.
+
+Tracked metrics:
+
+| Metric | Why it matters |
+| --- | --- |
+| `http_requests_total` | Request volume and traffic growth |
+| `http_request_duration_seconds` | Request latency and tail behavior |
+| `cache_hits_total` | Redis effectiveness |
+| `cache_misses_total` | Cache miss pressure on the database |
+| `redirect_requests_total` | Redirect throughput |
+| `shorten_request_duration_seconds` | Write-path latency |
+
+Example PromQL:
+
+```promql
+rate(http_requests_total[1m])
+```
+
+```promql
+histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
+```
+
+```promql
+cache_hits_total / (cache_hits_total + cache_misses_total)
+```
+
+Local Prometheus:
+
+```bash
+docker compose up -d prometheus
+```
 
 
 Database

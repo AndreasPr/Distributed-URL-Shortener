@@ -80,3 +80,23 @@ def test_rate_limiter_fails_open_when_redis_unavailable(monkeypatch):
 
     assert response.status_code == 200
     assert response.body.decode() == "ok"
+
+
+def test_rate_limiter_bypasses_metrics_endpoint(monkeypatch):
+    request = make_request(path="/metrics")
+    called = {"value": False}
+
+    def fake_check(*_args, **_kwargs):
+        called["value"] = True
+        return True, 0, 0
+
+    monkeypatch.setattr(rate_limiter_module, "_check_sliding_window", fake_check)
+
+    async def call_next(_request):
+        return PlainTextResponse("metrics")
+
+    response = asyncio.run(rate_limit_middleware(request, call_next))
+
+    assert response.status_code == 200
+    assert response.body.decode() == "metrics"
+    assert called["value"] is False

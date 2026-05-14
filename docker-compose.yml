@@ -6,21 +6,49 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - postgres
-      - redis
-      - kafka
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_started
     environment:
       DB_URL: postgresql://user:pass@postgres:5432/url_db
       REDIS_URL: redis://redis:6379/0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+  migrate:
+    build: .
+    command: python scripts/migrate.py
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: postgresql://user:pass@postgres:5432/url_db
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: on-failure
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - api
 
   worker:
     build: .
     command: python -m app.workers.analytics_worker
     restart: on-failure
     depends_on:
-      - postgres
-      - kafka
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_started
     environment:
       DB_URL: postgresql://user:pass@postgres:5432/url_db
       REDIS_URL: redis://redis:6379/0
@@ -34,6 +62,13 @@ services:
       POSTGRES_DB: url_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d url_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    ports:
+      - "5433:5432"
 
   redis:
     image: redis:7-alpine

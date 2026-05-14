@@ -6,3 +6,5 @@ redis
 pydantic
 kafka-python
 pytest
+prometheus-client
+prometheus-fastapi-instrumentator
