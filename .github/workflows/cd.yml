@@ -23,6 +23,8 @@ jobs:
     outputs:
       image_tag: ${{ steps.meta.outputs.tags }}
       image_version: ${{ steps.version.outputs.version }}
+      image_repository: ${{ steps.repository.outputs.image_repository }}
+      build_date: ${{ steps.build_date.outputs.build_date }}
 
     steps:
       - name: Checkout code
@@ -39,6 +41,20 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "📦 Image version: ${VERSION}"
 
+      - name: Normalize image repository
+        id: repository
+        run: |
+          IMAGE_REPOSITORY="${REGISTRY}/$(echo "${IMAGE_NAME}" | tr '[:upper:]' '[:lower:]')"
+          echo "image_repository=${IMAGE_REPOSITORY}" >> $GITHUB_OUTPUT
+          echo "📦 Image repository: ${IMAGE_REPOSITORY}"
+
+      - name: Generate build date
+        id: build_date
+        run: |
+          BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          echo "build_date=${BUILD_DATE}" >> $GITHUB_OUTPUT
+          echo "📦 Build date: ${BUILD_DATE}"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
@@ -53,7 +69,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ steps.repository.outputs.image_repository }}
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
@@ -68,11 +84,11 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+          cache-from: type=registry,ref=${{ steps.repository.outputs.image_repository }}:buildcache
+          cache-to: type=registry,ref=${{ steps.repository.outputs.image_repository }}:buildcache,mode=max
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
-            BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+            BUILD_DATE=${{ steps.build_date.outputs.build_date }}
             VCS_REF=${{ github.sha }}
 
   deploy-to-k8s:
