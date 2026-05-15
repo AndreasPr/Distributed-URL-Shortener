@@ -1,12 +1,13 @@
 import redis
-from app.core.config import settings
 
+from app.core.config import settings
 from app.observability.metrics import record_cache_hit, record_cache_miss
 
 redis_client = redis.Redis.from_url(
     settings.REDIS_URL,
     decode_responses=True,
 )
+
 
 def get_cache(key: str):
     value = redis_client.get(key)
@@ -15,6 +16,7 @@ def get_cache(key: str):
     else:
         record_cache_hit()
     return value
+
 
 def set_cache(key: str, value: str, ttl: int = 86400):
     """Set cache with optional TTL (default: 24 hours)."""

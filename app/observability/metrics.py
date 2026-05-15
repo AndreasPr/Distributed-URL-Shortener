@@ -3,7 +3,6 @@ from contextlib import contextmanager
 from prometheus_client import Counter, Histogram
 from prometheus_fastapi_instrumentator import Instrumentator
 
-
 instrumentator = Instrumentator(excluded_handlers=["/metrics"])
 
 redirect_requests_total = Counter(
@@ -33,7 +32,9 @@ analytics_events_processed_total = Counter(
 
 
 def configure_metrics(app) -> None:
-    instrumentator.instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+    instrumentator.instrument(app).expose(
+        app, endpoint="/metrics", include_in_schema=False
+    )
 
 
 def record_redirect() -> None:

@@ -5,11 +5,12 @@ from app.kafka.producer import publish_click_event
 from app.observability.metrics import track_shorten_latency
 from app.repositories.url_repository import URLRepository
 
+
 class URLService:
     def __init__(self):
         self.repo = URLRepository()
-        self.CACHE_TTL = 86400  
-    
+        self.CACHE_TTL = 86400
+
     def shorten(self, db: Session, long_url: str) -> str:
         """Create a short URL and return the code."""
         long_url_str = str(long_url)
@@ -17,7 +18,7 @@ class URLService:
             code = self.repo.create_with_code(db, long_url_str)
             db.commit()
             return code
-    
+
     def resolve(self, db: Session, code: str) -> str:
         """Resolve short code to long URL with caching."""
         cached = get_cache(code)
@@ -28,7 +29,7 @@ class URLService:
         url = self.repo.get_by_code(db, code)
         if not url:
             return None
-        
+
         # Cache for 24 hours
         set_cache(code, url.long_url, ttl=self.CACHE_TTL)
         publish_click_event(code)

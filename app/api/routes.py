@@ -13,6 +13,7 @@ router = APIRouter()
 service = URLService()
 analytics_service = AnalyticsService()
 
+
 @router.post("/shorten", response_model=URLResponse)
 def create_short_url(req: URLCreate, db: Session = Depends(get_db)):
     code = service.shorten(db, req.long_url)
@@ -22,10 +23,10 @@ def create_short_url(req: URLCreate, db: Session = Depends(get_db)):
 @router.get("/{code}")
 def redirect(code: str, db: Session = Depends(get_db)):
     long_url = service.resolve(db, code)
-    
+
     if not long_url:
         raise HTTPException(status_code=404, detail="Not found")
-    
+
     record_redirect()
     return RedirectResponse(url=long_url)
 

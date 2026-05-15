@@ -16,7 +16,9 @@ class AnalyticsRepository:
         if not short_codes:
             return 0
 
-        placeholders = ", ".join([f"(:short_code_{i})" for i in range(len(short_codes))])
+        placeholders = ", ".join(
+            [f"(:short_code_{i})" for i in range(len(short_codes))]
+        )
         params = {f"short_code_{i}": code for i, code in enumerate(short_codes)}
 
         db.execute(

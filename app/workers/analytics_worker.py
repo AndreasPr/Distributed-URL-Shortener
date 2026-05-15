@@ -28,7 +28,11 @@ def main() -> None:
     repository = AnalyticsRepository()
     db = SessionLocal()
 
-    logger.info("Analytics worker started (batch size: %d, timeout: %ds)...", BATCH_SIZE, BATCH_TIMEOUT_SECONDS)
+    logger.info(
+        "Analytics worker started (batch size: %d, timeout: %ds)...",
+        BATCH_SIZE,
+        BATCH_TIMEOUT_SECONDS,
+    )
 
     batch = []
     last_flush_time = time.time()
@@ -50,7 +54,9 @@ def main() -> None:
 
             # Flush on batch size OR timeout
             should_flush_batch_size = len(batch) >= BATCH_SIZE
-            should_flush_timeout = time_since_flush >= BATCH_TIMEOUT_SECONDS and len(batch) > 0
+            should_flush_timeout = (
+                time_since_flush >= BATCH_TIMEOUT_SECONDS and len(batch) > 0
+            )
 
             if should_flush_batch_size or should_flush_timeout:
                 _flush_batch(db, repository, batch)
