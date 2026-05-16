@@ -1,4 +1,4 @@
-name: CD - Build, Push & Deploy
+name: CD - Build & Push to Registry
 
 on:
   push:
@@ -8,6 +8,15 @@ on:
     workflows: ['CI - Tests & Code Quality']
     types: [completed]
     branches: [master, main]
+
+# NOTE: This workflow builds and pushes Docker images to GitHub Container Registry (GHCR).
+# Kubernetes deployment is NOT automated here because the kubeconfig points to local Docker Desktop
+# (127.0.0.1:6443) which is not accessible from GitHub Actions cloud runners.
+#
+# For local Kubernetes deployment: ./k8s/deploy-simple.sh
+# For cloud K8s deployment (EKS/GKE/AKS): 
+#   1. Update KUBE_CONFIG secret to point to your cloud cluster
+#   2. Create the deploy-to-k8s job below 
 
 env:
   REGISTRY: ghcr.io
@@ -39,21 +48,21 @@ jobs:
             VERSION="main-$(date +%Y%m%d)-${GITHUB_SHA::7}"
           fi
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "📦 Image version: ${VERSION}"
+          echo "Image version: ${VERSION}"
 
       - name: Normalize image repository
         id: repository
         run: |
           IMAGE_REPOSITORY="${REGISTRY}/$(echo "${IMAGE_NAME}" | tr '[:upper:]' '[:lower:]')"
           echo "image_repository=${IMAGE_REPOSITORY}" >> $GITHUB_OUTPUT
-          echo "📦 Image repository: ${IMAGE_REPOSITORY}"
+          echo "Image repository: ${IMAGE_REPOSITORY}"
 
       - name: Generate build date
         id: build_date
         run: |
           BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
           echo "build_date=${BUILD_DATE}" >> $GITHUB_OUTPUT
-          echo "📦 Build date: ${BUILD_DATE}"
+          echo "Build date: ${BUILD_DATE}"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -90,98 +99,3 @@ jobs:
             VERSION=${{ steps.version.outputs.version }}
             BUILD_DATE=${{ steps.build_date.outputs.build_date }}
             VCS_REF=${{ github.sha }}
-
-  deploy-to-k8s:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
-    
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Configure kubectl
-        run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
-          kubectl cluster-info
-
-      - name: Update deployment image
-        env:
-          NAMESPACE: url-shortener
-          DEPLOYMENT: api
-          IMAGE: ${{ needs.build-and-push.outputs.image_tag }}
-        run: |
-          echo "🚀 Deploying image: ${IMAGE}"
-          kubectl set image deployment/${DEPLOYMENT} \
-            ${DEPLOYMENT}=${IMAGE} \
-            -n ${NAMESPACE} \
-            --record
-
-      - name: Wait for rollout
-        env:
-          NAMESPACE: url-shortener
-          DEPLOYMENT: api
-        run: |
-          echo "⏳ Waiting for deployment rollout..."
-          kubectl rollout status deployment/${DEPLOYMENT} \
-            -n ${NAMESPACE} \
-            --timeout=5m
-          echo "✅ Rollout successful"
-
-      - name: Verify deployment
-        env:
-          NAMESPACE: url-shortener
-          DEPLOYMENT: api
-        run: |
-          echo "🔍 Verifying deployment..."
-          
-          # Check pod status
-          READY=$(kubectl get deployment ${DEPLOYMENT} -n ${NAMESPACE} -o jsonpath='{.status.readyReplicas}')
-          DESIRED=$(kubectl get deployment ${DEPLOYMENT} -n ${NAMESPACE} -o jsonpath='{.spec.replicas}')
-          
-          if [ "$READY" == "$DESIRED" ]; then
-            echo "✅ All pods are ready: ${READY}/${DESIRED}"
-          else
-            echo "❌ Deployment incomplete: ${READY}/${DESIRED}"
-            kubectl describe deployment ${DEPLOYMENT} -n ${NAMESPACE}
-            exit 1
-          fi
-          
-          # Get image hash
-          IMAGE_HASH=$(kubectl get deployment ${DEPLOYMENT} -n ${NAMESPACE} -o jsonpath='{.spec.template.spec.containers[0].image}')
-          echo "📦 Current image: ${IMAGE_HASH}"
-          
-          # List recent pods
-          echo ""
-          echo "📋 Pod status:"
-          kubectl get pods -n ${NAMESPACE} -l app=${DEPLOYMENT} -o custom-columns=NAME:.metadata.name,READY:.status.ready,STATUS:.status.phase,RESTARTS:.status.containerStatuses[0].restartCount,AGE:.metadata.creationTimestamp
-
-      - name: Health check
-        run: |
-          echo "🏥 Checking API health..."
-          kubectl port-forward svc/api 8000:8000 -n url-shortener &>/dev/null &
-          PF_PID=$!
-          sleep 2
-          
-          if curl -f http://localhost:8000/health/redis; then
-            echo "✅ API health check passed"
-          else
-            echo "❌ API health check failed"
-            kill $PF_PID 2>/dev/null || true
-            exit 1
-          fi
-          
-          kill $PF_PID 2>/dev/null || true
-
-      - name: Deployment summary
-        if: success()
-        run: |
-          echo "✅ Deployment complete!"
-          echo ""
-          echo "📊 Summary:"
-          kubectl get all -n url-shortener
