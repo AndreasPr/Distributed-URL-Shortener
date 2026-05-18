@@ -16,9 +16,29 @@ Production-oriented URL shortener showcasing an event-driven architecture with c
 - **Infrastructure:** Docker, Docker Compose, Kubernetes, Prometheus, Grafana
 - **Observability:** OpenTelemetry, Prometheus metrics, structured logging
 
+## 🚀 Live Demo & Production Deployment
+
+The project is ready for production deployment! Check out the **[DEPLOYMENT.md](./DEPLOYMENT.md)** guide for step-by-step instructions to deploy:
+
+- **Frontend** → Vercel (Next.js optimized)
+- **Backend** → Railway (FastAPI + Python)
+- **Database** → PostgreSQL (Railway managed)
+- **Cache** → Redis (Redis Cloud or Upstash)
+
+The deployment guide includes:
+- ✅ Step-by-step Vercel frontend deployment
+- ✅ Railway backend setup with auto-deployment from GitHub
+- ✅ Managed PostgreSQL and Redis configuration
+- ✅ Environment variable setup
+- ✅ CORS configuration for production
+- ✅ Troubleshooting guide
+
+**Estimated deployment time:** 15-20 minutes
+
 
 Table of Contents
 -----------------
+- Live Demo & Production Deployment
 - Project summary
 - Key Features
 - Architecture
