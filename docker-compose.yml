@@ -18,6 +18,8 @@ services:
       DB_URL: postgresql://user:pass@postgres:5432/url_db
       REDIS_URL: redis://redis:6379/0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JAEGER_AGENT_HOST: jaeger
+      JAEGER_AGENT_PORT: 6831
 
   migrate:
     build: .
@@ -37,6 +39,18 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
     depends_on:
       - api
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    restart: on-failure
+    ports:
+      - "6831:6831/udp"  # Jaeger agent compact thrift
+      - "6832:6832/udp"  # Jaeger agent compact thrift
+      - "5778:5778"      # Jaeger agent HTTP
+      - "16686:16686"    # Jaeger UI
+    environment:
+      SPAN_STORAGE_TYPE: memory
+      COLLECTOR_OTLP_ENABLED: "true"
 
   grafana:
     image: grafana/grafana:latest
@@ -69,6 +83,8 @@ services:
       DB_URL: postgresql://user:pass@postgres:5432/url_db
       REDIS_URL: redis://redis:6379/0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      JAEGER_AGENT_HOST: jaeger
+      JAEGER_AGENT_PORT: 6831
 
   postgres:
     image: postgres:16-alpine

@@ -3,10 +3,12 @@ import logging
 
 from kafka import KafkaProducer
 from kafka.errors import NoBrokersAvailable
+from opentelemetry import trace
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 TOPIC = "url-events"
 _producer = None
@@ -29,14 +31,21 @@ def _get_producer():
 
 
 def publish_click_event(short_code: str) -> None:
-    event = {"short_code": short_code}
-    producer = _get_producer()
+    with tracer.start_as_current_span("kafka.publish") as span:
+        span.set_attribute("kafka.topic", TOPIC)
+        span.set_attribute("url.code", short_code)
+        
+        event = {"short_code": short_code}
+        producer = _get_producer()
 
-    if producer is None:
-        return
+        if producer is None:
+            span.set_attribute("kafka.error", "producer_unavailable")
+            return
 
-    try:
-        producer.send(TOPIC, event)
-        producer.flush()
-    except Exception as exc:
-        logger.warning("Failed to publish click event for %s: %s", short_code, exc)
+        try:
+            producer.send(TOPIC, event)
+            producer.flush()
+            span.set_attribute("kafka.status", "success")
+        except Exception as exc:
+            span.set_attribute("kafka.error", str(exc))
+            logger.warning("Failed to publish click event for %s: %s", short_code, exc)
