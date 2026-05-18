@@ -3,11 +3,11 @@ import time
 
 from opentelemetry import trace
 
-from app.observability.tracing import init_tracing
-from app.observability.logging import configure_logging_with_tracing
 from app.db.database import SessionLocal
 from app.kafka.consumer import create_consumer
+from app.observability.logging import configure_logging_with_tracing
 from app.observability.metrics import record_analytics_events_processed
+from app.observability.tracing import init_tracing
 from app.repositories.analytics_repository import AnalyticsRepository
 
 logging.basicConfig(level=logging.INFO)

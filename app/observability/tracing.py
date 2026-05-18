@@ -10,19 +10,19 @@ Configures auto-instrumentation for:
 Exports traces to Jaeger for visualization and analysis.
 """
 
-import os
 import logging
+import os
 from typing import Optional
 
-from opentelemetry import trace, metrics
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry import metrics, trace
 from opentelemetry.exporter.jaeger.thrift import JaegerExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.redis import RedisInstrumentor
-from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 logger = logging.getLogger(__name__)
 

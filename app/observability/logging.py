@@ -6,6 +6,7 @@ to log records, enabling correlation between logs, metrics, and traces.
 """
 
 import logging
+
 from opentelemetry import trace
 
 

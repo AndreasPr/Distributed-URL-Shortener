@@ -1,5 +1,5 @@
-from sqlalchemy.orm import Session
 from opentelemetry import trace
+from sqlalchemy.orm import Session
 
 from app.cache.redis_client import get_cache, set_cache
 from app.kafka.producer import publish_click_event
