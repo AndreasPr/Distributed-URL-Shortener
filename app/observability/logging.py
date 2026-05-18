@@ -12,11 +12,11 @@ from opentelemetry import trace
 class TraceIDFilter(logging.Filter):
     """
     Logging filter that injects the current trace ID into log records.
-    
+
     This allows logs to be correlated with traces in systems like Jaeger
     and enables debugging by connecting logs with the full distributed trace.
     """
-    
+
     def filter(self, record: logging.LogRecord) -> bool:
         """Add trace ID to the log record if an active span exists."""
         span = trace.get_current_span()
@@ -31,23 +31,23 @@ class TraceIDFilter(logging.Filter):
 def configure_logging_with_tracing() -> None:
     """
     Configure the root logger to include trace IDs in all log messages.
-    
+
     Call this function early in application startup, after OpenTelemetry
     has been initialized.
     """
     # Configure root logger
     root_logger = logging.getLogger()
-    
+
     # Add trace ID filter
     trace_filter = TraceIDFilter()
-    
+
     # Apply filter to all handlers
     for handler in root_logger.handlers:
         handler.addFilter(trace_filter)
-    
+
     # Add filter to new handlers
     root_logger.addFilter(trace_filter)
-    
+
     # Update formatter to include trace ID
     for handler in root_logger.handlers:
         if handler.formatter:
@@ -62,10 +62,10 @@ def configure_logging_with_tracing() -> None:
 def get_logger_with_tracing(name: str) -> logging.Logger:
     """
     Get a logger with trace ID support.
-    
+
     Args:
         name: Logger name (typically __name__)
-        
+
     Returns:
         Logger with trace ID filter applied
     """

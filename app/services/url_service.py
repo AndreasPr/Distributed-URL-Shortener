@@ -29,11 +29,11 @@ class URLService:
         """Resolve short code to long URL with caching."""
         with tracer.start_as_current_span("url.resolve") as span:
             span.set_attribute("url.code", code)
-            
+
             # Try cache first
             with tracer.start_as_current_span("cache.get"):
                 cached = get_cache(code)
-            
+
             if cached:
                 span.set_attribute("cache.hit", True)
                 publish_click_event(code)
@@ -43,14 +43,14 @@ class URLService:
             span.set_attribute("cache.hit", False)
             with tracer.start_as_current_span("db.query_url"):
                 url = self.repo.get_by_code(db, code)
-            
+
             if not url:
                 return None
 
             # Cache for 24 hours
             with tracer.start_as_current_span("cache.set"):
                 set_cache(code, url.long_url, ttl=self.CACHE_TTL)
-            
+
             publish_click_event(code)
             span.set_attribute("url.output", url.long_url)
             return url.long_url

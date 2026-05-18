@@ -34,7 +34,7 @@ def publish_click_event(short_code: str) -> None:
     with tracer.start_as_current_span("kafka.publish") as span:
         span.set_attribute("kafka.topic", TOPIC)
         span.set_attribute("url.code", short_code)
-        
+
         event = {"short_code": short_code}
         producer = _get_producer()
 

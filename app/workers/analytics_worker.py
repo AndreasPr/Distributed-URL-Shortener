@@ -25,11 +25,11 @@ def _flush_batch(db, repository: AnalyticsRepository, batch: list) -> None:
 
         span.set_attribute("batch.size", len(batch))
         short_codes = [event["short_code"] for event in batch]
-        
+
         with tracer.start_as_current_span("db.batch_insert"):
             count = repository.batch_create_clicks(db, short_codes)
             db.commit()
-        
+
         record_analytics_events_processed(count)
         span.set_attribute("batch.inserted", count)
         logger.info("Flushed batch of %d analytics events", count)
@@ -39,7 +39,7 @@ def main() -> None:
     # Initialize tracing and logging for the worker
     init_tracing(service_name="url-shortener-worker")
     configure_logging_with_tracing()
-    
+
     with tracer.start_as_current_span("analytics_worker.run"):
         repository = AnalyticsRepository()
         db = SessionLocal()
@@ -81,7 +81,9 @@ def main() -> None:
         finally:
             # Flush any remaining events before shutdown
             if batch:
-                logger.info("Flushing %d remaining events before shutdown...", len(batch))
+                logger.info(
+                    "Flushing %d remaining events before shutdown...", len(batch)
+                )
                 _flush_batch(db, repository, batch)
             db.close()
             logger.info("Analytics worker stopped.")
