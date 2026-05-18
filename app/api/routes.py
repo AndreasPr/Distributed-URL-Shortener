@@ -56,9 +56,7 @@ def health(db: Session = Depends(get_db)):
         dbsize = None
 
     overall_status = (
-        "ok"
-        if db_status == "reachable" and redis_status == "reachable"
-        else "degraded"
+        "ok" if db_status == "reachable" and redis_status == "reachable" else "degraded"
     )
 
     return {
