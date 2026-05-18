@@ -64,12 +64,11 @@ def init_tracing(service_name: str = "url-shortener") -> Optional[trace.Tracer]:
     # Set as global tracer provider
     trace.set_tracer_provider(tracer_provider)
 
-    # Auto-instrument key libraries
-    logger.info("Auto-instrumenting FastAPI, Redis, SQLAlchemy, Requests")
-    FastAPIInstrumentor.instrument()
-    RedisInstrumentor.instrument()
-    SQLAlchemyInstrumentor.instrument()
-    RequestsInstrumentor.instrument()
+    # Auto-instrument key libraries (app instrumentation will be done separately in main.py)
+    logger.info("Auto-instrumenting Redis, SQLAlchemy, Requests")
+    RedisInstrumentor().instrument()
+    SQLAlchemyInstrumentor().instrument()
+    RequestsInstrumentor().instrument()
 
     logger.info("OpenTelemetry tracing initialized successfully")
 

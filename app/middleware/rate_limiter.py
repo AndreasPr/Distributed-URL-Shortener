@@ -79,7 +79,8 @@ def _check_sliding_window(key: str, limit: int) -> tuple[bool, int, int]:
 
 
 async def rate_limit_middleware(request: Request, call_next):
-    if request.url.path == "/metrics":
+    # Skip rate limiting for preflight requests and metrics
+    if request.method == "OPTIONS" or request.url.path == "/metrics":
         return await call_next(request)
 
     client_ip = _get_client_ip(request)

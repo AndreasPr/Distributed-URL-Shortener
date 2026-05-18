@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.cache.redis_client import redis_client
 from app.db.database import get_db
+from app.models.url import URL
 from app.observability.metrics import record_redirect
 from app.schemas.url_schema import URLCreate, URLResponse
 from app.services.analytics_service import AnalyticsService
@@ -20,20 +21,53 @@ def create_short_url(req: URLCreate, db: Session = Depends(get_db)):
     return {"short_code": code}
 
 
-@router.get("/{code}")
-def redirect(code: str, db: Session = Depends(get_db)):
-    long_url = service.resolve(db, code)
-
-    if not long_url:
-        raise HTTPException(status_code=404, detail="Not found")
-
-    record_redirect()
-    return RedirectResponse(url=long_url)
-
-
 @router.get("/analytics/{short_code}")
 def analytics(short_code: str, db: Session = Depends(get_db)):
-    return analytics_service.get_analytics(db, short_code)
+    try:
+        return analytics_service.get_analytics(db, short_code)
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=f"Analytics not found: {str(exc)}")
+
+
+@router.get("/urls")
+def list_urls(limit: int = 20, db: Session = Depends(get_db)):
+    try:
+        return service.list_recent_urls(db, limit=limit)
+    except Exception:
+        return []
+
+
+@router.get("/health")
+def health(db: Session = Depends(get_db)):
+    db_status = "reachable"
+    total_urls = 0
+
+    try:
+        total_urls = db.query(URL).count()
+    except Exception:
+        db_status = "unreachable"
+
+    try:
+        redis_ok = bool(redis_client.ping())
+        redis_status = "reachable" if redis_ok else "unreachable"
+        dbsize = redis_client.dbsize() if redis_ok else None
+    except Exception:
+        redis_status = "unreachable"
+        dbsize = None
+
+    overall_status = (
+        "ok"
+        if db_status == "reachable" and redis_status == "reachable"
+        else "degraded"
+    )
+
+    return {
+        "status": overall_status,
+        "db": db_status,
+        "redis": redis_status,
+        "dbsize": dbsize,
+        "total_urls": total_urls,
+    }
 
 
 @router.get("/health/redis")
@@ -47,3 +81,14 @@ def redis_health():
         }
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Redis unavailable: {exc}")
+
+
+@router.get("/{code}")
+def redirect(code: str, db: Session = Depends(get_db)):
+    long_url = service.resolve(db, code)
+
+    if not long_url:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    record_redirect()
+    return RedirectResponse(url=long_url)

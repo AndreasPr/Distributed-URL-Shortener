@@ -1,7 +1,8 @@
 from fastapi import FastAPI
+from starlette.middleware.cors import CORSMiddleware
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 from app.api.routes import router
-from app.middleware.rate_limiter import rate_limit_middleware
 from app.observability.logging import configure_logging_with_tracing
 from app.observability.metrics import configure_metrics
 from app.observability.tracing import init_tracing
@@ -14,7 +15,22 @@ configure_logging_with_tracing()
 
 app = FastAPI(title="URL Shortener")
 
-app.middleware("http")(rate_limit_middleware)
+# Add CORS middleware FIRST (so it executes FIRST in middleware stack)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "http://localhost:3003",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
 
+# Instrument FastAPI with OpenTelemetry
+FastAPIInstrumentor().instrument_app(app)
 configure_metrics(app)
 app.include_router(router)

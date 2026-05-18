@@ -54,3 +54,7 @@ class URLService:
             publish_click_event(code)
             span.set_attribute("url.output", url.long_url)
             return url.long_url
+
+    def list_recent_urls(self, db: Session, limit: int = 20):
+        """List recent URLs with click counts for dashboard views."""
+        return self.repo.list_recent(db, limit=limit)
