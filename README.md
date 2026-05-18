@@ -1,41 +1,41 @@
 # Distributed URL Shortener
 
-Production-oriented URL shortener showcasing an event-driven architecture with caching, persistent storage, and analytics streaming.
+Production-oriented URL shortener showcasing an event-driven architecture with caching, persistent storage, analytics streaming, and a modern full-stack web interface.
 
-Tech stack: 
-- Python 
-- FastAPI
-- Uvicorn
-- SQLAlchemy
-- PostgreSQL
-- SQL
-- Redis
-- Kafka (Confluent)
-- kafka-python
-- Prometheus
-- prometheus-client
-- prometheus-fastapi-instrumentator
-- Docker & Docker Compose
+**Live Demo Features:**
+- 🔗 **URL Shortening** — Generate compact short codes for long URLs with instant redirect
+- 📊 **Real-time Analytics** — View click patterns and trends with interactive charts
+- 📈 **Dashboard** — Monitor system health, recent URLs, and activity in real-time
+- ❤️ **Health Status** — Check API, database, and Redis connectivity at a glance
+- ⚡ **Fast Redirects** — Redis-cached lookups for instant URL resolution
+- 🔄 **Event-Driven Pipeline** — Kafka-based asynchronous click analytics processing
+
+**Tech Stack:**
+- **Backend:** Python, FastAPI, SQLAlchemy, PostgreSQL, Redis, Kafka
+- **Frontend:** Next.js 14 (React), TypeScript, Tailwind CSS, Recharts, shadcn/ui
+- **Infrastructure:** Docker, Docker Compose, Kubernetes, Prometheus, Grafana
+- **Observability:** OpenTelemetry, Prometheus metrics, structured logging
 
 
 Table of Contents
 -----------------
 - Project summary
+- Key Features
 - Architecture
 - Repository layout
 - Quick start (local)
+- Frontend setup
 - Full stack with Docker Compose
 - Kubernetes Deployment
 - Configuration
 - API reference
-- Rate limiting
 - Batch analytics writes
-- Database
+- GitHub Actions CI/CD
 - Testing & verification
+- Load Testing
 - Observability
 - Troubleshooting
 - Developer notes
-- License & contact
 
 Project summary
 ---------------
@@ -43,6 +43,56 @@ Project summary
 - Generates compact short codes for long URLs.
 - Fast redirects using a Redis cache and asynchronous analytics via Kafka.
 - Background worker consumes click events and writes analytics to PostgreSQL in batches.
+- Full-stack web interface with real-time dashboards and analytics visualization.
+
+Key Features
+------------
+
+### Frontend Pages
+
+1. **Dashboard** (`/dashboard`)
+   - Real-time system health status (API, database, Redis)
+   - Recent URLs list with click counts
+   - Performance metrics display
+   - Live data fetched from backend
+
+2. **Analytics** (`/analytics`)
+   - Search any shortened URL by code
+   - View total click count and status
+   - Interactive bar & line charts showing click patterns over time
+   - Click data aggregated by day with responsive visualizations
+   - Built with Recharts for rich data visualization
+
+3. **Health Page** (`/health`)
+   - Comprehensive system status overview
+   - Individual service health checks (API, database, Redis)
+   - Redis database size and total URL count
+   - Color-coded status indicators (green/amber)
+   - Real-time connectivity verification
+
+### Backend Services
+
+1. **URL Shortening** (`POST /shorten`)
+   - Accepts long URLs, generates compact short codes
+   - Stores URL mapping in PostgreSQL
+   - Returns short code for immediate use
+
+2. **URL Redirection** (`GET /{code}`)
+   - Checks Redis cache first for instant lookup
+   - Falls back to database if not cached
+   - Records click event to Kafka for analytics processing
+   - Returns 307 temporary redirect
+
+3. **Analytics API** (`GET /analytics/{short_code}`)
+   - Returns detailed click statistics
+   - Provides raw timestamps for chart aggregation
+   - Accessible via frontend analytics page
+
+4. **Health Checks** (`GET /health`, `/health/redis`)
+   - Database connectivity verification
+   - Redis availability check
+   - Redis database size reporting
+   - Overall system status reporting
 
 Architecture
 ------------
@@ -54,25 +104,6 @@ User → HTTP (FastAPI)
 Kafka → topic `url-events` → analytics worker consumes → inserts into `analytics` table (Postgres)
 Redis → cache `short_code` → `long_url` mapping (TTL)
 Postgres → durable store for `urls` and `analytics`
-
-Batch Analytics Writes
-----------------------
-
-The analytics worker no longer writes one database row per Kafka event. Instead, it buffers click events and flushes them in batches for better throughput and lower database overhead.
-
-**How it works:**
-- Kafka events are accumulated in memory by the worker.
-- When the buffer reaches **100 events**, the worker performs a single batch insert.
-- A timeout flush ensures smaller bursts are still persisted promptly.
-- Any remaining buffered events are flushed before shutdown.
-
-**Why it matters:**
-- Fewer database round-trips
-- Lower commit overhead
-- Better throughput under traffic spikes
-- More realistic production-style ingestion pattern
-
-This means the system now behaves more like a real event pipeline: fast writes to Kafka on the request path, then efficient batched persistence in the analytics worker.
 
 Repository layout
 -----------------
@@ -135,7 +166,85 @@ python scripts/migrate.py
 
 Now you can create short URLs, hit them to generate clicks, and query analytics.
 
+Frontend setup
+--------------
+
+The project includes a full-featured Next.js frontend at `localhost:3000`.
+
+### Prerequisites
+
+- Node.js 18+ and npm
+
+### Quick Start (Local Frontend + Backend)
+
+1. **Ensure backend is running:**
+
+```bash
+.venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+2. **In a new terminal, start the frontend:**
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+3. **Open in browser:**
+
+```
+http://localhost:3000
+```
+
+You should see the URL Shortener dashboard with navigation to:
+- **Dashboard** — System status & recent URLs
+- **Analytics** — Click statistics for any short code
+- **Health** — Real-time service health monitoring
+
+### Frontend Architecture
+
+```
+frontend/
+├── app/
+│   ├── page.tsx          # Landing page
+│   ├── dashboard/        # Dashboard with live data
+│   ├── analytics/        # Click analytics with charts
+│   ├── health/          # System health status
+│   ├── layout.tsx       # Global layout & navigation
+│   └── globals.css      # Tailwind styles
+├── components/
+│   ├── AnalyticsChart.tsx    # Recharts visualization
+│   ├── URLTable.tsx          # Data table component
+│   ├── ShortenForm.tsx       # URL shortening form
+│   └── ui/              # shadcn/ui components
+├── lib/
+│   ├── api.ts           # Centralized API client with types
+│   └── utils.ts         # Utility functions
+└── package.json
+```
+
+### Features
+
+- **Type-Safe API Client** — Full TypeScript support with interfaces for all endpoints
+- **Real-Time Data** — Frontend fetches live health, URLs, and analytics data
+- **Chart Visualization** — Interactive Recharts components for click trends
+- **Responsive Design** — Mobile-friendly with Tailwind CSS
+- **Error Handling** — Graceful error states and user feedback
+- **Loading States** — Clear loading indicators during data fetches
+
+### Environment Configuration
+
+Create `frontend/.env.local`:
+
+```bash
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
+```
+
+This ensures the frontend can reach the backend API running on port 8000.
+
 Run full stack in Docker
+
 ------------------------
 
 To run everything in containers (API + worker + infra), just run:
@@ -303,6 +412,177 @@ kubectl delete namespace url-shortener
 
 See [k8s/README.md](k8s/README.md) for detailed configuration, production hardening, and advanced topics.
 
+Configuration
+-------------
+
+Environment variables are read from `.env` and set sensible defaults in `app/core/config.py`.
+
+Key settings:
+
+```python
+DB_URL=postgresql://user:pass@localhost:5433/url_db
+REDIS_URL=redis://localhost:6379/0
+KAFKA_BOOTSTRAP_SERVERS=localhost:9094
+RATE_LIMIT_REQUESTS=20         # Requests per minute per IP
+RATE_LIMIT_WINDOW=60          # Window in seconds
+```
+
+For Docker Compose, these are pre-configured in `docker-compose.yml`.
+
+API Reference
+-------------
+
+All endpoints return JSON. The API is available at `http://localhost:8000` (locally) or your Kubernetes ingress endpoint.
+
+**Interactive API Docs:**
+
+- OpenAPI (Swagger UI): `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+
+### Endpoints
+
+#### Create Short URL
+```bash
+POST /shorten
+Content-Type: application/json
+
+Request:
+{
+  "long_url": "https://example.com/very/long/path?with=params"
+}
+
+Response (201 Created):
+{
+  "short_code": "abc123"
+}
+
+# Usage
+curl -X POST http://localhost:8000/shorten \
+  -H "Content-Type: application/json" \
+  -d '{"long_url":"https://example.com"}'
+```
+
+#### Redirect to Original URL
+```bash
+GET /{code}
+
+Response:
+HTTP/1.1 307 Temporary Redirect
+Location: https://example.com
+
+# Example
+curl -i http://localhost:8000/abc123
+```
+
+**What happens:**
+1. Checks Redis cache (instant hit for hot URLs)
+2. Falls back to PostgreSQL on cache miss
+3. Publishes click event to Kafka `url-events` topic
+4. Returns 307 redirect to original URL
+
+#### Get Recent URLs
+```bash
+GET /urls?limit=20
+
+Response (200 OK):
+[
+  {
+    "short_code": "abc123",
+    "long_url": "https://example.com",
+    "created_at": "2024-05-14T10:30:00Z",
+    "click_count": 11
+  },
+  ...
+]
+
+# Example
+curl http://localhost:8000/urls?limit=10
+```
+
+#### Get Analytics for a URL
+```bash
+GET /analytics/{short_code}
+
+Response (200 OK):
+{
+  "short_code": "abc123",
+  "total_clicks": 11,
+  "timestamps": [
+    "2024-05-14T10:30:00Z",
+    "2024-05-14T11:15:00Z",
+    "2024-05-15T09:45:00Z",
+    ...
+  ]
+}
+
+Response (404 Not Found):
+{
+  "detail": "Analytics not found: ..."
+}
+
+# Example
+curl http://localhost:8000/analytics/abc123 | jq .
+```
+
+**Frontend Note:** The analytics page groups these timestamps by day and renders interactive charts.
+
+#### System Health Check
+```bash
+GET /health
+
+Response (200 OK):
+{
+  "status": "ok",  # or "degraded"
+  "db": "reachable",  # or "unreachable"
+  "redis": "reachable",  # or "unreachable"
+  "dbsize": 42,  # Redis database size in keys
+  "total_urls": 19  # Total shortened URLs in PostgreSQL
+}
+
+# Example
+curl http://localhost:8000/health | jq .
+```
+
+#### Redis Health Check
+```bash
+GET /health/redis
+
+Response (200 OK):
+{
+  "status": "ok",
+  "redis": "reachable",
+  "dbsize": 42
+}
+
+Response (503 Service Unavailable):
+{
+  "detail": "Redis unavailable: ..."
+}
+
+# Example
+curl http://localhost:8000/health/redis | jq .
+```
+
+### Rate Limiting
+
+The API enforces per-IP rate limiting on write endpoints:
+
+- **POST /shorten**: 20 requests per minute per IP
+- **Other endpoints**: No rate limit (reads)
+
+Rate limit exceeded:
+
+```bash
+HTTP/1.1 429 Too Many Requests
+Retry-After: 60
+
+{
+  "detail": "Rate limit exceeded. Try again in 60 seconds."
+}
+```
+
+**Note:** In the frontend, localhost API calls share the same IP; in production with a reverse proxy, ensure `X-Forwarded-For` or `X-Real-IP` headers are passed correctly.
+
 GitHub Actions CI/CD
 -------------------
 
@@ -403,36 +683,22 @@ API Reference
 - GET `/health/redis`
 	- Health check for Redis connectivity
 
-Rate Limiting
--------------
+Batch Analytics Writes
+----------------------
 
-A distributed, sliding-window rate limiter protects against abuse and ensures fair resource usage across instances.
+The analytics worker no longer writes one database row per Kafka event. Instead, it buffers click events and flushes them in batches for better throughput and lower database overhead.
 
-**Strategy:**
-- Redis-backed (atomic, shared across API instances)
-- Per-IP address + per-route
-- Sliding 60-second window for smooth traffic control
+**How it works:**
+- Kafka events are accumulated in memory by the worker.
+- When the buffer reaches **100 events**, the worker performs a single batch insert.
+- A timeout flush ensures smaller bursts are still persisted promptly.
+- Any remaining buffered events are flushed before shutdown.
 
-**Current limits:**
-- POST `/shorten` — **20 requests per 60 seconds** (strict for write operations)
-- All other routes — **100 requests per 60 seconds**
-
-**Rate limit response (HTTP 429):**
-
-```json
-{
-  "error": "Rate limit exceeded",
-  "path": "/shorten",
-  "limit": 20,
-  "window_seconds": 60,
-  "retry_after_seconds": 45
-}
-```
-
-**Response headers:**
-- `Retry-After`: Seconds to wait before retrying
-- `X-RateLimit-Limit`: Current route limit
-- `X-RateLimit-Remaining`: Requests remaining in window (on success)
+**Why it matters:**
+- Fewer database round-trips
+- Lower commit overhead
+- Better throughput under traffic spikes
+- More realistic production-style ingestion pattern
 
 Observability
 -------------
@@ -666,3 +932,65 @@ Developer notes
 - Redis TTL reduces DB load for frequent redirects.
 - Kafka decouples latency-sensitive redirects from analytics persistence.
 - Lazy Kafka initialization avoids blocking app startup if broker is down temporarily.
+
+Getting Started
+---------------
+
+### For First-Time Users
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/yourusername/Distributed-URL-Shortener.git
+   cd Distributed-URL-Shortener
+   ```
+
+2. **Follow the Quick Start guide** above (section "Quick start (local)"):
+   - Create virtual environment
+   - Install dependencies
+   - Start Docker services (Postgres, Redis, Kafka)
+   - Run API and worker
+
+3. **Start the frontend:**
+   ```bash
+   cd frontend && npm install && npm run dev
+   ```
+
+4. **Open browser:**
+   - Frontend: http://localhost:3000
+   - API Docs: http://localhost:8000/docs
+   - Grafana: http://localhost:3000 (admin/admin)
+
+### For Contributions
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Commit changes: `git commit -m "feat: add your feature"`
+4. Push to branch: `git push origin feature/your-feature`
+5. Open a Pull Request
+
+**Before submitting:**
+- Run tests: `pytest`
+- Format code: `black app/`
+- Check types: `mypy app/`
+- Lint: `flake8 app/`
+
+### Project Structure for Contributors
+
+Key files to understand:
+
+- **Backend entry:** `app/main.py` (FastAPI app setup, middleware)
+- **Routes:** `app/api/routes.py` (all HTTP endpoints)
+- **Business logic:** `app/services/` (URL shortening, analytics)
+- **Data access:** `app/repositories/` (database queries)
+- **Frontend pages:** `frontend/app/` (Dashboard, Analytics, Health)
+- **Frontend API:** `frontend/lib/api.ts` (type-safe API client)
+
+License & Contact
+-----------------
+
+This project is open source and available under the MIT License.
+
+For questions or support, please open an issue on GitHub.
+
