@@ -303,6 +303,82 @@ kubectl delete namespace url-shortener
 
 See [k8s/README.md](k8s/README.md) for detailed configuration, production hardening, and advanced topics.
 
+GitHub Actions CI/CD
+-------------------
+
+Automated testing and Docker image building with every push to GitHub.
+
+### Workflow
+
+```
+Developer Push
+	↓
+GitHub Actions (CI)
+	├─ Lint (Black, Flake8, isort)
+	├─ Type checking (mypy)
+	└─ Unit tests (pytest with coverage)
+	↓
+GitHub Actions (CD)
+	├─ Build multi-stage Docker image
+	├─ Push to GitHub Container Registry (GHCR)
+	└─ Image ready for deployment
+```
+
+### Setup
+
+1. Create [Personal Access Token](https://github.com/settings/tokens):
+   - Permissions: `write:packages`, `read:packages`, `repo`
+
+2. Add GitHub Secret (Settings → Secrets and variables → Actions):
+   - `GHCR_TOKEN` — Personal Access Token from step 1
+
+### Automatic Build & Push
+
+Just push to `master` or `main`:
+
+```bash
+git add .
+git commit -m "feat: improve cache hit ratio"
+git push origin master
+```
+
+GitHub Actions will automatically:
+1. Run tests and linting
+2. Build Docker image
+3. Push to GitHub Container Registry (`ghcr.io/owner/repo:main-YYYYMMDD-hash`)
+4. Image available for deployment
+
+### Release with Semantic Versioning
+
+Tag your commits for releases:
+
+```bash
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+This triggers the CD pipeline with semantic versioning:
+- Image tagged as `ghcr.io/owner/repo:v1.2.3`
+- Also tagged as `v1`, `latest`, and `sha-{hash}`
+- All previous versions remain in GHCR for reference
+
+### Deploy to Kubernetes
+
+After CD workflow completes and image is pushed to GHCR:
+
+**Local Kubernetes** (Docker Desktop or minikube):
+```bash
+./k8s/deploy-simple.sh
+```
+
+**Cloud Kubernetes** (EKS, GKE, AKS):
+1. Update image reference to use GHCR image
+2. Authenticate with cloud cluster credentials
+3. Deploy using `kubectl apply -f k8s/` or your GitOps tool (ArgoCD)
+
+See [CICD.md](CICD.md) for detailed setup, troubleshooting, and advanced configuration.
+
+
 Configuration
 -------------
 
