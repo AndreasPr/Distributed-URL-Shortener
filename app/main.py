@@ -1,6 +1,6 @@
 from fastapi import FastAPI
-from starlette.middleware.cors import CORSMiddleware
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from starlette.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
 from app.observability.logging import configure_logging_with_tracing
