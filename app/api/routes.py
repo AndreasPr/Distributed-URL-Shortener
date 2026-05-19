@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.cache.redis_client import redis_client
 from app.db.database import get_db
-from app.models.url import URL
 from app.observability.metrics import record_redirect
 from app.schemas.url_schema import URLCreate, URLResponse
 from app.services.analytics_service import AnalyticsService
@@ -40,20 +40,17 @@ def list_urls(limit: int = 20, db: Session = Depends(get_db)):
 @router.get("/health")
 def health(db: Session = Depends(get_db)):
     db_status = "reachable"
-    total_urls = 0
 
     try:
-        total_urls = db.query(URL).count()
+        db.execute(text("SELECT 1"))
     except Exception:
         db_status = "unreachable"
 
     try:
         redis_ok = bool(redis_client.ping())
         redis_status = "reachable" if redis_ok else "unreachable"
-        dbsize = redis_client.dbsize() if redis_ok else None
     except Exception:
         redis_status = "unreachable"
-        dbsize = None
 
     overall_status = (
         "ok" if db_status == "reachable" and redis_status == "reachable" else "degraded"
@@ -63,8 +60,6 @@ def health(db: Session = Depends(get_db)):
         "status": overall_status,
         "db": db_status,
         "redis": redis_status,
-        "dbsize": dbsize,
-        "total_urls": total_urls,
     }
 
 
@@ -75,7 +70,6 @@ def redis_health():
         return {
             "status": "ok" if pong else "error",
             "redis": "reachable" if pong else "unreachable",
-            "dbsize": redis_client.dbsize(),
         }
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Redis unavailable: {exc}")

@@ -6,6 +6,8 @@ from app.observability.metrics import record_cache_hit, record_cache_miss
 redis_client = redis.Redis.from_url(
     settings.REDIS_URL,
     decode_responses=True,
+    socket_connect_timeout=5,
+    socket_timeout=5,
 )
 
 
