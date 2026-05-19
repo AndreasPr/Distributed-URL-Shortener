@@ -761,7 +761,7 @@ Grafana visualizes the observability stack with pre-built dashboards.
 When running `docker compose up`, Grafana is automatically available at:
 
 ```
-http://localhost:3000
+http://localhost:3001
 ```
 
 **Credentials:**
@@ -978,7 +978,7 @@ Getting Started
 4. **Open browser:**
    - Frontend: http://localhost:3000
    - API Docs: http://localhost:8000/docs
-   - Grafana: http://localhost:3000 (admin/admin)
+   - Grafana: http://localhost:3001 (admin/admin)
 
 ### For Contributions
 

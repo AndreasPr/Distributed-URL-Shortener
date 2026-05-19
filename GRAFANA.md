@@ -4,7 +4,7 @@ The dashboard JSON is pre-built and ready to import at any time.
 
 ## Quick Import
 
-1. Open Grafana: `http://localhost:3000` (admin/admin)
+1. Open Grafana: `http://localhost:3001` (admin/admin)
 2. Click **+** → **Import** (left sidebar)
 3. Paste the JSON from `grafana/dashboards/url-shortener-dashboard.json`
 4. Click **Import**

@@ -109,7 +109,7 @@ Services available:
 - **API**: http://localhost:8000
 - **Jaeger UI**: http://localhost:16686
 - **Prometheus**: http://localhost:9090
-- **Grafana**: http://localhost:3000 (admin/admin)
+- **Grafana**: http://localhost:3001 (admin/admin)
 
 ### 3. Generate Traffic
 
