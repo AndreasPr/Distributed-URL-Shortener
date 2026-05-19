@@ -42,11 +42,15 @@ def init_tracing(service_name: str = "url-shortener") -> Optional[trace.Tracer]:
     jaeger_collector = os.getenv("JAEGER_COLLECTOR_ENDPOINT")
 
     if jaeger_collector:
-        logger.info(f"Initializing OpenTelemetry tracing (Jaeger collector: {jaeger_collector})")
+        logger.info(
+            f"Initializing OpenTelemetry tracing (Jaeger collector: {jaeger_collector})"
+        )
         # Prefer HTTP collector when available (avoids UDP packet size limits)
         jaeger_exporter = JaegerExporter(collector_endpoint=jaeger_collector)
     else:
-        logger.info(f"Initializing OpenTelemetry tracing (Jaeger agent: {jaeger_host}:{jaeger_port})")
+        logger.info(
+            f"Initializing OpenTelemetry tracing (Jaeger agent: {jaeger_host}:{jaeger_port})"
+        )
         # Fallback to agent (UDP) for typical docker-compose setups
         jaeger_exporter = JaegerExporter(
             agent_host_name=jaeger_host,
