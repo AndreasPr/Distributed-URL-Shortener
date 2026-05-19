@@ -39,16 +39,19 @@ def init_tracing(service_name: str = "url-shortener") -> Optional[trace.Tracer]:
     """
     jaeger_host = os.getenv("JAEGER_AGENT_HOST", "localhost")
     jaeger_port = int(os.getenv("JAEGER_AGENT_PORT", 6831))
+    jaeger_collector = os.getenv("JAEGER_COLLECTOR_ENDPOINT")
 
-    logger.info(
-        f"Initializing OpenTelemetry tracing (Jaeger: {jaeger_host}:{jaeger_port})"
-    )
-
-    # Create Jaeger exporter
-    jaeger_exporter = JaegerExporter(
-        agent_host_name=jaeger_host,
-        agent_port=jaeger_port,
-    )
+    if jaeger_collector:
+        logger.info(f"Initializing OpenTelemetry tracing (Jaeger collector: {jaeger_collector})")
+        # Prefer HTTP collector when available (avoids UDP packet size limits)
+        jaeger_exporter = JaegerExporter(collector_endpoint=jaeger_collector)
+    else:
+        logger.info(f"Initializing OpenTelemetry tracing (Jaeger agent: {jaeger_host}:{jaeger_port})")
+        # Fallback to agent (UDP) for typical docker-compose setups
+        jaeger_exporter = JaegerExporter(
+            agent_host_name=jaeger_host,
+            agent_port=jaeger_port,
+        )
 
     # Create tracer provider with resource information
     resource = Resource.create(
@@ -59,7 +62,26 @@ def init_tracing(service_name: str = "url-shortener") -> Optional[trace.Tracer]:
     )
 
     tracer_provider = TracerProvider(resource=resource)
-    tracer_provider.add_span_processor(BatchSpanProcessor(jaeger_exporter))
+
+    # Configure BatchSpanProcessor with conservative defaults to avoid
+    # generating UDP packets that are too large for the Jaeger agent.
+    try:
+        max_queue = int(os.getenv("OTEL_BSP_MAX_QUEUE", "2048"))
+        schedule_delay = int(os.getenv("OTEL_BSP_SCHEDULE_DELAY_MS", "5000"))
+        max_batch = int(os.getenv("OTEL_BSP_MAX_EXPORT_BATCH", "128"))
+    except Exception:
+        max_queue = 2048
+        schedule_delay = 5000
+        max_batch = 128
+
+    tracer_provider.add_span_processor(
+        BatchSpanProcessor(
+            jaeger_exporter,
+            max_queue_size=max_queue,
+            schedule_delay_millis=schedule_delay,
+            max_export_batch_size=max_batch,
+        )
+    )
 
     # Set as global tracer provider
     trace.set_tracer_provider(tracer_provider)
