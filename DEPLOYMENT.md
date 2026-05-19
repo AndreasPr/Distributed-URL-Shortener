@@ -324,7 +324,3 @@ curl https://your-api-production.up.railway.app/health/redis
 - Enable authentication on Redis (already configured)
 - Use HTTPS for all production URLs
 - Regularly rotate database passwords
-
----
-
-**Questions?** Check the main [README.md](../README.md) or open an issue on GitHub!
