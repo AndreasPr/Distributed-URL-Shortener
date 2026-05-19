@@ -23,6 +23,7 @@ app.add_middleware(
         "http://localhost:3001",
         "http://localhost:3002",
         "http://localhost:3003",
+        "https://distributed-url-shortener-two.vercel.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
