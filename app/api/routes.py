@@ -70,6 +70,7 @@ def redis_health():
         return {
             "status": "ok" if pong else "error",
             "redis": "reachable" if pong else "unreachable",
+            "dbsize": redis_client.dbsize(),
         }
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Redis unavailable: {exc}")
