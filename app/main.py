@@ -1,3 +1,6 @@
+import logging
+import os
+
 from fastapi import FastAPI
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from starlette.middleware.cors import CORSMiddleware
@@ -6,6 +9,10 @@ from app.api.routes import router
 from app.observability.logging import configure_logging_with_tracing
 from app.observability.metrics import configure_metrics
 from app.observability.tracing import init_tracing
+
+# Configure basic logging early so startup logs appear in platform logs
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+logging.getLogger().info("APP STARTING - PORT=%s", os.getenv("PORT", "not-set"))
 
 # Initialize OpenTelemetry tracing before any other initialization
 init_tracing(service_name="url-shortener-api")
