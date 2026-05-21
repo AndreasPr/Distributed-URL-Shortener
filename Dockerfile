@@ -48,9 +48,13 @@ COPY . ./
 # Make sure scripts in .local are usable
 ENV PATH=/root/.local/bin:$PATH
 
+# Ensure start wrapper is executable
+RUN chmod +x /app/start.sh || true
+
 # Health check
 
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Use start wrapper to surface environment and make startup observable
+CMD ["sh", "-c", "./start.sh"]
