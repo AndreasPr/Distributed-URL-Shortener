@@ -144,11 +144,11 @@ kubectl apply -f k8s/6-hpa.yaml
 ```bash
 # API
 kubectl port-forward svc/api 8000:8000 -n url-shortener
-# Visit: http://localhost:8000/docs
+# Visit: http://127.0.0.1:8000/docs
 
 # Grafana (admin/admin_password_k8s)
 kubectl port-forward svc/grafana 3000:3000 -n url-shortener
-# Visit: http://localhost:3000
+# Visit: http://127.0.0.1:3000
 
 # Prometheus
 kubectl port-forward svc/prometheus 9090:9090 -n url-shortener

@@ -1,44 +1,35 @@
 # Distributed URL Shortener
 
-Production-oriented URL shortener showcasing an event-driven architecture with caching, persistent storage, analytics streaming, and a modern full-stack web interface.
+Local-first distributed URL shortener showcasing an event-driven architecture with caching, persistent storage, analytics streaming, and a modern full-stack web interface.
 
-**Live Demo Features:**
+**Core Demo Features:**
 - 🔗 **URL Shortening** — Generate compact short codes for long URLs with instant redirect
 - 📊 **Real-time Analytics** — View click patterns and trends with interactive charts
 - 📈 **Dashboard** — Monitor system health, recent URLs, and activity in real-time
 - ❤️ **Health Status** — Check API, database, and Redis connectivity at a glance
 - ⚡ **Fast Redirects** — Redis-cached lookups for instant URL resolution
-- 🔄 **Event-Driven Pipeline** — Kafka-based asynchronous click analytics processing
+- 🔄 **Analytics Pipeline** — Clicks are published to Kafka and batch-written to PostgreSQL by the worker
 
 **Tech Stack:**
-- **Backend:** Python, FastAPI, SQLAlchemy, PostgreSQL, Redis, Kafka
+- **Backend:** Python, FastAPI, SQLAlchemy, PostgreSQL, Redis
 - **Frontend:** Next.js 14 (React), TypeScript, Tailwind CSS, Recharts, shadcn/ui
 - **Infrastructure:** Docker, Docker Compose, Kubernetes, Prometheus, Grafana
 - **Observability:** OpenTelemetry, Prometheus metrics, structured logging
 
-## 🚀 Live Demo & Production Deployment
+## 🚀 Deployment
 
-The project is ready for production deployment! Check out the **[DEPLOYMENT.md](./DEPLOYMENT.md)** guide for step-by-step instructions to deploy:
+The project includes a step-by-step **[DEPLOYMENT.md](./DEPLOYMENT.md)** guide for running the stack locally with Docker Compose and Kubernetes.
 
-- **Frontend** → Vercel (Next.js optimized)
-- **Backend** → Railway (FastAPI + Python)
-- **Database** → PostgreSQL (Railway managed)
-- **Cache** → Redis (Redis Cloud or Upstash)
-
-The deployment guide includes:
-- ✅ Step-by-step Vercel frontend deployment
-- ✅ Railway backend setup with auto-deployment from GitHub
-- ✅ Managed PostgreSQL and Redis configuration
-- ✅ Environment variable setup
-- ✅ CORS configuration for production
-- ✅ Troubleshooting guide
-
-**Estimated deployment time:** 15-20 minutes
+The guide covers:
+- ✅ Docker Compose for the full local stack
+- ✅ Docker Desktop Kubernetes deployment
+- ✅ Local PostgreSQL, Redis, Kafka, Prometheus, Grafana, and Jaeger
+- ✅ Environment variables and verification commands
 
 
 Table of Contents
 -----------------
-- Live Demo & Production Deployment
+- Deployment
 - Project summary
 - Key Features
 - Architecture
@@ -61,8 +52,8 @@ Project summary
 ---------------
 
 - Generates compact short codes for long URLs.
-- Fast redirects using a Redis cache and asynchronous analytics via Kafka.
-- Background worker consumes click events and writes analytics to PostgreSQL in batches.
+- Fast redirects using a Redis cache and Kafka-backed batch persistence to PostgreSQL.
+- The analytics worker batches click events before writing them to PostgreSQL.
 - Full-stack web interface with real-time dashboards and analytics visualization.
 
 Key Features
@@ -100,7 +91,7 @@ Key Features
 2. **URL Redirection** (`GET /{code}`)
    - Checks Redis cache first for instant lookup
    - Falls back to database if not cached
-   - Records click event to Kafka for analytics processing
+   - Publishes the click event to Kafka for batched analytics persistence
    - Returns 307 temporary redirect
 
 3. **Analytics API** (`GET /analytics/{short_code}`)
@@ -118,10 +109,9 @@ Architecture
 ------------
 
 User → HTTP (FastAPI)
-	- POST `/shorten` → create URL record (DB) → return `short_code`
-	- GET `/{code}` → check Redis cache → DB fallback → 307 redirect + publish Kafka click event
+   - POST `/shorten` → create URL record (DB) → return `short_code`
+   - GET `/{code}` → check Redis cache → DB fallback → 307 redirect + record click in Postgres
 
-Kafka → topic `url-events` → analytics worker consumes → inserts into `analytics` table (Postgres)
 Redis → cache `short_code` → `long_url` mapping (TTL)
 Postgres → durable store for `urls` and `analytics`
 
@@ -141,7 +131,7 @@ Repository layout
 	- `core/config.py` — environment-backed settings
 - `scripts/migrate.sql` — DB schema
 - `docker-compose.yml` — full local stack
-- `Dockerfile` — image for API/worker
+   - `Dockerfile` — image for API/worker
 - `requirements.txt`
 
 Quick start (local, recommended)
@@ -175,7 +165,7 @@ python scripts/migrate.py
 5. Run the API locally (project root):
 
 ```bash
-.venv/bin/uvicorn app.main:app --reload
+.venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 6. Run the analytics worker in another terminal:
@@ -189,7 +179,7 @@ Now you can create short URLs, hit them to generate clicks, and query analytics.
 Frontend setup
 --------------
 
-The project includes a full-featured Next.js frontend at `localhost:3000`.
+The project includes a full-featured Next.js frontend at `127.0.0.1:3000`.
 
 ### Prerequisites
 
@@ -200,7 +190,7 @@ The project includes a full-featured Next.js frontend at `localhost:3000`.
 1. **Ensure backend is running:**
 
 ```bash
-.venv/bin/uvicorn app.main:app --reload --port 8000
+.venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 2. **In a new terminal, start the frontend:**
@@ -214,8 +204,10 @@ npm run dev
 3. **Open in browser:**
 
 ```
-http://localhost:3000
+http://127.0.0.1:3000
 ```
+
+If `http://127.0.0.1:3000` is refused, the frontend is not running. Start it again from the `frontend/` directory.
 
 You should see the URL Shortener dashboard with navigation to:
 - **Dashboard** — System status & recent URLs
@@ -261,7 +253,7 @@ Create `frontend/.env.local`:
 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
 ```
 
-This ensures the frontend can reach the backend API running on port 8000.
+This ensures the frontend can reach the backend API running on port 8000. If you use `localhost` instead of `127.0.0.1`, the current CORS settings support both origins.
 
 Run full stack in Docker
 
@@ -668,7 +660,7 @@ After CD workflow completes and image is pushed to GHCR:
 
 **Local Kubernetes** (Docker Desktop or minikube):
 ```bash
-./k8s/deploy-simple.sh
+./k8s/deploy.sh
 ```
 
 **Cloud Kubernetes** (EKS, GKE, AKS):
@@ -687,7 +679,7 @@ Settings are defined in `app/core/config.py` and can be overridden via environme
 Common defaults used in development / Docker:
 
 - `DB_URL`: `postgresql://user:pass@localhost:5433/url_db`
-- `REDIS_URL`: `redis://localhost:6380/0`
+- `REDIS_URL`: `redis://localhost:6379/0`
 - `KAFKA_BOOTSTRAP_SERVERS`: `localhost:9094`
 
 API Reference
@@ -976,7 +968,7 @@ Getting Started
    ```
 
 4. **Open browser:**
-   - Frontend: http://localhost:3000
+   - Frontend: http://127.0.0.1:3000
    - API Docs: http://localhost:8000/docs
    - Grafana: http://localhost:3001 (admin/admin)
 

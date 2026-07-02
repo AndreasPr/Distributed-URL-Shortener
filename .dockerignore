@@ -56,10 +56,6 @@ README.md
 *.md
 docs/
 
-# Scripts
-scripts/
-*.sh
-
 # Misc
 .env
 .env.local

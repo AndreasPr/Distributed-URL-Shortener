@@ -1,3 +1,5 @@
+import logging
+
 from opentelemetry import trace
 from sqlalchemy.orm import Session
 
@@ -6,6 +8,7 @@ from app.kafka.producer import publish_click_event
 from app.observability.metrics import track_shorten_latency
 from app.repositories.url_repository import URLRepository
 
+logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
 
 
@@ -36,7 +39,7 @@ class URLService:
 
             if cached:
                 span.set_attribute("cache.hit", True)
-                publish_click_event(code)
+                self._record_click(code)
                 return cached.decode() if isinstance(cached, bytes) else cached
 
             # Cache miss - query database
@@ -51,9 +54,16 @@ class URLService:
             with tracer.start_as_current_span("cache.set"):
                 set_cache(code, url.long_url, ttl=self.CACHE_TTL)
 
-            publish_click_event(code)
+            self._record_click(code)
             span.set_attribute("url.output", url.long_url)
             return url.long_url
+
+    def _record_click(self, short_code: str) -> None:
+        """Publish a click event best-effort without blocking redirects."""
+        try:
+            publish_click_event(short_code)
+        except Exception:
+            logger.exception("Failed to record click for short_code=%s", short_code)
 
     def list_recent_urls(self, db: Session, limit: int = 20):
         """List recent URLs with click counts for dashboard views."""

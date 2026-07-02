@@ -2,7 +2,6 @@ import json
 import logging
 
 from kafka import KafkaConsumer
-from kafka.errors import NoBrokersAvailable
 
 from app.core.config import settings
 
@@ -20,6 +19,6 @@ def create_consumer():
             group_id="analytics-group",
             value_deserializer=lambda value: json.loads(value.decode("utf-8")),
         )
-    except NoBrokersAvailable as exc:
+    except Exception as exc:
         logger.warning("Kafka consumer unavailable: %s", exc)
         return None

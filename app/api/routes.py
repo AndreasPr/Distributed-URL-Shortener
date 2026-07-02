@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
-from sqlalchemy import text
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from app.cache.redis_client import redis_client
 from app.db.database import get_db
+from app.models.url import URL
 from app.observability.metrics import record_redirect
 from app.schemas.url_schema import URLCreate, URLResponse
 from app.services.analytics_service import AnalyticsService
@@ -40,9 +41,11 @@ def list_urls(limit: int = 20, db: Session = Depends(get_db)):
 @router.get("/health")
 def health(db: Session = Depends(get_db)):
     db_status = "reachable"
+    total_urls = 0
 
     try:
         db.execute(text("SELECT 1"))
+        total_urls = db.query(func.count(URL.id)).scalar() or 0
     except Exception:
         db_status = "unreachable"
 
@@ -60,6 +63,7 @@ def health(db: Session = Depends(get_db)):
         "status": overall_status,
         "db": db_status,
         "redis": redis_status,
+        "total_urls": int(total_urls),
     }
 
 

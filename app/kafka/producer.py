@@ -2,7 +2,6 @@ import json
 import logging
 
 from kafka import KafkaProducer
-from kafka.errors import NoBrokersAvailable
 from opentelemetry import trace
 
 from app.core.config import settings
@@ -23,7 +22,7 @@ def _get_producer():
                 bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
                 value_serializer=lambda value: json.dumps(value).encode("utf-8"),
             )
-        except NoBrokersAvailable as exc:
+        except Exception as exc:
             logger.warning("Kafka producer unavailable: %s", exc)
             return None
 

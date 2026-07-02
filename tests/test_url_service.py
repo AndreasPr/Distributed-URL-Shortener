@@ -19,13 +19,13 @@ def test_shorten_creates_code_and_commits(monkeypatch):
     db.commit.assert_called_once()
 
 
-def test_resolve_returns_cached_value_and_publishes_event(monkeypatch):
+def test_resolve_returns_cached_value_and_records_click(monkeypatch):
     service = URLService()
     fake_repo = MagicMock()
     service.repo = fake_repo
-    monkeypatch.setattr(url_service_module, "get_cache", lambda code: "https://cached.example.com")
     publish_mock = MagicMock()
     monkeypatch.setattr(url_service_module, "publish_click_event", publish_mock)
+    monkeypatch.setattr(url_service_module, "get_cache", lambda code: "https://cached.example.com")
     db = MagicMock()
 
     result = service.resolve(db, "abc")
@@ -33,6 +33,7 @@ def test_resolve_returns_cached_value_and_publishes_event(monkeypatch):
     assert result == "https://cached.example.com"
     fake_repo.get_by_code.assert_not_called()
     publish_mock.assert_called_once_with("abc")
+    db.commit.assert_not_called()
 
 
 def test_resolve_caches_database_value_on_miss(monkeypatch):
@@ -40,11 +41,11 @@ def test_resolve_caches_database_value_on_miss(monkeypatch):
     fake_repo = MagicMock()
     fake_repo.get_by_code.return_value = SimpleNamespace(long_url="https://example.com")
     service.repo = fake_repo
-    set_cache_mock = MagicMock()
     publish_mock = MagicMock()
+    monkeypatch.setattr(url_service_module, "publish_click_event", publish_mock)
+    set_cache_mock = MagicMock()
     monkeypatch.setattr(url_service_module, "get_cache", lambda code: None)
     monkeypatch.setattr(url_service_module, "set_cache", set_cache_mock)
-    monkeypatch.setattr(url_service_module, "publish_click_event", publish_mock)
     db = MagicMock()
 
     result = service.resolve(db, "abc")
@@ -52,6 +53,7 @@ def test_resolve_caches_database_value_on_miss(monkeypatch):
     assert result == "https://example.com"
     set_cache_mock.assert_called_once_with("abc", "https://example.com", ttl=service.CACHE_TTL)
     publish_mock.assert_called_once_with("abc")
+    db.commit.assert_not_called()
 
 
 def test_resolve_returns_none_when_code_missing(monkeypatch):
@@ -59,11 +61,11 @@ def test_resolve_returns_none_when_code_missing(monkeypatch):
     fake_repo = MagicMock()
     fake_repo.get_by_code.return_value = None
     service.repo = fake_repo
-    set_cache_mock = MagicMock()
     publish_mock = MagicMock()
+    monkeypatch.setattr(url_service_module, "publish_click_event", publish_mock)
+    set_cache_mock = MagicMock()
     monkeypatch.setattr(url_service_module, "get_cache", lambda code: None)
     monkeypatch.setattr(url_service_module, "set_cache", set_cache_mock)
-    monkeypatch.setattr(url_service_module, "publish_click_event", publish_mock)
     db = MagicMock()
 
     result = service.resolve(db, "missing")
@@ -71,3 +73,4 @@ def test_resolve_returns_none_when_code_missing(monkeypatch):
     assert result is None
     set_cache_mock.assert_not_called()
     publish_mock.assert_not_called()
+    db.commit.assert_not_called()

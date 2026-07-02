@@ -1,11 +1,12 @@
 import logging
 import os
+import asyncio
 
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
-import asyncio
 
 from app.api.routes import router
+from app.core.config import settings
 from app.observability.logging import configure_logging_with_tracing
 from app.observability.metrics import configure_metrics
 from app.observability.tracing import init_tracing
@@ -19,23 +20,23 @@ app = FastAPI(title="URL Shortener")
 # Add CORS middleware FIRST (so it executes FIRST in middleware stack)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:3002",
-        "http://localhost:3003",
-        "https://distributed-url-shortener-two.vercel.app",
-    ],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
 )
 
+# Configure metrics before the app starts so middleware can be added successfully.
+try:
+    configure_metrics(app)
+except Exception:
+    logging.getLogger().exception("configure_metrics failed")
+
 
 @app.on_event("startup")
 async def _on_startup():
-    logging.getLogger().info("APP STARTUP event - initializing observability and metrics")
+    logging.getLogger().info("APP STARTUP event - initializing observability")
     # Initialize tracing and instrumentation (non-fatal on error)
     try:
         init_tracing(service_name="url-shortener-api")
@@ -47,12 +48,6 @@ async def _on_startup():
         configure_logging_with_tracing()
     except Exception:
         logging.getLogger().exception("configure_logging_with_tracing failed")
-
-    # Configure metrics
-    try:
-        configure_metrics(app)
-    except Exception:
-        logging.getLogger().exception("configure_metrics failed")
 
     # Delay briefly to allow dependent services to become reachable in hostile envs
     await asyncio.sleep(0)

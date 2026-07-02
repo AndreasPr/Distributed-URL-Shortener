@@ -24,10 +24,10 @@ kubectl port-forward svc/api 8000:8000 -n url-shortener
 ```
 
 Access:
-- **API Documentation**: http://localhost:8000/docs
-- **API Root**: http://localhost:8000
-- **Health Check**: http://localhost:8000/health/redis
-- **Metrics**: http://localhost:8000/metrics
+- **API Documentation**: http://127.0.0.1:8000/docs
+- **API Root**: http://127.0.0.1:8000
+- **Health Check**: http://127.0.0.1:8000/health/redis
+- **Metrics**: http://127.0.0.1:8000/metrics
 
 Test creating a short URL:
 ```bash
@@ -42,7 +42,7 @@ curl -X POST http://localhost:8000/shorten \
 kubectl port-forward svc/grafana 3000:3000 -n url-shortener
 ```
 
-Access: http://localhost:3000
+Access: http://127.0.0.1:3000
 - **Username**: admin
 - **Password**: admin_password_k8s
 

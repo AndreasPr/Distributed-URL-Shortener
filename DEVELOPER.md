@@ -80,6 +80,20 @@ docker compose ps
 docker compose down
 ```
 
+### Run the Backend Locally
+
+```bash
+.venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Run the Frontend Locally
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
 ### Run Tests
 
 ```bash
