@@ -31,7 +31,7 @@ The tool:
    .venv/bin/python -m mcp_server.app
    ```
 
-> The server now starts using HTTP transport by default so it will stay running and listen for requests.
+> The server now starts using HTTP transport by default in stateless JSON response mode so direct HTTP POST calls to `/mcp` work without a prior session handshake.
 
 ### Run & invoke (quick guide)
 
@@ -64,6 +64,59 @@ PY
 cd mcp-server
 pytest -q
 ```
+
+### Verify the MCP server is working
+
+1. Start the server from the `mcp-server` directory:
+
+```bash
+cd /Users/andreaspriftis/Desktop/projects/distributed-URL-Shortener/mcp-server
+source ../.venv/bin/activate
+python -m mcp_server.app
+```
+
+2. In a second terminal, send a direct JSON-RPC POST to `/mcp`:
+
+```bash
+curl -i -X POST http://127.0.0.1:8001/mcp \
+  -H "Accept: application/json, text/event-stream" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "CheckSuspiciousUrlActivityTool",
+      "arguments": {
+        "time_window_minutes": 60
+      }
+    }
+  }'
+```
+
+3. Confirm the response is valid JSON and includes `jsonrpc`, `id`, and `result`.
+
+Expected output should look like:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "content": [ ... ],
+    "structuredContent": { ... },
+    "isError": false
+  }
+}
+```
+
+4. If the server is not working, the response will include an error object such as:
+
+- `Bad Request: Missing session ID` if the request headers are wrong
+- `Not Found: Invalid or expired session ID` if the wrong session header is used
+- `Bad credentials` if GitHub authentication is missing
+
+5. If the same tool call returns a `200 OK` with a valid `result`, the MCP server is functioning.
 
 ### Troubleshooting
 

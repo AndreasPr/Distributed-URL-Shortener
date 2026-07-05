@@ -22,6 +22,8 @@ server = FastMCP(
     instructions="A tool server that checks suspicious URL activity and reports suspicious cases.",
     host=settings.MCP_HOST,
     port=settings.MCP_PORT,
+    json_response=True,
+    stateless_http=True,
 )
 
 @server.tool(
