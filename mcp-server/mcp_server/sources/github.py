@@ -83,6 +83,9 @@ def get_recent_commits(
         params["path"] = path_filter
 
     try:
+        # Keep the HTTP client open while we fetch both the commit list
+        # and per-commit details so we don't attempt requests on a closed
+        # client object.
         with httpx.Client(timeout=settings.MCP_GITHUB_TIMEOUT_SECONDS) as client:
             response = client.get(url, headers=headers, params=params)
             if response.status_code == 403:
@@ -100,37 +103,38 @@ def get_recent_commits(
                 )
 
             commits_data = response.json()
+
+            commits: list[CommitSummary] = []
+            for raw in commits_data[:limit]:
+                commit_info = raw.get("commit", {})
+                author_info = commit_info.get("author", {})
+                timestamp = author_info.get("date")
+                if not timestamp:
+                    timestamp = commit_info.get("committer", {}).get("date")
+
+                commit = CommitSummary(
+                    sha=raw.get("sha", ""),
+                    message=commit_info.get("message", ""),
+                    author=author_info.get("name") or raw.get("author", {}).get("login"),
+                    timestamp=_format_utc_iso(datetime.datetime.fromisoformat(timestamp.replace("Z", "+00:00"))) if timestamp else "",
+                    html_url=raw.get("html_url"),
+                    files_changed=[],
+                )
+                if commit.sha:
+                    try:
+                        details_url = f"https://api.github.com/repos/{repo}/commits/{commit.sha}"
+                        detail_response = client.get(details_url, headers=headers, timeout=settings.MCP_GITHUB_TIMEOUT_SECONDS)
+                        if detail_response.status_code == 200:
+                            detail_json = detail_response.json()
+                            commit.files_changed = [file.get("filename", "") for file in detail_json.get("files", [])]
+                    except Exception:
+                        logger.warning("Failed to fetch commit detail for %s", commit.sha)
+                commits.append(commit)
+
     except SourceError:
         raise
     except Exception as exc:
         logger.exception("GitHub commit lookup failed")
         raise SourceError("github", "request_error", details=str(exc))
-
-    commits: list[CommitSummary] = []
-    for raw in commits_data[:limit]:
-        commit_info = raw.get("commit", {})
-        author_info = commit_info.get("author", {})
-        timestamp = author_info.get("date")
-        if not timestamp:
-            timestamp = commit_info.get("committer", {}).get("date")
-
-        commit = CommitSummary(
-            sha=raw.get("sha", ""),
-            message=commit_info.get("message", ""),
-            author=author_info.get("name") or raw.get("author", {}).get("login"),
-            timestamp=_format_utc_iso(datetime.datetime.fromisoformat(timestamp.replace("Z", "+00:00"))) if timestamp else "",
-            html_url=raw.get("html_url"),
-            files_changed=[],
-        )
-        if commit.sha:
-            try:
-                details_url = f"https://api.github.com/repos/{repo}/commits/{commit.sha}"
-                detail_response = client.get(details_url, headers=headers, timeout=settings.MCP_GITHUB_TIMEOUT_SECONDS)
-                if detail_response.status_code == 200:
-                    detail_json = detail_response.json()
-                    commit.files_changed = [file.get("filename", "") for file in detail_json.get("files", [])]
-            except Exception:
-                logger.warning("Failed to fetch commit detail for %s", commit.sha)
-        commits.append(commit)
 
     return {"commits": [commit.model_dump() for commit in commits]}
