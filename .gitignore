@@ -9,3 +9,4 @@ frontend/node_modules/
 .env.example
 mcp-server/.env
 mcp-server/.env.example
+mcp-server/.env.local
