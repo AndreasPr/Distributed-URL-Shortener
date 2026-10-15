@@ -67,6 +67,8 @@ pre-commit run --all-files
 
 ## 3. Local Development Workflow
 
+Before starting services, copy `.env.example` to `.env` and replace the credential placeholders as described in [deployment setup](DEPLOYMENT.md). Commands below run from the repository root.
+
 ### Start the Stack
 
 ```bash
@@ -101,7 +103,7 @@ npm run dev
 pytest --cov=app --cov-report=html
 
 # Specific test file
-pytest tests/test_api.py -v
+pytest tests/test_routes.py -v
 
 # Run with markers
 pytest -m unit  # Only unit tests
@@ -178,7 +180,7 @@ pytest
 # GitHub Actions will build and push a Docker image to GHCR.
 # To deploy to Kubernetes you can:
 # - Run the local deploy script: `./k8s/deploy-simple.sh` (for Docker Desktop/minikube), or
-# - Add a cloud kubeconfig (`KUBE_CONFIG`) and enable remote deployment in the CD workflow.
+# - Follow docs/DEPLOYMENT.md for local Secret setup; no cloud credentials are needed.
 ```
 
 ## 5. Kubernetes Development
@@ -190,7 +192,8 @@ pytest
 docker build -t url-shortener:local .
 
 # Test image locally
-docker run -e DB_URL=postgresql://... url-shortener:local
+docker run --env-file .env url-shortener:local
+# Host DB_URL needs an address reachable from the container; prefer Compose.
 
 # Load into Docker Desktop K8s
 docker tag url-shortener:local url-shortener:latest

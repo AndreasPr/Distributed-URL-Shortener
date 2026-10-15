@@ -19,6 +19,8 @@ Run from the repository root unless otherwise stated. Use Python 3.11 and a loca
 python3.11 -m venv .venv
 .venv/bin/python -m pip install -r requirements-dev.txt
 .venv/bin/python -m pip install -r mcp-server/requirements.txt
+cp .env.example .env
+# Replace credential placeholders locally; see docs/DEPLOYMENT.md.
 docker compose up --build -d
 docker compose ps
 ```
@@ -57,7 +59,7 @@ Kubernetes is optional: inspect `kubectl config current-context` first; `bash k8
 
 ## Tests and quality checks
 
-Backend commands, matching CI's checks (the local coverage command avoids overwriting tracked `coverage.xml`):
+Backend commands, matching CI's checks (the local coverage command keeps generated coverage reports out of the working tree):
 
 ```sh
 .venv/bin/python -m pytest --cov=app --cov-report=term-missing -v
@@ -86,4 +88,4 @@ npm run lint
 npm run build
 ```
 
-There is no frontend test script. At baseline, `npm run lint` opens an ESLint setup prompt and does not perform linting; report this limitation rather than silently configuring it. TypeScript's `--incremental false` avoids modifying tracked build information. Run builds when relevant; never stage generated outputs.
+There is no frontend test script. At baseline, `npm run lint` opens an ESLint setup prompt and does not perform linting; report this limitation rather than silently configuring it. TypeScript's `--incremental false` avoids generating build information. Run builds when relevant; never stage generated outputs.

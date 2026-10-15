@@ -1,5 +1,8 @@
 # Kubernetes Deployment - Quick Start Guide
 
+Before deployment, follow [local Secret setup](../docs/DEPLOYMENT.md#kubernetes). The Secret example contains placeholders only; create the actual Secret from ignored `k8s/.env`. Existing cluster health is not guaranteed by this guide.
+
+
 ## Deployment Complete
 
 Your distributed URL shortener is now running on Kubernetes!
@@ -43,8 +46,8 @@ kubectl port-forward svc/grafana 3000:3000 -n url-shortener
 ```
 
 Access: http://127.0.0.1:3000
-- **Username**: admin
-- **Password**: admin_password_k8s
+- **Username**: `${GRAFANA_ADMIN_USER}`
+- **Password**: ${GRAFANA_ADMIN_PASSWORD}
 
 Pre-configured dashboard: "URL Shortener - Production Observability"
 - 8 panels showing real-time metrics
@@ -98,7 +101,7 @@ kubectl get configmap url-shortener-config -n url-shortener -o yaml
 ### 3. Secrets
 Sensitive data (DB credentials, admin passwords):
 ```bash
-kubectl get secret url-shortener-secrets -n url-shortener -o yaml
+kubectl get secret url-shortener-secrets -n url-shortener
 ```
 
 ### 4. StatefulSets
@@ -190,7 +193,7 @@ Configure `/etc/hosts`:
 
 Then access:
 - http://api.local — API
-- http://grafana.local — Grafana (admin/admin_password_k8s)
+- http://grafana.local — Grafana (${GRAFANA_ADMIN_USER}/${GRAFANA_ADMIN_PASSWORD})
 - http://prometheus.local — Prometheus
 
 ### 13. RBAC (Role-Based Access Control)
@@ -432,7 +435,7 @@ kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1/namespaces/url-shortener/p
 k8s/
 ├── 0-namespace.yaml              # Namespace
 ├── 1-configmap.yaml              # Configuration
-├── 2-secrets.yaml                # Secrets
+├── secrets.example.yaml                # Secrets
 ├── 3-persistent-volumes.yaml     # Storage claims
 ├── 4-db-migrate-job.yaml         # DB migration
 ├── 5-ingress.yaml                # Ingress controller

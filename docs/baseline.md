@@ -1,5 +1,7 @@
 # Project baseline
 
+Historical Step 0.1 snapshot. For subsequent artifact, credential, documentation, and image changes, see [Step 0.2 verification](cleanup-verification.md).
+
 Inspected 2026-10-14. This is a documentation-only snapshot, not a production-readiness claim. No application code, dependencies, workflows, or deployment manifests were changed. Commands and standing rules are in [AGENTS.md](../AGENTS.md); the scope decision is [ADR 0001](adr/0001-free-local-baseline.md).
 
 ## Layout and current behavior

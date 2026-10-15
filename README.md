@@ -20,7 +20,9 @@ Note: this repository also includes an MCP server that runs an abuse-flagging wo
 
 ## 🚀 Deployment
 
-The project includes a step-by-step **[DEPLOYMENT.md](./DEPLOYMENT.md)** guide for running the stack locally with Docker Compose and Kubernetes.
+Copy `.env.example` to `.env` and replace credential placeholders before running Compose. See [local credential setup](docs/DEPLOYMENT.md). Kubernetes requires a separately created Secret; the checked-in example contains placeholders only.
+
+The project includes a step-by-step **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** guide for running the stack locally with Docker Compose and Kubernetes.
 
 The guide covers:
 - ✅ Docker Compose for the full local stack
@@ -327,7 +329,7 @@ Using **port forwarding** (simplest):
 kubectl port-forward svc/api 8000:8000 -n url-shortener
 # Visit: http://localhost:8000/docs
 
-# Grafana (admin/admin_password_k8s)
+# Grafana (${GRAFANA_ADMIN_USER}/${GRAFANA_ADMIN_PASSWORD})
 kubectl port-forward svc/grafana 3000:3000 -n url-shortener
 
 # Prometheus
@@ -360,7 +362,7 @@ Or use **Ingress** (production-like):
 k8s/
 ├── 0-namespace.yaml              # Namespace isolation
 ├── 1-configmap.yaml              # Non-sensitive config
-├── 2-secrets.yaml                # Database/admin credentials
+├── secrets.example.yaml                # Placeholder reference only
 ├── 3-persistent-volumes.yaml     # Durable storage claims
 ├── 4-db-migrate-job.yaml         # Database initialization
 ├── 5-ingress.yaml                # External routing
@@ -434,7 +436,7 @@ Environment variables are read from `.env` and set sensible defaults in `app/cor
 Key settings:
 
 ```python
-DB_URL=postgresql://user:pass@localhost:5433/url_db
+DB_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5433/url_db
 REDIS_URL=redis://localhost:6379/0
 KAFKA_BOOTSTRAP_SERVERS=localhost:9094
 RATE_LIMIT_REQUESTS=20         # Requests per minute per IP
@@ -670,7 +672,7 @@ After CD workflow completes and image is pushed to GHCR:
 2. Authenticate with cloud cluster credentials
 3. Deploy using `kubectl apply -f k8s/` or your GitOps tool (ArgoCD)
 
-See [CICD.md](CICD.md) for detailed setup, troubleshooting, and advanced configuration.
+See [docs/ci-cd.md](docs/ci-cd.md) for detailed setup, troubleshooting, and advanced configuration.
 
 
 Configuration
@@ -680,7 +682,7 @@ Settings are defined in `app/core/config.py` and can be overridden via environme
 
 Common defaults used in development / Docker:
 
-- `DB_URL`: `postgresql://user:pass@localhost:5433/url_db`
+- `DB_URL`: `postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5433/url_db`
 - `REDIS_URL`: `redis://localhost:6379/0`
 - `KAFKA_BOOTSTRAP_SERVERS`: `localhost:9094`
 
@@ -759,8 +761,8 @@ http://localhost:3001
 ```
 
 **Credentials:**
-- Username: `admin`
-- Password: `admin`
+- Username: `${GRAFANA_ADMIN_USER}`
+- Password: `${GRAFANA_ADMIN_PASSWORD}`
 
 **Dashboard:** "URL Shortener - Production Observability"
 - Automatically imported and provisioned
@@ -972,7 +974,7 @@ Getting Started
 4. **Open browser:**
    - Frontend: http://127.0.0.1:3000
    - API Docs: http://localhost:8000/docs
-   - Grafana: http://localhost:3001 (admin/admin)
+   - Grafana: http://localhost:3001 (${GRAFANA_ADMIN_USER}/${GRAFANA_ADMIN_PASSWORD})
 
 ### For Contributions
 

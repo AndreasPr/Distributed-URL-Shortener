@@ -1,5 +1,8 @@
 # Kubernetes Deployment for URL Shortener
 
+Before deployment, follow [local Secret setup](../docs/DEPLOYMENT.md#kubernetes). The Secret example contains placeholders only; create the actual Secret from ignored `k8s/.env`. Existing cluster health is not guaranteed by this guide.
+
+
 This directory contains all Kubernetes manifests to deploy the URL Shortener application in a cloud-native architecture.
 
 ## Architecture Overview
@@ -38,7 +41,7 @@ Ingress Controller
 k8s/
 ├── 0-namespace.yaml              # Create url-shortener namespace
 ├── 1-configmap.yaml              # Non-sensitive configuration
-├── 2-secrets.yaml                # Sensitive data (DB creds, etc)
+├── secrets.example.yaml                # Placeholder reference only
 ├── 3-persistent-volumes.yaml     # PersistentVolumeClaims
 ├── 4-db-migrate-job.yaml         # Database initialization
 ├── 5-ingress.yaml                # Ingress controller rules
@@ -104,7 +107,7 @@ This script:
 # 1. Create namespace and configuration
 kubectl apply -f k8s/0-namespace.yaml
 kubectl apply -f k8s/1-configmap.yaml
-kubectl apply -f k8s/2-secrets.yaml
+kubectl create secret generic url-shortener-secrets -n url-shortener --from-env-file=k8s/.env
 kubectl apply -f k8s/3-persistent-volumes.yaml
 
 # 2. Deploy data layer (in order)
@@ -146,7 +149,7 @@ kubectl apply -f k8s/6-hpa.yaml
 kubectl port-forward svc/api 8000:8000 -n url-shortener
 # Visit: http://127.0.0.1:8000/docs
 
-# Grafana (admin/admin_password_k8s)
+# Grafana (${GRAFANA_ADMIN_USER}/${GRAFANA_ADMIN_PASSWORD})
 kubectl port-forward svc/grafana 3000:3000 -n url-shortener
 # Visit: http://127.0.0.1:3000
 
@@ -164,7 +167,7 @@ Add to `/etc/hosts`:
 
 Then visit:
 - http://api.local
-- http://grafana.local (admin/admin_password_k8s)
+- http://grafana.local (${GRAFANA_ADMIN_USER}/${GRAFANA_ADMIN_PASSWORD})
 - http://prometheus.local
 
 **Note**: Ingress requires an ingress controller. Docker Desktop includes nginx-ingress by default.
@@ -187,18 +190,16 @@ kubectl rollout restart deployment/api -n url-shortener
 
 ### Sensitive Data (Secrets)
 
-Edit `2-secrets.yaml` to change:
+Create the initial Secret from ignored `k8s/.env` using (see [Secret setup](../docs/DEPLOYMENT.md#kubernetes)):
 - Database password
-- Redis password (optional)
 - Grafana admin credentials
-- Sentry DSN (optional)
 
 ```bash
-kubectl apply -f k8s/2-secrets.yaml
+kubectl create secret generic url-shortener-secrets -n url-shortener --from-env-file=k8s/.env
 kubectl rollout restart deployment/api -n url-shortener
 ```
 
-**Security**: For production, use Sealed Secrets or HashiCorp Vault instead of plain text YAML.
+For an existing Secret, follow the update guidance in the deployment guide; `create` does not overwrite it. Do not print or commit its values.
 
 ## Monitoring & Observability
 
