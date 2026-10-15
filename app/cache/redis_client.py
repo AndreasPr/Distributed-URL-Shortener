@@ -1,5 +1,6 @@
 import logging
 from types import ModuleType
+from typing import Callable, TypeVar
 
 try:
     import redis as redis_package
@@ -9,7 +10,11 @@ except Exception:  # pragma: no cover - defensive
     redis = None
 
 from app.core.config import settings
-from app.observability.metrics import record_cache_hit, record_cache_miss
+from app.observability.metrics import (
+    record_cache_error,
+    record_cache_hit,
+    record_cache_miss,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +52,26 @@ def _create_client():
 redis_client = _create_client()
 
 
+T = TypeVar("T")
+_READ_ERRORS = (
+    (redis.exceptions.ConnectionError, redis.exceptions.TimeoutError)
+    if redis is not None
+    else ()
+)
+
+
+def read_cache(operation: Callable[[], T]) -> T | None:
+    """Read best-effort; programming errors must still propagate."""
+    try:
+        return operation()
+    except _READ_ERRORS:
+        logger.exception("Redis read failed")
+        record_cache_error()
+        return None
+
+
 def get_cache(key: str):
-    value = redis_client.get(key)
+    value = read_cache(lambda: redis_client.get(key))
     if value is None:
         record_cache_miss()
     else:

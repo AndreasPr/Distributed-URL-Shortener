@@ -2,6 +2,7 @@ charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 
 def encode_base62(num: int) -> str:
+    """Encode positive IDs; zero returns an empty string (DB IDs start at 1)."""
     base = len(charset)
     encoded = []
 

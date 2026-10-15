@@ -16,7 +16,7 @@ def test_create_short_url_returns_service_code(monkeypatch):
     result = routes.create_short_url(req, db)
 
     assert result == {"short_code": "abc"}
-    routes.service.shorten.assert_called_once_with(db, req.long_url)
+    routes.service.shorten.assert_called_once_with(db, str(req.long_url))
 
 
 def test_redirect_returns_redirect_response(monkeypatch):

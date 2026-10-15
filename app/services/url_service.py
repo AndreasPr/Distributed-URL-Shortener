@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urlsplit
 
 from opentelemetry import trace
 from pydantic import HttpUrl
@@ -13,6 +14,18 @@ logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
 
 
+def _record_url_origin(span: trace.Span, url: str) -> None:
+    """Never attach credentials, paths, queries, or fragments to spans."""
+    try:
+        parsed = urlsplit(url)
+        host = parsed.hostname
+    except ValueError:
+        return
+    span.set_attribute("url.scheme", parsed.scheme)
+    if host:
+        span.set_attribute("url.host", host)
+
+
 class URLService:
     def __init__(self):
         self.repo = URLRepository()
@@ -21,7 +34,7 @@ class URLService:
     def shorten(self, db: Session, long_url: str | HttpUrl) -> str:
         """Create a short URL and return the code."""
         with tracer.start_as_current_span("url.shorten") as span:
-            span.set_attribute("url.input", str(long_url))
+            _record_url_origin(span, str(long_url))
             long_url_str = str(long_url)
             with track_shorten_latency():
                 code = self.repo.create_with_code(db, long_url_str)
@@ -41,7 +54,9 @@ class URLService:
             if cached:
                 span.set_attribute("cache.hit", True)
                 self._record_click(code)
-                return cached.decode() if isinstance(cached, bytes) else cached
+                destination = cached.decode() if isinstance(cached, bytes) else cached
+                _record_url_origin(span, destination)
+                return destination
 
             # Cache miss - query database
             span.set_attribute("cache.hit", False)
@@ -56,7 +71,7 @@ class URLService:
                 set_cache(code, url.long_url, ttl=self.CACHE_TTL)
 
             self._record_click(code)
-            span.set_attribute("url.output", url.long_url)
+            _record_url_origin(span, url.long_url)
             return url.long_url
 
     def _record_click(self, short_code: str) -> None:

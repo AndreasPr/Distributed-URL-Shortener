@@ -57,3 +57,12 @@ def track_shorten_latency():
 
 def record_analytics_events_processed(count: int) -> None:
     analytics_events_processed_total.inc(count)
+
+
+cache_errors_total = Counter(
+    "cache_errors_total", "Total Redis read connection and timeout errors"
+)
+
+
+def record_cache_error() -> None:
+    cache_errors_total.inc()

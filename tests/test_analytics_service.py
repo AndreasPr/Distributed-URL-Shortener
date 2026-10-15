@@ -9,6 +9,7 @@ def test_get_analytics_uses_repository_results():
     fake_repo.get_click_timestamps.return_value = ["2026-05-11T12:00:00"]
     fake_repo.get_click_count.return_value = 42
     service.repo = fake_repo
+    service.url_repo = MagicMock()
     db = MagicMock()
 
     result = service.get_analytics(db, "abc")

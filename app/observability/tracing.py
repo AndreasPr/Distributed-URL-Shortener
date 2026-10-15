@@ -13,8 +13,26 @@ Exports traces to Jaeger for visualization and analysis.
 import logging
 import os
 from typing import Optional
+from urllib.parse import urlsplit
+
+from opentelemetry.trace import Span
+from requests import PreparedRequest
 
 logger = logging.getLogger(__name__)
+
+
+def _redact_redis_arguments(span: Span, instance, args, kwargs) -> None:
+    # Redis instrumentation otherwise embeds SET values (full URLs).
+    span.set_attribute("db.statement", "[arguments redacted]")
+
+
+def _redact_http_url(span: Span, request: PreparedRequest) -> None:
+    # Requests instrumentation otherwise includes the URL path and query.
+    parsed = urlsplit(request.url or "")
+    span.set_attribute("http.url", "[redacted]")
+    span.set_attribute("url.scheme", parsed.scheme)
+    if parsed.hostname:
+        span.set_attribute("url.host", parsed.hostname)
 
 
 def _safe_imports():
@@ -114,7 +132,7 @@ def init_tracing(service_name: str = "url-shortener") -> Optional[object]:
 
         logger.info("Auto-instrumenting Redis, SQLAlchemy, Requests")
         try:
-            RedisInstrumentor().instrument()
+            RedisInstrumentor().instrument(request_hook=_redact_redis_arguments)
         except Exception:
             logger.exception("Redis auto-instrumentation failed")
         try:
@@ -122,7 +140,7 @@ def init_tracing(service_name: str = "url-shortener") -> Optional[object]:
         except Exception:
             logger.exception("SQLAlchemy auto-instrumentation failed")
         try:
-            RequestsInstrumentor().instrument()
+            RequestsInstrumentor().instrument(request_hook=_redact_http_url)
         except Exception:
             logger.exception("Requests auto-instrumentation failed")
 
