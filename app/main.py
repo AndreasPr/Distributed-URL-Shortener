@@ -1,6 +1,6 @@
+import asyncio
 import logging
 import os
-import asyncio
 
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware

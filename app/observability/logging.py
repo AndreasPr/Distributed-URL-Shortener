@@ -53,7 +53,7 @@ def configure_logging_with_tracing() -> None:
     for handler in root_logger.handlers:
         if handler.formatter:
             # Get existing format
-            fmt = handler.formatter._fmt
+            fmt = handler.formatter._fmt or "%(message)s"
             # Add trace ID if not already present
             if "trace_id" not in fmt:
                 new_fmt = fmt + " [trace_id=%(trace_id)s]"

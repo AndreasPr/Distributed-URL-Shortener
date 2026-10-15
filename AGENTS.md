@@ -11,81 +11,18 @@
 - Keep README claims accurate and distinguish implemented, tested, and planned features.
 - Use conventional commit messages, such as `docs: record project baseline`.
 
-## Setup and run commands
+## Setup and commands
 
-Run from the repository root unless otherwise stated. Use Python 3.11 and a local virtual environment:
+Use CPython 3.11.14 from `.python-version` (also used by Docker and CI). Follow [docs/developer.md](docs/developer.md) to create a clean `.venv` with uv 0.9.9 and install the hashed `requirements-dev.txt` lock. The former Anaconda readline crash is resolved by recreating the environment; do not disable pytest capture or plugins in the gate.
 
-```sh
-python3.11 -m venv .venv
-.venv/bin/python -m pip install -r requirements-dev.txt
-.venv/bin/python -m pip install -r mcp-server/requirements.txt
-cp .env.example .env
-# Replace credential placeholders locally; see docs/DEPLOYMENT.md.
-docker compose up --build -d
-docker compose ps
-```
+- `make up`, `make down`, `make logs`: local Compose stack. Copy `.env.example` only when `.env` is absent and replace placeholders locally; preserve existing volume credentials.
+- `make check`: Black check, isort check, full Flake8, blocking mypy, backend tests with coverage.
+- `make fmt`: apply Black and isort to app/.
+- `make test`, `make lint`, `make typecheck`: individual backend checks.
+- `make frontend-check`: npm ci, noninteractive core-web-vitals ESLint, tsc --noEmit. Use Node 22.13+ (CI uses Node 22).
+- `make mcp-test`: the separate MCP pytest suite.
+- `make lock`: regenerate exact hashed locks after editing readable `.in` files. Keep runtime/MCP versions constrained to the dev resolution; synchronize `.venv` afterward.
+- `.venv/bin/pre-commit run --all-files`: matching local checks plus pinned Gitleaks; never expose unredacted secret findings.
+- `make demo`: prints the step 8.3 seeding placeholder only.
 
-Compose runs the API, migration job, worker, PostgreSQL, Redis, Kafka, ZooKeeper, Prometheus, Grafana, and Jaeger. The frontend is separate:
-
-```sh
-cd frontend
-npm ci
-npm run dev
-```
-
-API: `http://localhost:8000`; frontend: `http://localhost:3000`; Grafana: `http://localhost:3001`; Prometheus: `http://localhost:9090`; Jaeger: `http://localhost:16686`.
-Frontend `NEXT_PUBLIC_API_URL` defaults to `http://localhost:8000`.
-
-For host-based backend development instead of the Compose API/worker, start only dependencies, then use separate terminals for API and worker:
-
-```sh
-docker compose up -d postgres redis kafka zookeeper
-.venv/bin/python scripts/migrate.py
-.venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-.venv/bin/python -m app.workers.analytics_worker
-```
-
-Do not start a second API on an occupied port. Host defaults match Compose's PostgreSQL 5433, Redis 6379, and Kafka 9094 mappings. `DATABASE_URL` overrides `DB_URL`; separate `DB_HOST`/`DB_PASSWORD` variables are not assembled by application settings.
-
-MCP server (repository root, after installing both dependency sets):
-
-```sh
-PYTHONPATH=.:mcp-server .venv/bin/python -m mcp_server.app
-```
-
-It serves streamable HTTP at `http://127.0.0.1:8001/mcp`. Keep Slack posting disabled; tests mock external sources and need no credentials. Do not invoke notification tools without explicit authorization.
-
-Kubernetes is optional: inspect `kubectl config current-context` first; `bash k8s/deploy.sh` applies resources to that context. It requires a working cluster, storage provisioning, images, and metrics support. Do not claim that running the script proves deployment health. See `docs/baseline.md` for known gaps.
-
-## Tests and quality checks
-
-Backend commands, matching CI's checks (the local coverage command keeps generated coverage reports out of the working tree):
-
-```sh
-.venv/bin/python -m pytest --cov=app --cov-report=term-missing -v
-.venv/bin/black --check app/
-.venv/bin/flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
-.venv/bin/isort --check-only app/
-.venv/bin/mypy app/ --ignore-missing-imports
-```
-
-CI additionally uses `--cov-report=xml`. Its mypy check is currently informational, but report errors locally. Flake8 here checks only the selected error classes, not all style rules.
-
-Root pytest discovers only `tests/`. Run MCP separately:
-
-```sh
-cd mcp-server
-../.venv/bin/python -m pytest -v
-```
-
-On the baseline macOS Python 3.11.5 environment, pytest's capture plugin crashes while importing readline. The observed workaround is adding `-p no:capture` to both pytest commands; disclose its use. Do not treat a pre-collection crash as test failures or a passing suite.
-
-Frontend checks (from `frontend/`):
-
-```sh
-npm run lint
-./node_modules/.bin/tsc --noEmit --incremental false
-npm run build
-```
-
-There is no frontend test script. At baseline, `npm run lint` opens an ESLint setup prompt and does not perform linting; report this limitation rather than silently configuring it. TypeScript's `--incremental false` avoids generating build information. Run builds when relevant; never stage generated outputs.
+Run `make check`, `make frontend-check`, and `make mcp-test` before finishing applicable changes and report actual outcomes. Gate scope and known limitations are documented in the developer guide. Tests use SQLite/mocks; do not claim live-service validation from these alone. MCP notification tools still require explicit authorization. Kubernetes is optional and not covered by these gates.

@@ -18,6 +18,10 @@ Note: this repository also includes an MCP server that runs an abuse-flagging wo
 - **Infrastructure:** Docker, Docker Compose, Kubernetes, Prometheus, Grafana
 - **Observability:** OpenTelemetry, Prometheus metrics, structured logging
 
+## Quality checks
+
+Use [the developer guide](docs/developer.md) to install pinned Python and locked dependencies. Run `make check`, `make frontend-check`, and `make mcp-test`; all three are blocking CI checks.
+
 ## 🚀 Deployment
 
 Copy `.env.example` to `.env` and replace credential placeholders before running Compose. See [local credential setup](docs/DEPLOYMENT.md). Kubernetes requires a separately created Secret; the checked-in example contains placeholders only.
@@ -144,14 +148,15 @@ Quick start (local, recommended)
 1. Create & activate virtual environment:
 
 ```bash
-python3.11 -m venv .venv
+uv python install 3.11.14
+uv venv --python 3.11.14 --managed-python .venv
 source .venv/bin/activate
 ```
 
 2. Install Python dependencies:
 
 ```bash
-pip install -r requirements.txt
+uv pip sync --python .venv/bin/python --require-hashes requirements-dev.txt
 ```
 
 3. Start infra (recommended) — run Postgres, Redis, Kafka (and Zookeeper) via Docker Compose:
@@ -940,7 +945,7 @@ docker compose ps
 
 - `NoBrokersAvailable` from `kafka-python`: ensure Kafka/Zookeeper are up and `KAFKA_BOOTSTRAP_SERVERS` is correct.
 
-- Missing packages: activate `.venv` then `pip install -r requirements.txt`.
+- Missing packages: activate `.venv` then `uv pip sync --python .venv/bin/python --require-hashes requirements-dev.txt`.
 
 Developer notes
 ---------------
@@ -987,9 +992,9 @@ Contributions are welcome! Please:
 5. Open a Pull Request
 
 **Before submitting:**
-- Run tests: `pytest`
+- Run backend gate: `make check`
 - Format code: `black app/`
-- Check types: `mypy app/`
+- Check types: `make typecheck`
 - Lint: `flake8 app/`
 
 ### Project Structure for Contributors

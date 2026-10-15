@@ -1,7 +1,10 @@
 import logging
+from types import ModuleType
 
 try:
-    import redis
+    import redis as redis_package
+
+    redis: ModuleType | None = redis_package
 except Exception:  # pragma: no cover - defensive
     redis = None
 

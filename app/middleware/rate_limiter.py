@@ -26,17 +26,17 @@ redis.call('ZREMRANGEBYSCORE', key, '-inf', now_ms - window_ms)
 
 local current_count = redis.call('ZCARD', key)
 if current_count >= limit then
-	local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
-	local retry_after_ms = window_ms
+    local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
+    local retry_after_ms = window_ms
 
-	if oldest[2] then
-		retry_after_ms = window_ms - (now_ms - tonumber(oldest[2]))
-		if retry_after_ms < 0 then
-			retry_after_ms = 0
-		end
-	end
+    if oldest[2] then
+        retry_after_ms = window_ms - (now_ms - tonumber(oldest[2]))
+        if retry_after_ms < 0 then
+            retry_after_ms = 0
+        end
+    end
 
-	return {0, current_count, retry_after_ms}
+    return {0, current_count, retry_after_ms}
 end
 
 redis.call('ZADD', key, now_ms, member)

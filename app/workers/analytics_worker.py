@@ -42,6 +42,8 @@ def main() -> None:
 
     with tracer.start_as_current_span("analytics_worker.run"):
         repository = AnalyticsRepository()
+        if SessionLocal is None:
+            raise RuntimeError("Database not configured")
         db = SessionLocal()
 
         logger.info(
