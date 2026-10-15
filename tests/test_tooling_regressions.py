@@ -20,7 +20,7 @@ def test_typed_models_preserve_column_types_and_nullability():
         },
         Analytics: {
             "id": (Integer, False),
-            "short_code": (String, True),
+            "short_code": (String, False),
             "clicked_at": (TIMESTAMP, True),
         },
     }

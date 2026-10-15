@@ -33,7 +33,7 @@ set -a
 . ./.env
 set +a
 docker compose up -d postgres redis kafka zookeeper
-.venv/bin/python scripts/migrate.py
+.venv/bin/alembic upgrade head
 .venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 # In another terminal with the same environment:
 .venv/bin/python -m app.workers.analytics_worker
@@ -96,3 +96,7 @@ Third-party versions are pinned to locally observed releases, preserving existin
 Jaeger v1 reports end-of-life; migrating to v2 requires a separate tracing change. All newly selected tags were also verified with `docker manifest inspect`. SQLAlchemy is pinned to the running API's `2.0.51` after the first clean rebuild exposed a driver mismatch with the newly resolved release; see ADR 0002.
 
 Version tags improve reproducibility but are not immutable digests or a security-support claim. Local application images retain their development tags; they are not third-party dependencies.
+
+## Versioned database migrations
+
+Run `alembic upgrade head` using the project environment. See the [migration guide](migrations.md) for settings, empty databases, existing-volume adoption, rollback, and PostgreSQL tests. Existing pre-Alembic databases must be verified and stamped at revision 0001 before normal startup. Never blindly stamp head.

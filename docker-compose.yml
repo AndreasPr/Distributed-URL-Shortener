@@ -23,7 +23,7 @@ services:
 
   migrate:
     build: .
-    command: python scripts/migrate.py
+    command: alembic upgrade head
     depends_on:
       postgres:
         condition: service_healthy

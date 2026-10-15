@@ -137,7 +137,7 @@ Repository layout
 	- `kafka/` — `producer.py`, `consumer.py` (kafka-python helpers)
 	- `workers/analytics_worker.py` — background worker
 	- `core/config.py` — environment-backed settings
-- `scripts/migrate.sql` — DB schema
+- `alembic/versions/` — versioned DB schema
 - `docker-compose.yml` — full local stack
    - `Dockerfile` — image for API/worker
 - `requirements.txt`
@@ -165,10 +165,10 @@ uv pip sync --python .venv/bin/python --require-hashes requirements-dev.txt
 docker compose up -d postgres redis kafka zookeeper
 ```
 
-4. Apply DB migration (one-time, if you are running the API locally against the Docker services):
+4. Apply pending migrations before starting the API. Export database settings first; for an existing pre-Alembic database, follow the [adoption instructions](docs/migrations.md).
 
 ```bash
-python scripts/migrate.py
+.venv/bin/alembic upgrade head
 ```
 
 5. Run the API locally (project root):
@@ -803,10 +803,10 @@ Query raw metrics or visualize using the expression browser.
 Database
 --------
 
-Schema is in `scripts/migrate.sql`. Two tables:
+Schema is versioned in `alembic/versions/` (see [migration guide](docs/migrations.md)). Two tables:
 
-- `urls` — `id`, `short_code`, `long_url`, `created_at`
-- `analytics` — `id`, `short_code`, `clicked_at`
+- `urls` — `id`, `short_code`, `long_url`, `created_at`, nullable `expires_at`, `deleted_at`, `created_by`
+- `analytics` — `id`, `short_code`, `clicked_at`, nullable unique `event_id`
 
 Testing & verification
 ----------------------

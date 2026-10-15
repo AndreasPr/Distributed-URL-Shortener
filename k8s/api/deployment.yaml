@@ -53,6 +53,8 @@ spec:
           - until nc -z redis.url-shortener.svc.cluster.local 6379; do sleep 2; done
       containers:
       - name: api
+        # The migration Job owns schema changes; replicas only serve requests.
+        command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
         image: url-shortener:latest
         imagePullPolicy: IfNotPresent
         ports:
