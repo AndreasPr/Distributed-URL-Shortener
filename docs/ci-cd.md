@@ -1,15 +1,16 @@
 # CI/CD guide
 
-This consolidates the former implementation, setup, quick-reference, and CI/CD guides. Workflow files, not historical success claims, define current behavior. All local development uses free tools and requires no cloud credentials. See [developer setup](DEVELOPER.md), [deployment](DEPLOYMENT.md), and [baseline findings](baseline.md).
+This consolidates the former implementation, setup, quick-reference, and CI/CD guides. Workflow files, not historical success claims, define current behavior. All local development uses free tools and requires no cloud credentials. See [developer setup](developer.md), [deployment](DEPLOYMENT.md), and [baseline findings](baseline.md).
 
 ## What runs
 
 | Workflow / job | Trigger | Work performed |
 | --- | --- | --- |
-| [CI / lint-and-test](../.github/workflows/ci.yml) | Push and PR targeting master, main, develop | Python 3.11; PostgreSQL and Redis services; dependency installation; Black, selected Flake8 error checks, isort, informational mypy; pytest with coverage; Codecov upload |
+| [CI / lint-and-test](../.github/workflows/ci.yml) | Push and PR targeting master, main, develop | Python 3.11.14 from .python-version; hashed development lock; make check (full Flake8 and blocking mypy); make mcp-test; Codecov upload |
+| [CI / frontend-check](../.github/workflows/ci.yml) | Same push/PR triggers as backend CI | Node 22; make frontend-check (npm ci, core-web-vitals ESLint, TypeScript) |
 | [CD / build-and-push](../.github/workflows/cd.yml) | Push to master/main, `v*` tags, completed CI on master/main | Build metadata, Docker Buildx, GHCR login, multi-stage backend image build and push, registry cache |
 
-CD publishes images; it does not deploy Kubernetes or verify runtime health. Its direct push trigger is independent of CI, and its `workflow_run` trigger does not check for a successful conclusion. Mypy and Codecov upload failures are nonblocking; there is no enforced coverage minimum. MCP and frontend checks are currently local-only. Branch protection and required reviews are repository settings, not established by these YAML files.
+CD publishes images; it does not deploy Kubernetes or verify runtime health. Its direct push trigger is independent of CI, and its `workflow_run` trigger does not check for a successful conclusion. Mypy, tests, lint, and frontend checks are blocking; Codecov upload remains nonblocking and there is no enforced coverage minimum. Branch protection and required reviews are repository settings, not established by these YAML files.
 
 ## Setup and daily development
 
@@ -22,14 +23,12 @@ CD publishes images; it does not deploy Kubernetes or verify runtime health. Its
 From the repository root:
 
 ```sh
-.venv/bin/python -m pytest --cov=app --cov-report=term-missing -v
-.venv/bin/black --check app/
-.venv/bin/flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
-.venv/bin/isort --check-only app/
-.venv/bin/mypy app/ --ignore-missing-imports
+make check
+make frontend-check
+make mcp-test
 ```
 
-CI adds `--cov-report=xml`; reports remain ignored locally. On the baseline macOS environment, add `-p no:capture` to pytest to avoid the documented readline crash. Run MCP tests from `mcp-server/` using `../.venv/bin/python -m pytest -v`. See AGENTS.md for frontend checks and their current limitations. Optional editor formatting or pre-commit hooks are local tooling, not configured CI requirements.
+The gate uses normal pytest capture with a clean pinned Python build; recreate the environment as described in [developer setup](developer.md) instead of disabling capture. Coverage reports remain ignored locally. Pre-commit hooks provide the same local backend checks and redacted Gitleaks scanning; they do not replace CI.
 
 ## Publishing and versioning
 
@@ -49,7 +48,7 @@ gh run list
 gh run view RUN_ID --log
 ```
 
-- Test/lint failure: reproduce the exact command locally; do not infer success from another job. CI's separate DB variables do not match application's DB_URL configuration; existing unit fixtures use SQLite.
+- Test/lint failure: reproduce the exact command locally; do not infer success from another job. Current suites use SQLite/mocks; live service containers and their unused credential variables are no longer part of this unit-test job.
 - Build failure: inspect dependency installation, Docker context, and image metadata steps. Reproduce with `docker build -t url-shortener:local .`.
 - Registry failure: inspect the login/push step and repository package permissions without printing tokens. Check GitHub Packages for the emitted version after a successful push.
 - Cache behavior: retain the existing build stages and registry cache; compare measured runs instead of claiming fixed build times.

@@ -47,13 +47,15 @@ These defaults are conservative for small/medium traffic. Tune them for your env
 
 ## Local setup
 
+For the shared pinned development environment and tests, prefer [the root developer guide](../docs/developer.md) and `make mcp-test` from the repository root. The requirements lock below includes the backend dependencies imported by the MCP sources.
+
 1. Create a Python virtual environment and install dependencies:
 
 ```bash
 cd mcp-server
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
+python -m pip install --require-hashes -r requirements.txt
 cp .env.example .env
 # fill in DB/Redis/GITHUB_TOKEN/SLACK_WEBHOOK_URL etc. in .env
 ```

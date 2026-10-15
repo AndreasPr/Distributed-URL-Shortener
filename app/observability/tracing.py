@@ -28,6 +28,7 @@ def _safe_imports():
         from opentelemetry.sdk.resources import Resource
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
         return {
             "metrics": metrics,
             "trace": trace,
@@ -52,10 +53,8 @@ def init_tracing(service_name: str = "url-shortener") -> Optional[object]:
         return None
 
     try:
-        metrics = imports["metrics"]
         trace = imports["trace"]
         JaegerExporter = imports["JaegerExporter"]
-        FastAPIInstrumentor = imports["FastAPIInstrumentor"]
         RedisInstrumentor = imports["RedisInstrumentor"]
         RequestsInstrumentor = imports["RequestsInstrumentor"]
         SQLAlchemyInstrumentor = imports["SQLAlchemyInstrumentor"]
@@ -69,12 +68,15 @@ def init_tracing(service_name: str = "url-shortener") -> Optional[object]:
 
         if jaeger_collector:
             logger.info(
-                "Initializing OpenTelemetry tracing (Jaeger collector: %s)", jaeger_collector
+                "Initializing OpenTelemetry tracing (Jaeger collector: %s)",
+                jaeger_collector,
             )
             jaeger_exporter = JaegerExporter(collector_endpoint=jaeger_collector)
         else:
             logger.info(
-                "Initializing OpenTelemetry tracing (Jaeger agent: %s:%s)", jaeger_host, jaeger_port
+                "Initializing OpenTelemetry tracing (Jaeger agent: %s:%s)",
+                jaeger_host,
+                jaeger_port,
             )
             jaeger_exporter = JaegerExporter(
                 agent_host_name=jaeger_host,
@@ -138,6 +140,7 @@ def get_tracer():
     """Get the global tracer instance if available, else return a noop-like object."""
     imports = _safe_imports()
     if not imports:
+
         class _NoopTracer:
             def start_as_current_span(self, *a, **k):
                 class _Ctx:

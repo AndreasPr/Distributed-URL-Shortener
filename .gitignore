@@ -28,3 +28,6 @@ node_modules/
 .next/
 *.tsbuildinfo
 next-env.d.ts
+
+# Backups when replacing a broken local interpreter
+.venv-*/

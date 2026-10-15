@@ -1,0 +1,19 @@
+# Runtime dependencies. Edit this file, then run make lock.
+fastapi==0.136.1
+uvicorn==0.46.0
+sqlalchemy==2.0.51
+psycopg2-binary==2.9.12
+redis==7.4.0
+requests==2.34.2
+pydantic==2.13.4
+kafka-python==2.3.1
+prometheus-client==0.25.0
+prometheus-fastapi-instrumentator==7.1.0
+opentelemetry-api==1.20.0
+opentelemetry-sdk==1.20.0
+opentelemetry-exporter-jaeger-thrift==1.20.0
+opentelemetry-instrumentation==0.41b0
+opentelemetry-instrumentation-fastapi==0.41b0
+opentelemetry-instrumentation-redis==0.41b0
+opentelemetry-instrumentation-sqlalchemy==0.41b0
+opentelemetry-instrumentation-requests==0.41b0

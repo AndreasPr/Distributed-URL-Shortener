@@ -1,6 +1,7 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 import logging
+
+from sqlalchemy import Engine, create_engine
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
 
@@ -8,6 +9,9 @@ logger = logging.getLogger(__name__)
 
 # Create engine lazily and defensively to avoid import-time crashes in hostile
 # environments where DATABASE_URL may be missing or unreachable.
+engine: Engine | None
+SessionLocal: sessionmaker[Session] | None
+
 try:
     engine = create_engine(
         settings.DB_URL,

@@ -37,7 +37,8 @@ class AnalyticsRepository:
     def get_click_timestamps(self, db: Session, short_code: str):
         result = db.execute(
             text(
-                "SELECT clicked_at FROM analytics WHERE short_code = :short_code ORDER BY clicked_at DESC"
+                "SELECT clicked_at FROM analytics "
+                "WHERE short_code = :short_code ORDER BY clicked_at DESC"
             ),
             {"short_code": short_code},
         )

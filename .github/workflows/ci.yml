@@ -6,89 +6,30 @@ on:
   pull_request:
     branches: [master, main, develop]
 
+permissions:
+  contents: read
+
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
-    
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: user
-          POSTGRES_PASSWORD: postgres_password_k8s
-          POSTGRES_DB: url_db
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-      redis:
-        image: redis:7-alpine
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - name: Set up pinned Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install dependencies
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - name: Install locked dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-cov black flake8 isort mypy
-
-      - name: Lint with Black
-        run: |
-          black --check app/
-          echo "✓ Code formatting check passed"
-
-      - name: Lint with Flake8
-        run: |
-          flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
-          echo "✓ Flake8 check passed"
-
-      - name: Import sorting with isort
-        run: |
-          isort --check-only app/
-          echo "✓ Import sorting check passed"
-
-      - name: Type checking with mypy
-        run: |
-          mypy app/ --ignore-missing-imports || true
-          echo "✓ Type checking completed (warnings are informational)"
-
-      - name: Wait for services
-        run: |
-          timeout 30 bash -c 'until pg_isready -h localhost -p 5432; do sleep 1; done'
-          timeout 30 bash -c 'until (echo > /dev/tcp/localhost/6379) >/dev/null 2>&1; do sleep 1; done'
-
-      - name: Run tests with coverage
-        env:
-          DB_USER: user
-          DB_PASSWORD: postgres_password_k8s
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_NAME: url_db
-          REDIS_HOST: localhost
-          REDIS_PORT: 6379
-          REDIS_PASSWORD: ""
-        run: |
-          pytest --cov=app --cov-report=xml --cov-report=term-missing -v
-
+          python -m venv .venv
+          .venv/bin/python -m pip install --require-hashes -r requirements-dev.txt
+      # Tests use in-memory SQLite and mocked external sources; no cloud
+      # credentials or live PostgreSQL/Redis/Kafka services are required.
+      - name: Blocking backend quality gate
+        run: make check
+      - name: MCP tests
+        run: make mcp-test
       - name: Upload coverage reports
         uses: codecov/codecov-action@v3
         with:
@@ -97,6 +38,13 @@ jobs:
           name: codecov-umbrella
           fail_ci_if_error: false
 
-      - name: Test summary
-        if: success()
-        run: echo "All tests and linting passed!"
+  frontend-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: make frontend-check

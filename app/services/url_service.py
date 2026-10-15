@@ -1,6 +1,7 @@
 import logging
 
 from opentelemetry import trace
+from pydantic import HttpUrl
 from sqlalchemy.orm import Session
 
 from app.cache.redis_client import get_cache, set_cache
@@ -17,7 +18,7 @@ class URLService:
         self.repo = URLRepository()
         self.CACHE_TTL = 86400
 
-    def shorten(self, db: Session, long_url: str) -> str:
+    def shorten(self, db: Session, long_url: str | HttpUrl) -> str:
         """Create a short URL and return the code."""
         with tracer.start_as_current_span("url.shorten") as span:
             span.set_attribute("url.input", str(long_url))
@@ -28,7 +29,7 @@ class URLService:
                 span.set_attribute("url.code", code)
                 return code
 
-    def resolve(self, db: Session, code: str) -> str:
+    def resolve(self, db: Session, code: str) -> str | None:
         """Resolve short code to long URL with caching."""
         with tracer.start_as_current_span("url.resolve") as span:
             span.set_attribute("url.code", code)

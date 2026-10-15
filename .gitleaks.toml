@@ -1,0 +1,13 @@
+title = "URL shortener secret scanning"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Only explicit non-secret example/test placeholder values"
+regexTarget = "secret"
+regexes = [
+  '''^replace_with_[a-z_]+$''',
+  '''^REPLACE_WITH_[A-Z_]+$''',
+  '''^placeholder_for_config_test$''',
+]

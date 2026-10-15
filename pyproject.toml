@@ -1,0 +1,16 @@
+[tool.black]
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+python_version = "3.11"
+check_untyped_defs = true
+warn_unused_ignores = true
+
+# These dependencies do not publish usable typing metadata. Restrict missing-import
+# suppression to those libraries; application errors remain blocking.
+[[tool.mypy.overrides]]
+module = ["kafka.*", "opentelemetry.exporter.jaeger.thrift.*", "opentelemetry.instrumentation.*"]
+ignore_missing_imports = true
