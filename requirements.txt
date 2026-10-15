@@ -1,6 +1,7 @@
 fastapi
 uvicorn
-sqlalchemy
+# Preserve the deployed psycopg2 driver behavior for postgresql:// URLs.
+sqlalchemy==2.0.51
 psycopg2-binary
 redis
 requests

@@ -40,13 +40,13 @@ spec:
     spec:
       initContainers:
       - name: wait-postgres
-        image: busybox:latest
+        image: busybox:1.38.0
         command:
           - sh
           - -c
           - until nc -z postgres.url-shortener.svc.cluster.local 5432; do sleep 2; done
       - name: wait-redis
-        image: busybox:latest
+        image: busybox:1.38.0
         command:
           - sh
           - -c
@@ -61,8 +61,8 @@ spec:
         env:
         - name: DB_USER
           valueFrom:
-            configMapKeyRef:
-              name: url-shortener-config
+            secretKeyRef:
+              name: url-shortener-secrets
               key: DB_USER
         - name: DB_PASSWORD
           valueFrom:

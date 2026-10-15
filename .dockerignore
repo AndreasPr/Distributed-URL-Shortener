@@ -1,62 +1,38 @@
-# Git
 .git
-.gitignore
 .github
-
-# Python
-__pycache__
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-.venv
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
+.env*
+**/.env*
+*.db
+**/*.db
+*.sqlite*
+**/*.sqlite*
+dump.rdb
+**/dump.rdb
+.coverage*
+**/.coverage*
 coverage.xml
-*.cover
-.hypothesis/
-.pytest_cache/
-*.egg-info/
-dist/
-build/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# Testing
-.pytest_cache/
-htmlcov/
-.hypothesis/
-
-# Kubernetes
-k8s/
-*.yaml
-*.yml
-
-# Docker
+**/coverage.xml
+htmlcov
+**/htmlcov
+node_modules
+**/node_modules
+frontend/.next
+frontend/tsconfig.tsbuildinfo
+frontend
+tests
+docs
+k8s
+mcp-server
+.venv
+venv
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
+.mypy_cache
+**/.DS_Store
+*.md
+*.log
 Dockerfile*
 docker-compose.yml
 .dockerignore
-
-# Documentation
-README.md
-*.md
-docs/
-
-# Misc
-.env
-.env.local
-*.log
+.gitignore

@@ -30,15 +30,15 @@ spec:
     spec:
       containers:
       - name: postgres
-        image: postgres:16-alpine
+        image: postgres:16.13-alpine
         ports:
         - containerPort: 5432
           name: postgres
         env:
         - name: POSTGRES_USER
           valueFrom:
-            configMapKeyRef:
-              name: url-shortener-config
+            secretKeyRef:
+              name: url-shortener-secrets
               key: DB_USER
         - name: POSTGRES_PASSWORD
           valueFrom:
@@ -66,7 +66,7 @@ spec:
             command:
             - /bin/sh
             - -c
-            - pg_isready -U user -d url_db
+            - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
@@ -76,7 +76,7 @@ spec:
             command:
             - /bin/sh
             - -c
-            - pg_isready -U user -d url_db
+            - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
           initialDelaySeconds: 10
           periodSeconds: 5
           timeoutSeconds: 3

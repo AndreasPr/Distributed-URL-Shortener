@@ -15,7 +15,7 @@ services:
       kafka:
         condition: service_started
     environment:
-      DB_URL: postgresql://user:pass@postgres:5432/url_db
+      DB_URL: "postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:?Set POSTGRES_DB in .env}"
       REDIS_URL: redis://redis:6379/0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JAEGER_AGENT_HOST: jaeger
@@ -28,10 +28,10 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DB_URL: postgresql://user:pass@postgres:5432/url_db
+      DB_URL: "postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:?Set POSTGRES_DB in .env}"
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.15.0
     restart: on-failure
     ports:
       - "9090:9090"
@@ -41,7 +41,7 @@ services:
       - api
 
   jaeger:
-    image: jaegertracing/all-in-one:latest
+    image: jaegertracing/all-in-one:1.76.0
     restart: on-failure
     ports:
       - "6831:6831/udp"  # Jaeger agent compact thrift
@@ -54,12 +54,13 @@ services:
       COLLECTOR_OTLP_ENABLED: "true"
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:13.2.4
     restart: on-failure
     ports:
       - "3001:3000"
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?Set GRAFANA_ADMIN_USER in .env}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}
       GF_INSTALL_PLUGINS: grafana-piechart-panel
     volumes:
       - grafana_data:/var/lib/grafana
@@ -81,22 +82,22 @@ services:
       kafka:
         condition: service_started
     environment:
-      DB_URL: postgresql://user:pass@postgres:5432/url_db
+      DB_URL: "postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:?Set POSTGRES_DB in .env}"
       REDIS_URL: redis://redis:6379/0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       JAEGER_AGENT_HOST: jaeger
       JAEGER_AGENT_PORT: 6831
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.13-alpine
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: pass
-      POSTGRES_DB: url_db
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d url_db"]
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
       interval: 5s
       timeout: 3s
       retries: 5
@@ -104,18 +105,18 @@ services:
       - "5433:5432"
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.9-alpine
     ports:
       - "6379:6379"
 
   zookeeper:
-    image: confluentinc/cp-zookeeper:latest
+    image: confluentinc/cp-zookeeper:7.9.1
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
 
   kafka:
-    image: confluentinc/cp-kafka:latest
+    image: confluentinc/cp-kafka:8.3.0
     depends_on:
       - zookeeper
     ports:

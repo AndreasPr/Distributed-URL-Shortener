@@ -37,9 +37,9 @@ echo "Step 2: Creating ConfigMap..."
 kubectl apply -f k8s/1-configmap.yaml
 sleep 2
 
-# Step 3: Create Secrets
-echo "Step 3: Creating Secrets..."
-kubectl apply -f k8s/2-secrets.yaml
+# Step 3: Require the separately created local Secret
+echo "Step 3: Checking Secret exists..."
+kubectl get secret url-shortener-secrets -n "$NAMESPACE" >/dev/null || { echo "Create the Secret first; see docs/DEPLOYMENT.md"; exit 1; }
 sleep 2
 
 # Step 4: Create PersistentVolumes
@@ -128,7 +128,7 @@ echo "   # API (FastAPI Docs)"
 echo "   kubectl port-forward svc/api 8000:8000 -n $NAMESPACE"
 echo "   # Then visit: http://localhost:8000/docs"
 echo ""
-echo "   # Grafana (admin/admin_password_k8s)"
+echo "   # Grafana (credentials from your local Secret)"
 echo "   kubectl port-forward svc/grafana 3000:3000 -n $NAMESPACE"
 echo "   # Then visit: http://localhost:3000"
 echo ""
