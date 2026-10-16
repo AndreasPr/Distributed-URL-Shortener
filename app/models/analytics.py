@@ -11,7 +11,7 @@ class Analytics(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     short_code: Mapped[str] = mapped_column(
-        String(10),
+        String(32),
         ForeignKey(
             "urls.short_code", name="fk_analytics_short_code", ondelete="CASCADE"
         ),

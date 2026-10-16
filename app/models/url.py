@@ -13,7 +13,7 @@ class URL(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     short_code: Mapped[str | None] = mapped_column(
-        String(10), unique=True, nullable=True
+        String(32), unique=True, nullable=True
     )
     long_url: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime | None] = mapped_column(

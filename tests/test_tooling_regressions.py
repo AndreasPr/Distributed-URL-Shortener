@@ -30,7 +30,7 @@ def test_typed_models_preserve_column_types_and_nullability():
             assert isinstance(column.type, kind)
             assert column.nullable is nullable
     assert URL.__table__.columns.short_code.unique
-    assert URL.__table__.columns.short_code.type.length == 10
+    assert URL.__table__.columns.short_code.type.length == 32
     assert URL.__table__.columns.created_at.server_default is not None
     assert Analytics.__table__.columns.clicked_at.server_default is not None
 
