@@ -7,6 +7,8 @@ import { Input } from './ui/input'
 
 export default function ShortenForm() {
   const [url, setUrl] = useState('')
+  const [alias, setAlias] = useState('')
+  const [expiry, setExpiry] = useState('')
   const [short, setShort] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -17,7 +19,7 @@ export default function ShortenForm() {
     setError(null)
     setShort(null)
     try {
-      const result = await apiClient.shorten(url)
+      const result = await apiClient.shorten(url, alias || undefined, expiry ? new Date(expiry).toISOString() : undefined)
       setShort(result.short_code)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to shorten URL')
@@ -32,6 +34,7 @@ export default function ShortenForm() {
         <label className="block text-sm font-medium text-slate-700 mb-2">Long URL</label>
         <Input
           type="url"
+          maxLength={2048}
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://example.com/very/long/url"
@@ -39,6 +42,15 @@ export default function ShortenForm() {
         />
       </div>
 
+      <div>
+        <label htmlFor="custom-alias" className="block text-sm font-medium mb-2">Custom alias (optional)</label>
+        <Input id="custom-alias" value={alias} onChange={(e) => setAlias(e.target.value)}
+          minLength={3} maxLength={32} pattern={'[A-Za-z0-9_\\-]+'} placeholder="my-link" />
+      </div>
+      <div>
+        <label htmlFor="expires-at" className="block text-sm font-medium mb-2">Expires at (optional, your local time)</label>
+        <Input id="expires-at" type="datetime-local" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
+      </div>
       <div>
         <Button type="submit" disabled={loading}>
           {loading ? 'Shortening…' : 'Shorten'}

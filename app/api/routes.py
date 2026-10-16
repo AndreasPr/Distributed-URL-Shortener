@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Iterator
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
@@ -10,9 +10,10 @@ from app.cache.redis_client import read_cache, redis_client
 from app.db.database import get_db
 from app.models.url import URL
 from app.observability.metrics import record_redirect
+from app.repositories.url_repository import AliasTakenError
 from app.schemas.url_schema import URLCreate, URLResponse
 from app.services.analytics_service import AnalyticsService, URLNotFoundError
-from app.services.url_service import URLService
+from app.services.url_service import LinkExpiredError, URLService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -20,9 +21,25 @@ service = URLService()
 analytics_service = AnalyticsService()
 
 
-@router.post("/shorten", response_model=URLResponse)
+@router.post(
+    "/shorten",
+    response_model=URLResponse,
+    summary="Shorten a public HTTP(S) URL",
+    responses={
+        409: {"description": "Alias already allocated"},
+        422: {"description": "Invalid URL, alias, or expiry"},
+    },
+)
 def create_short_url(req: URLCreate, db: Session = Depends(get_db)):
-    code = service.shorten(db, str(req.long_url))
+    try:
+        if req.custom_alias is None and req.expires_at is None:
+            code = service.shorten(db, str(req.long_url))
+        else:
+            code = service.shorten(
+                db, str(req.long_url), req.custom_alias, req.expires_at
+            )
+    except AliasTakenError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {"short_code": code}
 
 
@@ -37,7 +54,7 @@ def analytics(short_code: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=503, detail="Analytics unavailable") from exc
 
 
-@router.get("/urls")
+@router.get("/urls", summary="List recent links, excluding soft-deleted entries")
 def list_urls(limit: int = 20, db: Session = Depends(get_db)):
     try:
         return service.list_recent_urls(db, limit=limit)
@@ -118,9 +135,33 @@ def redis_health():
         raise HTTPException(status_code=503, detail=f"Redis unavailable: {exc}")
 
 
-@router.get("/{code}")
+@router.delete(
+    "/urls/{code}",
+    status_code=204,
+    summary="Soft-delete a link and evict its cache",
+    responses={404: {"description": "Missing or already deleted"}},
+)
+def delete_url(code: str, db: Session = Depends(get_db)):
+    if not service.delete(db, code):
+        raise HTTPException(status_code=404, detail="Not found")
+    return Response(status_code=204)
+
+
+@router.get(
+    "/{code}",
+    status_code=307,
+    response_class=RedirectResponse,
+    responses={
+        307: {"description": "Redirect to active destination"},
+        404: {"description": "Missing or deleted link"},
+        410: {"description": "Expired link"},
+    },
+)
 def redirect(code: str, db: Session = Depends(get_db)):
-    long_url = service.resolve(db, code)
+    try:
+        long_url = service.resolve(db, code)
+    except LinkExpiredError as exc:
+        raise HTTPException(status_code=410, detail=str(exc)) from exc
 
     if not long_url:
         raise HTTPException(status_code=404, detail="Not found")

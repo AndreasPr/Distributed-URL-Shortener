@@ -22,7 +22,9 @@ def test_url_spans_only_include_origin_and_code(monkeypatch, cached):
     service = module.URLService()
     service.repo = Mock()
     service.repo.create_with_code.return_value = "abc"
-    service.repo.get_by_code.return_value = SimpleNamespace(long_url=destination)
+    service.repo.get_by_code.return_value = SimpleNamespace(
+        deleted_at=None, expires_at=None, long_url=destination
+    )
     try:
         assert service.shorten(Mock(), destination) == "abc"
         assert service.resolve(Mock(), "abc") == destination

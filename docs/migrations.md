@@ -115,3 +115,16 @@ legacy SQL adoption. These tests move into Testcontainers in step 5.1.
 Alembic 1.18.4 is pinned for this step, not claimed to be the newest release.
 References: [release](https://pypi.org/project/alembic/1.18.4/),
 [configuration / injected test connections](https://alembic.sqlalchemy.org/en/latest/api/config.html).
+
+## Step 1.3: 32-character aliases (revision 0003)
+
+The current head is 0003. It widens short_code from VARCHAR(10) to VARCHAR(32)
+in both urls and analytics, preserving their foreign key and indexes. For an
+already Alembic-managed database, run `alembic upgrade head` before deploying
+Step 1.3; do not stamp again. Existing pre-Alembic databases still follow the
+verified 0001 adoption procedure above. The migration can lock both tables.
+
+Downgrading to 0002 refuses if either table contains a code longer than 10
+characters, including soft-deleted links. No automatic truncation or deletion
+is performed. PostgreSQL tests verify 32-character alias creation and analytics
+references after migration, and refusal of an unsafe downgrade.

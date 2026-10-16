@@ -1,4 +1,5 @@
 import logging
+import time
 from types import ModuleType
 from typing import Callable, TypeVar
 
@@ -25,6 +26,9 @@ class _NullRedis:
 
     def set(self, *a, **k):
         return None
+
+    def delete(self, *_a):
+        return 0
 
     def ping(self):
         return False
@@ -79,9 +83,21 @@ def get_cache(key: str):
     return value
 
 
-def set_cache(key: str, value: str, ttl: int = 86400):
+def set_cache(key: str, value: str, ttl: int = 86400, expires_at_ms: int | None = None):
     """Set cache with optional TTL (default: 24 hours)."""
     try:
-        redis_client.set(key, value, ex=ttl)
+        if expires_at_ms is not None:
+            deadline = min(expires_at_ms, int(time.time() * 1000) + ttl * 1000)
+            redis_client.set(key, value, pxat=deadline)
+        else:
+            redis_client.set(key, value, ex=ttl)
     except Exception:
         logger.exception("Failed to set cache")
+
+
+def delete_cache(key: str) -> None:
+    """Best-effort eviction; DB lifecycle checks remain authoritative."""
+    try:
+        redis_client.delete(key)
+    except Exception:
+        logger.exception("Failed to evict cache")

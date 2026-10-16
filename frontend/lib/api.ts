@@ -3,6 +3,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export interface ShortenRequest {
   long_url: string
+  custom_alias?: string
+  expires_at?: string
 }
 
 export interface ShortenResponse {
@@ -39,15 +41,20 @@ class APIClient {
     this.baseUrl = baseUrl
   }
 
-  async shorten(longUrl: string): Promise<ShortenResponse> {
+  async shorten(longUrl: string, customAlias?: string, expiresAt?: string): Promise<ShortenResponse> {
     const response = await fetch(`${this.baseUrl}/shorten`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ long_url: longUrl }),
+      body: JSON.stringify({ long_url: longUrl, custom_alias: customAlias, expires_at: expiresAt }),
     })
 
     if (!response.ok) {
-      throw new Error(`Shorten failed: ${response.statusText}`)
+      const body = await response.json().catch(() => null)
+      const detail = body?.detail
+      const message = typeof detail === 'string' ? detail
+        : Array.isArray(detail) ? detail.map((item: { msg: string }) => item.msg).join('; ')
+        : response.statusText
+      throw new Error(message || 'Failed to shorten URL')
     }
 
     return response.json()

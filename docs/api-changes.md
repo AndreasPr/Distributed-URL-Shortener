@@ -29,3 +29,30 @@ redesigned in this step.
 No rate limiter was registered: the assembled-app assertion is a strict expected
 failure referencing step 2.1. Rate limiting, event delivery, and the abuse
 pipeline are deferred.
+
+# Step 1.3: URL features
+
+- POST /shorten still returns 200 with only `short_code`. Optional `custom_alias`
+  accepts 3–32 ASCII letters/digits/hyphen/underscore; optional `expires_at` accepts
+  a future ISO timestamp with timezone. Duplicate aliases return 409, including
+  aliases belonging to deleted/expired links. Reserved aliases return 422.
+- URL validation now returns 422 for credentials, missing hosts, URLs longer than
+  2048 characters, non-HTTP(S) schemes, localhost/local names, and private,
+  loopback, link-local or other non-public IP literals, including IPv6. Hostnames
+  are lowercased/IDNA-normalized and trailing dots removed. DNS is not resolved.
+- GET /{code}: active remains 307; expired changes from 307 to 410; deleted
+  changes from 307 to 404. Missing remains 404. Deletion takes precedence over
+  expiry. Even cache hits require a healthy primary DB; DB failures can now
+  return 500 where an old cache-only redirect could have returned 307.
+- New DELETE /urls/{code}: 204 (empty body), or 404 for missing/already deleted.
+  It commits deleted_at and attempts Redis eviction. No authentication/ownership
+  protection is added in this step.
+- GET /urls remains 200 with the same item fields; deleted entries are excluded.
+  Expired entries and existing analytics remain available.
+- OpenAPI now correctly documents successful redirects as 307 rather than the
+  previous generated 200 declaration. This documentation correction does not
+  change the successful redirect status itself.
+
+Upgrade to Alembic 0003 before starting the updated application. Alias uniqueness
+is case-sensitive; reserved names are rejected case-insensitively. API and cache
+behavior is tested in [test_url_features.py](../tests/test_url_features.py).
