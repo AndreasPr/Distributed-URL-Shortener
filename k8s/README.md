@@ -367,3 +367,7 @@ kubectl delete namespace url-shortener
 8. **Pod Disruption Budgets**: Ensure availability during cluster upgrades
 9. **Resource Quotas**: Enforce namespace resource limits
 10. **RBAC**: Create service accounts and role bindings with minimal permissions
+
+## Versioned database migrations
+
+Run `alembic upgrade head` using the project environment. See the [migration guide](../docs/migrations.md) for settings, empty databases, existing-volume adoption, rollback, and PostgreSQL tests. Existing pre-Alembic databases must be verified and stamped at revision 0001 before normal startup. Never blindly stamp head.

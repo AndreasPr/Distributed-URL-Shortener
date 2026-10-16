@@ -77,7 +77,7 @@ sleep 5
 echo "Step 8: Running database migrations..."
 kubectl apply -f k8s/4-db-migrate-job.yaml
 echo "   Waiting for migration job to complete..."
-kubectl wait --for=condition=complete job/db-migrate -n $NAMESPACE --timeout=120s 2>/dev/null || echo "Migration job still running"
+kubectl wait --for=condition=complete job/db-migrate -n "$NAMESPACE" --timeout=120s
 sleep 5
 
 # Step 9: Deploy API

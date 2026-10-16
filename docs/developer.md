@@ -122,3 +122,7 @@ CI installs Python from .python-version and the hashed development lock, runs ma
 For local runtime issues, use `docker compose ps -a` and `docker compose logs --tail=100 api worker migrate`. Do not dump resolved Compose configuration or container environments into logs. Use `docker compose config --quiet` for validation. Optional Kubernetes deployment still has baseline issues; this step does not repair them.
 
 See [Step 0.3 verification](tooling-verification.md) for actual command output, interpreter evidence, and remaining limitations; [ADR 0003](adr/0003-reproducible-quality-gate.md) records the decisions.
+
+## Versioned database migrations
+
+Run `alembic upgrade head` using the project environment. See the [migration guide](migrations.md) for settings, empty databases, existing-volume adoption, rollback, and PostgreSQL tests. Existing pre-Alembic databases must be verified and stamped at revision 0001 before normal startup. Never blindly stamp head.

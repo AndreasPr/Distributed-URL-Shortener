@@ -53,4 +53,6 @@ ENV PATH=/root/.local/bin:$PATH
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Standalone default: migrate before starting. Compose overrides this command
+# and uses its dedicated migration service to serialize migrations.
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]

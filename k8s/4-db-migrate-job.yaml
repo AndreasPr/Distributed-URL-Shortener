@@ -27,7 +27,7 @@ spec:
         image: url-shortener:latest
         imagePullPolicy: IfNotPresent
         workingDir: /app
-        command: ["python", "scripts/migrate.py"]
+        command: ["alembic", "upgrade", "head"]
         env:
         - name: DB_USER
           valueFrom:

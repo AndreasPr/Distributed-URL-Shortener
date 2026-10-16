@@ -1,3 +1,5 @@
+-- HISTORICAL REFERENCE ONLY: schema before Alembic revision 0002.
+-- Do not execute for deployment; use alembic upgrade head.
 CREATE TABLE IF NOT EXISTS urls (
     id SERIAL PRIMARY KEY,
     short_code VARCHAR(10) UNIQUE,
