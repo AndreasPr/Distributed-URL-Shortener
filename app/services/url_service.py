@@ -9,6 +9,7 @@ from app.cache.redis_client import get_cache, set_cache
 from app.kafka.producer import publish_click_event
 from app.observability.metrics import track_shorten_latency
 from app.repositories.url_repository import URLRepository
+from app.services.code_generator import CodeGenerator
 
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
@@ -27,8 +28,8 @@ def _record_url_origin(span: trace.Span, url: str) -> None:
 
 
 class URLService:
-    def __init__(self):
-        self.repo = URLRepository()
+    def __init__(self, generator: CodeGenerator | None = None):
+        self.repo = URLRepository(generator)
         self.CACHE_TTL = 86400
 
     def shorten(self, db: Session, long_url: str | HttpUrl) -> str:
