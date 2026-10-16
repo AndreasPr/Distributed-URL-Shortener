@@ -59,7 +59,7 @@ Table of Contents
 Project summary
 ---------------
 
-- Generates compact short codes for long URLs.
+- Generates random seven-character base62 codes; PostgreSQL enforces uniqueness with up to ten allocation attempts. Existing codes remain valid. See [the design decision](docs/adr/0001-short-code-generation.md).
 - Fast redirects using a Redis cache and Kafka-backed batch persistence to PostgreSQL.
 - The analytics worker batches click events before writing them to PostgreSQL.
 - Full-stack web interface with real-time dashboards and analytics visualization.
