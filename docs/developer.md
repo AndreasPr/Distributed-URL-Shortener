@@ -126,3 +126,18 @@ See [Step 0.3 verification](tooling-verification.md) for actual command output, 
 ## Versioned database migrations
 
 Run `alembic upgrade head` using the project environment. See the [migration guide](migrations.md) for settings, empty databases, existing-volume adoption, rollback, and PostgreSQL tests. Existing pre-Alembic databases must be verified and stamped at revision 0001 before normal startup. Never blindly stamp head.
+
+## Cache verification (step 1.4)
+
+`make check` includes the deterministic fake-Redis stampede, breaker, TTL, and
+negative-cache tests. With Docker running, use:
+
+```sh
+RUN_DOCKER_TESTS=1 .venv/bin/python -m pytest -q
+```
+
+This also runs PostgreSQL SELECT-counting and a real Redis outage test. Containers
+use disposable names, loopback ephemeral ports, and no project volumes. The Redis
+test stops only the container it created. No frontend or Kubernetes deployment is
+needed. See [cache strategy](adr/0002-cache-strategy.md) for lifecycle checks on
+positive hits and the bounded stale-404 tradeoff during failed invalidation.

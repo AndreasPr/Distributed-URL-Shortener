@@ -168,7 +168,7 @@ def test_alias_create_conflict_delete_and_list(client, db_session):
     cache.redis_client.delete.side_effect = ConnectionError("offline")
     response = client.delete("/urls/" + alias)
     assert response.status_code == 204 and response.content == b""
-    cache.redis_client.delete.assert_called_with(alias)
+    cache.redis_client.delete.assert_called_with(alias, "url-lock:" + alias)
     assert db_session.query(URL).one().deleted_at is not None
     assert client.get("/" + alias, follow_redirects=False).status_code == 404
     assert client.get("/urls").json() == []
@@ -180,9 +180,12 @@ def test_expired_cache_hit_returns_410(client, db_session):
     expiry = datetime.now(timezone.utc) + timedelta(seconds=120)
     code = create(client, expires_at=expiry.isoformat()).json()["short_code"]
     assert client.get("/" + code, follow_redirects=False).status_code == 307
-    kwargs = cache.redis_client.set.call_args.kwargs
-    assert kwargs["pxat"] <= int(expiry.timestamp() * 1000)
-    assert kwargs["pxat"] > int(datetime.now(timezone.utc).timestamp() * 1000)
+    publication = next(
+        call for call in cache.redis_client.eval.call_args_list if call.args[1] == 2
+    )
+    deadline = publication.args[-1]
+    assert deadline <= int(expiry.timestamp() * 1000)
+    assert deadline > int(datetime.now(timezone.utc).timestamp() * 1000)
     cache.redis_client.get.return_value = "https://example.com/path"
     row = db_session.query(URL).one()
     row.expires_at = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(
@@ -250,8 +253,13 @@ def test_no_redirect_if_expiry_passes_during_click_publication(
 ):
     code = create(client, expires_at="2099-01-01T00:00:00Z").json()["short_code"]
 
+    class AfterExpiry(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2099, 1, 2, tzinfo=timezone.utc)
+
     def expire_during_publish(_):
-        db_session.query(URL).one().expires_at = datetime(2020, 1, 1)
+        monkeypatch.setattr(service_module, "datetime", AfterExpiry)
 
     monkeypatch.setattr(service_module, "publish_click_event", expire_during_publish)
     assert client.get("/" + code, follow_redirects=False).status_code == 410
@@ -266,17 +274,16 @@ def test_cache_not_used_when_database_fails(client, monkeypatch):
     )
     with pytest.raises(RuntimeError, match="database offline"):
         client.get("/abc", follow_redirects=False)
-    cache.redis_client.get.assert_not_called()
+    # A cache read must not bypass the failed database validation.
 
 
-def test_far_expiry_cache_is_capped_at_default_ttl(monkeypatch):
+def test_far_expiry_cache_is_capped_at_jittered_ttl(monkeypatch):
     fake = Mock()
     monkeypatch.setattr(cache, "redis_client", fake)
     monkeypatch.setattr(cache.time, "time", lambda: 1000)
     cache.set_cache("abc", "https://example.com", expires_at_ms=9999999999999)
-    fake.set.assert_called_once_with(
-        "abc", "https://example.com", pxat=(1000 + 86400) * 1000
-    )
+    ttl = fake.set.call_args.kwargs["pxat"] / 1000 - 1000
+    assert 86400 * 0.9 <= ttl <= 86400 * 1.1
 
 
 @pytest.mark.docker
@@ -339,7 +346,7 @@ def test_postgresql_alias_races_and_delete_lock(postgres, monkeypatch):
     )
     with Session(postgres) as session:
         assert URLService().resolve(session, alias) is None
-        service_module.get_cache.assert_not_called()
+        # Cached data was read but could not override the database tombstone.
         assert session.scalar(select(Analytics.short_code)) == alias
     with postgres.begin() as connection:
         cfg.attributes["connection"] = connection
@@ -372,6 +379,11 @@ def test_subsecond_remaining_lifetime_does_not_populate_cache(db_session, monkey
             return datetime(2030, 1, 1, tzinfo=timezone.utc)
 
     monkeypatch.setattr(service_module, "datetime", FrozenDateTime)
+    monkeypatch.setattr(
+        service_module.time,
+        "time",
+        lambda: datetime(2030, 1, 1, tzinfo=timezone.utc).timestamp(),
+    )
     monkeypatch.setattr(service_module, "get_cache", Mock(return_value=None))
     monkeypatch.setattr(service_module, "set_cache", Mock())
     monkeypatch.setattr(service_module, "publish_click_event", Mock())

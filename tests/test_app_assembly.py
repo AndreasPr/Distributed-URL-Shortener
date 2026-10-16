@@ -209,3 +209,116 @@ def test_health_session_is_closed(client, monkeypatch, db_session):
     del main.app.dependency_overrides[routes.get_health_db]
     assert client.get("/health").status_code == 200
     assert closed == [True]
+
+
+def test_stopped_redis_never_makes_redirect_5xx_and_health_reports_breaker(
+    client, monkeypatch
+):
+    from app.cache.circuit_breaker import CircuitBreaker
+    from app.observability.metrics import cache_errors_total, circuit_breaker_state
+
+    clock = [0.0]
+    monkeypatch.setattr(cache, "breaker", CircuitBreaker(clock=lambda: clock[0]))
+    code = client.post("/shorten", json={"long_url": "https://example.com/"}).json()[
+        "short_code"
+    ]
+    fake = cache.redis_client
+    for name in ("get", "set", "delete", "eval", "ping", "dbsize"):
+        getattr(fake, name).reset_mock()
+        getattr(fake, name).side_effect = ConnectionError("Redis stopped")
+    before = cache_errors_total._value.get()
+    for _ in range(10):
+        assert client.get("/" + code, follow_redirects=False).status_code == 307
+        assert client.get("/missing", follow_redirects=False).status_code == 404
+    assert (
+        sum(
+            getattr(fake, name).call_count
+            for name in ("get", "set", "delete", "eval", "ping", "dbsize")
+        )
+        == 3
+    )
+    response = client.get("/health")
+    assert response.status_code == 503
+    assert response.json()["redis"] == "unreachable"
+    assert response.json()["db"] == "reachable"
+    fake.ping.assert_not_called()
+    assert circuit_breaker_state._value.get() == 1
+    assert cache_errors_total._value.get() > before
+    assert "circuit_breaker_state 1.0" in client.get("/metrics").text
+    # The health endpoint itself can perform the one half-open recovery probe.
+    clock[0] = 5
+    fake.ping.side_effect = None
+    fake.ping.return_value = True
+    assert client.get("/health").status_code == 200
+    assert circuit_breaker_state._value.get() == 0
+
+
+@pytest.mark.docker
+def test_actual_stopped_redis_keeps_redirects_available(client, monkeypatch):
+    import os
+    import subprocess
+    import time
+    import uuid
+
+    if os.environ.get("RUN_DOCKER_TESTS") != "1":
+        pytest.skip("Requires Docker: RUN_DOCKER_TESTS=1")
+    name = "url-cache-test-" + uuid.uuid4().hex[:12]
+    subprocess.run(
+        [
+            "docker",
+            "run",
+            "-d",
+            "--rm",
+            "--name",
+            name,
+            "-p",
+            "127.0.0.1::6379",
+            "redis:7.4.9-alpine",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    redis = None
+    try:
+        port = (
+            subprocess.check_output(["docker", "port", name, "6379/tcp"], text=True)
+            .strip()
+            .rsplit(":", 1)[1]
+        )
+        monkeypatch.setattr(cache.settings, "REDIS_URL", f"redis://127.0.0.1:{port}/0")
+        redis = cache._create_client()
+        for _ in range(100):
+            try:
+                if redis.ping():
+                    break
+            except (ConnectionError, TimeoutError):
+                time.sleep(0.02)
+        else:
+            pytest.fail("Test Redis did not start")
+        monkeypatch.setattr(cache, "redis_client", redis)
+        monkeypatch.setattr(routes, "redis_client", redis)
+        code = client.post(
+            "/shorten", json={"long_url": "https://example.com/"}
+        ).json()["short_code"]
+        assert client.get("/" + code, follow_redirects=False).status_code == 307
+        assert '"kind": "url"' in redis.get(code)
+        # Exercise real Lua fencing rather than only the fake's implementation.
+        token, reachable = cache.acquire_lock("fence")
+        assert token and reachable
+        cache.invalidate_cache("fence")
+        cache.set_cache("fence", "stale", lock_token=token)
+        assert redis.get("fence") is None
+        subprocess.run(
+            ["docker", "stop", "-t", "0", name], check=True, capture_output=True
+        )
+        for _ in range(5):
+            assert client.get("/" + code, follow_redirects=False).status_code == 307
+            assert client.get("/missing", follow_redirects=False).status_code == 404
+        response = client.get("/health")
+        assert response.status_code == 503
+        assert response.json()["redis"] == "unreachable"
+        assert cache.breaker.state == 1
+    finally:
+        if redis is not None:
+            redis.close()
+        subprocess.run(["docker", "rm", "-f", name], check=False, capture_output=True)

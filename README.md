@@ -60,7 +60,7 @@ Project summary
 ---------------
 
 - Generates random seven-character base62 codes or optional 3–32 character custom aliases, with optional expiry and soft deletion. PostgreSQL enforces uniqueness; random allocation allows up to ten attempts. Existing codes remain valid. See [the design decision](docs/adr/0001-short-code-generation.md).
-- Redirects validate expiry/deletion in PostgreSQL before using Redis; Kafka-backed analytics are persisted in batches.
+- Redirects coalesce cold loads, revalidate positive cached links in PostgreSQL, and briefly cache unknown codes. Redis failures fall back through a circuit breaker; Kafka-backed analytics are persisted in batches. See [cache strategy](docs/adr/0002-cache-strategy.md).
 - The analytics worker batches click events before writing them to PostgreSQL.
 - Full-stack web interface with real-time dashboards and analytics visualization.
 
