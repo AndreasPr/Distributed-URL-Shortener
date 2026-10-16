@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -65,9 +66,10 @@ def test_resolve_caches_database_value_on_miss(monkeypatch):
     result = service.resolve(db, "abc")
 
     assert result == "https://example.com"
-    set_cache_mock.assert_called_once_with(
-        "abc", "https://example.com", ttl=service.CACHE_TTL
-    )
+    set_cache_mock.assert_called_once()
+    assert json.loads(set_cache_mock.call_args.args[1])["url"] == "https://example.com"
+    assert set_cache_mock.call_args.kwargs["ttl"] == service.CACHE_TTL
+    assert set_cache_mock.call_args.kwargs["lock_token"]
     publish_mock.assert_called_once_with("abc")
     db.commit.assert_not_called()
 
@@ -87,6 +89,7 @@ def test_resolve_returns_none_when_code_missing(monkeypatch):
     result = service.resolve(db, "missing")
 
     assert result is None
-    set_cache_mock.assert_not_called()
+    assert json.loads(set_cache_mock.call_args.args[1])["kind"] == "missing"
+    assert set_cache_mock.call_args.kwargs["ttl"] == 30
     publish_mock.assert_not_called()
     db.commit.assert_not_called()

@@ -56,3 +56,15 @@ pipeline are deferred.
 Upgrade to Alembic 0003 before starting the updated application. Alias uniqueness
 is case-sensitive; reserved names are rejected case-insensitively. API and cache
 behavior is tested in [test_url_features.py](../tests/test_url_features.py).
+
+# Step 1.4: Cache hardening
+
+Response shapes and successful/error status contracts are unchanged. An open
+Redis circuit now reports the existing /health 503 degraded body with Redis
+unreachable, without waiting on another Redis socket operation. Known active
+links still redirect (307), unknown links return 404, and expired links return
+410 when PostgreSQL is healthy and Redis is unavailable. Unknown codes are
+cached for 30 seconds; creations invalidate that entry and its in-flight loader.
+A failed invalidation during a partial Redis outage can briefly leave a stale
+404 on another replica (bounded by the negative TTL). Positive redirects still
+validate deletion/expiry in PostgreSQL. See [ADR](adr/0002-cache-strategy.md).

@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter, Gauge, Histogram
 from prometheus_fastapi_instrumentator import Instrumentator
 
 instrumentator = Instrumentator(excluded_handlers=["/metrics"])
@@ -60,9 +60,24 @@ def record_analytics_events_processed(count: int) -> None:
 
 
 cache_errors_total = Counter(
-    "cache_errors_total", "Total Redis read connection and timeout errors"
+    "cache_errors_total",
+    "Total Redis connectivity errors and circuit-breaker rejections",
 )
 
 
 def record_cache_error() -> None:
     cache_errors_total.inc()
+
+
+cache_fallback_total = Counter(
+    "cache_fallback_total", "Redis unavailable: database fallback loads"
+)
+cache_lock_wait_total = Counter(
+    "cache_lock_wait_total", "Requests waiting for a cache load"
+)
+circuit_breaker_state = Gauge(
+    "circuit_breaker_state", "Redis circuit: 0 closed, 1 open, 2 half-open"
+)
+negative_cache_hits_total = Counter(
+    "negative_cache_hits_total", "Unknown-code cache hits"
+)

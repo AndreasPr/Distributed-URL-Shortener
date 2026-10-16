@@ -60,6 +60,16 @@ class URLRepository:
             .first()
         )
 
+    def get_lifecycle(self, db: Session, code: str):
+        """Read only mutable lifecycle fields, holding the same deletion lock."""
+        row = (
+            db.query(URL.deleted_at, URL.expires_at)
+            .filter(URL.short_code == code)
+            .with_for_update(read=True)
+            .first()
+        )
+        return None if row is None else (row.deleted_at, row.expires_at)
+
     def soft_delete(self, db: Session, code: str) -> bool:
         changed = (
             db.query(URL)

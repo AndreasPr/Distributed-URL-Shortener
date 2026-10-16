@@ -89,3 +89,23 @@ def postgres():
         if engine is not None:
             engine.dispose()
         subprocess.run(["docker", "rm", "-f", name], check=True, capture_output=True)
+
+
+@pytest.fixture(autouse=True)
+def isolated_cache(monkeypatch):
+    # Prevent global breaker/flight state leaking between tests or real Redis I/O.
+    from cache_fakes import FakeRedis
+    import app.cache.redis_client as cache
+    import app.api.routes as routes
+    import app.services.url_service as service
+    from app.cache.circuit_breaker import CircuitBreaker
+    from app.cache.singleflight import SingleFlight
+    from app.observability.metrics import circuit_breaker_state
+
+    fake = FakeRedis()
+    monkeypatch.setattr(cache, 'redis_client', fake)
+    monkeypatch.setattr(routes, 'redis_client', fake)
+    monkeypatch.setattr(cache, 'breaker', CircuitBreaker())
+    monkeypatch.setattr(service, 'loads', SingleFlight())
+    circuit_breaker_state.set(0)
+    return fake
