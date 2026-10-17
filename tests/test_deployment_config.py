@@ -30,7 +30,7 @@ def compose_config(tmp_path):
     env = os.environ.copy()
     env.update({key: "placeholder_for_config_test" for key in REQUIRED})
 
-    def run(overrides=None):
+    def run(overrides=None, profile="kafka"):
         return subprocess.run(
             [
                 "docker",
@@ -39,6 +39,8 @@ def compose_config(tmp_path):
                 str(empty_env),
                 "-f",
                 str(ROOT / "docker-compose.yml"),
+                "--profile",
+                profile,
                 "config",
                 "--format",
                 "json",
@@ -73,3 +75,19 @@ def test_compose_uses_same_database_credentials_for_all_clients(compose_config):
     grafana = services["grafana"]["environment"]
     assert grafana["GF_SECURITY_ADMIN_USER"] == "placeholder_for_config_test"
     assert grafana["GF_SECURITY_ADMIN_PASSWORD"] == "placeholder_for_config_test"
+
+
+@pytest.mark.parametrize("profile", ["kafka", "redis-streams"])
+def test_profile_selects_matching_brokers(compose_config, profile):
+    result = compose_config(profile=profile)
+    assert result.returncode == 0, "Compose configuration failed (output withheld)"
+    services = json.loads(result.stdout)["services"]
+    if profile == "kafka":
+        assert {"api", "worker", "kafka", "zookeeper"} <= services.keys()
+        assert "api-redis" not in services
+        assert services["api"]["environment"]["EVENT_BUS"] == "kafka"
+        assert services["worker"]["environment"]["EVENT_BUS"] == "kafka"
+    else:
+        assert not {"kafka", "zookeeper", "api", "worker"} & services.keys()
+        assert services["api-redis"]["environment"]["EVENT_BUS"] == "redis_streams"
+        assert services["worker-redis"]["environment"]["EVENT_BUS"] == "redis_streams"

@@ -34,7 +34,7 @@ From the repository root:
 ```
 
 Compose's dedicated migrate service runs `alembic upgrade head`; API and worker
-wait for successful completion. `docker compose up --build -d` builds the new
+wait for successful completion. `docker compose --profile kafka up --build -d` builds the new
 image. The standalone Docker image default command upgrades then execs uvicorn,
 and does not start the API if migration fails. Overriding its command bypasses
 that default; run migrations explicitly when starting a worker.
@@ -68,7 +68,7 @@ docker compose build migrate
 docker compose run --rm migrate alembic stamp 0001
 docker compose run --rm migrate alembic upgrade head
 docker compose run --rm migrate alembic check
-docker compose up --build -d
+docker compose --profile kafka up --build -d
 ```
 
 For host execution, use `.venv/bin/alembic stamp 0001`, then `upgrade head` and

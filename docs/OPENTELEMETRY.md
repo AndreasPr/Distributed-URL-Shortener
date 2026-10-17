@@ -102,7 +102,7 @@ pip install -r requirements.txt
 ### 2. Start Services
 
 ```bash
-docker compose up -d
+docker compose --profile kafka up -d
 ```
 
 Services available:
@@ -302,8 +302,8 @@ Identify slow queries.
 ## ✅ Verification Checklist
 
 - [ ] Dependencies installed: `pip install -r requirements.txt`
-- [ ] Jaeger running: `docker compose up jaeger`
-- [ ] API starts without errors: `docker compose up api`
+- [ ] Jaeger running: `docker compose --profile kafka up jaeger`
+- [ ] API starts without errors: `docker compose --profile kafka up api`
 - [ ] Jaeger UI accessible: http://localhost:16686
 - [ ] Created at least one short URL
 - [ ] See traces in Jaeger UI

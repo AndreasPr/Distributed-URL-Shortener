@@ -1,5 +1,6 @@
 services:
-  api:
+  api: &api
+    profiles: [kafka]
     build: .
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     restart: on-failure
@@ -14,7 +15,14 @@ services:
         condition: service_started
       kafka:
         condition: service_started
-    environment:
+    environment: &api_environment
+      EVENT_BUS: kafka
+      EVENT_TOPIC: ${EVENT_TOPIC:-url-events}
+      EVENT_DLQ_TOPIC: ${EVENT_DLQ_TOPIC:-url-events-dlq}
+      EVENT_CONSUMER_GROUP: ${EVENT_CONSUMER_GROUP:-analytics-group}
+      EVENT_BATCH_SIZE: ${EVENT_BATCH_SIZE:-100}
+      EVENT_FLUSH_INTERVAL: ${EVENT_FLUSH_INTERVAL:-5}
+      EVENT_QUEUE_SIZE: ${EVENT_QUEUE_SIZE:-1000}
       DB_URL: "postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:?Set POSTGRES_DB in .env}"
       REDIS_URL: redis://redis:6379/0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
@@ -37,8 +45,6 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    depends_on:
-      - api
 
   jaeger:
     image: jaegertracing/all-in-one:1.76.0
@@ -70,7 +76,9 @@ services:
     depends_on:
       - prometheus
 
-  worker:
+  worker: &worker
+    stop_grace_period: 120s
+    profiles: [kafka]
     build: .
     command: python -m app.workers.analytics_worker
     restart: on-failure
@@ -81,12 +89,33 @@ services:
         condition: service_completed_successfully
       kafka:
         condition: service_started
-    environment:
-      DB_URL: "postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:?Set POSTGRES_DB in .env}"
-      REDIS_URL: redis://redis:6379/0
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JAEGER_AGENT_HOST: jaeger
-      JAEGER_AGENT_PORT: 6831
+    environment: *api_environment
+
+  api-redis:
+    <<: *api
+    profiles: [redis-streams]
+    depends_on: &redis_dependencies
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    environment: &redis_environment
+      <<: *api_environment
+      EVENT_BUS: redis_streams
+    networks:
+      default:
+        aliases: [api]
+
+  worker-redis:
+    <<: *worker
+    profiles: [redis-streams]
+    depends_on: *redis_dependencies
+    environment: *redis_environment
+    networks:
+      default:
+        aliases: [worker]
 
   postgres:
     image: postgres:16.13-alpine
@@ -108,14 +137,19 @@ services:
     image: redis:7.4.9-alpine
     ports:
       - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
 
   zookeeper:
+    profiles: [kafka]
     image: confluentinc/cp-zookeeper:7.9.1
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
 
   kafka:
+    profiles: [kafka]
     image: confluentinc/cp-kafka:8.3.0
     depends_on:
       - zookeeper
@@ -139,4 +173,5 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
   grafana_data:

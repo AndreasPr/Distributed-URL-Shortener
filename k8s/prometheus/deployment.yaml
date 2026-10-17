@@ -13,6 +13,10 @@ data:
         static_configs:
           - targets: ['api.url-shortener.svc.cluster.local:8000']
         metrics_path: '/metrics'
+      - job_name: 'url-shortener-worker'
+        static_configs:
+          - targets: ['worker.url-shortener.svc.cluster.local:8001']
+        metrics_path: '/metrics'
       - job_name: 'kubernetes-apiservers'
         kubernetes_sd_configs:
           - role: endpoints

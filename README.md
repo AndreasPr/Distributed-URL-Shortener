@@ -8,7 +8,7 @@ Local-first distributed URL shortener showcasing an event-driven architecture wi
 - 📈 **Dashboard** — Monitor system health, recent URLs, and activity in real-time
 - ❤️ **Health Status** — Check API, database, and Redis connectivity at a glance
 - ⚡ **Fast Redirects** — Redis-cached lookups for instant URL resolution
-- 🔄 **Analytics Pipeline** — Clicks are published to Kafka and batch-written to PostgreSQL by the worker
+- 🔄 **Analytics Pipeline** — Clicks are queued for Kafka or Redis Streams and persisted idempotently by the worker
 
 Note: this repository also includes an MCP server that runs an abuse-flagging workflow for the URL shortener. See [mcp-server/README.md](mcp-server/README.md) for details on what it does and how to run it locally.
 
@@ -60,7 +60,7 @@ Project summary
 ---------------
 
 - Generates random seven-character base62 codes or optional 3–32 character custom aliases, with optional expiry and soft deletion. PostgreSQL enforces uniqueness; random allocation allows up to ten attempts. Existing codes remain valid. See [the design decision](docs/adr/0001-short-code-generation.md).
-- Redirects coalesce cold loads, revalidate positive cached links in PostgreSQL, and briefly cache unknown codes. Redis failures fall back through a circuit breaker; Kafka-backed analytics are persisted in batches. See [cache strategy](docs/adr/0002-cache-strategy.md).
+- Redirects coalesce cold loads, revalidate positive cached links in PostgreSQL, and briefly cache unknown codes. Redis failures fall back through a circuit breaker; Kafka or Redis Streams analytics are persisted in batch transactions. See [cache strategy](docs/adr/0002-cache-strategy.md).
 - The analytics worker batches click events before writing them to PostgreSQL.
 - Full-stack web interface with real-time dashboards and analytics visualization.
 
@@ -99,7 +99,7 @@ Key Features
 2. **URL Redirection** (`GET /{code}`)
    - Checks Redis cache first for instant lookup
    - Falls back to database if not cached
-   - Publishes the click event to Kafka for batched analytics persistence
+   - Enqueues a versioned click event for background publication and batched analytics persistence
    - Returns 307 temporary redirect
 
 3. **Analytics API** (`GET /analytics/{short_code}`)
@@ -162,7 +162,7 @@ uv pip sync --python .venv/bin/python --require-hashes requirements-dev.txt
 3. Start infra (recommended) — run Postgres, Redis, Kafka (and Zookeeper) via Docker Compose:
 
 ```bash
-docker compose up -d postgres redis kafka zookeeper
+docker compose --profile kafka up -d postgres redis kafka zookeeper
 ```
 
 4. Apply pending migrations before starting the API. Export database settings first; for an existing pre-Alembic database, follow the [adoption instructions](docs/migrations.md).
@@ -271,8 +271,8 @@ Run full stack in Docker
 To run everything in containers (API + worker + infra), just run:
 
 ```bash
-docker compose up --build
-docker compose up -d
+docker compose --profile kafka up --build
+docker compose --profile kafka up -d
 ```
 
 The compose file now runs the database migration automatically before the API and worker start, so you do not need a separate migration step for the Docker flow.
@@ -498,7 +498,7 @@ curl -i http://localhost:8000/abc123
 **What happens:**
 1. Checks Redis cache (instant hit for hot URLs)
 2. Falls back to PostgreSQL on cache miss
-3. Publishes click event to Kafka `url-events` topic
+3. Enqueues a click event for background publication to the configured event bus
 4. Returns 307 redirect to original URL
 
 #### Get Recent URLs
@@ -698,7 +698,7 @@ API Reference
 	- Body: `{ \"long_url\": \"https://...\" }`
 	- Response: `{ \"short_code\": \"abc\" }`
 - GET `/{short_code}`
-	- 307 Temporary Redirect to the original URL (also publishes a Kafka event)
+	- 307 Temporary Redirect to the original URL (also enqueues a best-effort click event)
 - GET `/analytics/{short_code}`
 	- Returns `{ short_code, total_clicks, timestamps }`
 - GET `/health/redis`
@@ -707,19 +707,20 @@ API Reference
 Batch Analytics Writes
 ----------------------
 
-The analytics worker no longer writes one database row per Kafka event. Instead, it buffers click events and flushes them in batches for better throughput and lower database overhead.
+The analytics worker buffers up to 100 events or five seconds (configurable),
+then commits a transaction containing idempotent inserts keyed by event UUID.
+A timed poll flushes idle batches; SIGTERM flushes remaining work. Acknowledgements
+follow database commit or confirmed dead-letter publication. Poison events get
+three attempts; database outages retain unacknowledged work for recovery.
 
-**How it works:**
-- Kafka events are accumulated in memory by the worker.
-- When the buffer reaches **100 events**, the worker performs a single batch insert.
-- A timeout flush ensures smaller bursts are still persisted promptly.
-- Any remaining buffered events are flushed before shutdown.
+Redirects only enqueue to a bounded background publisher. Saturation and broker
+failures drop analytics and increment `events_dropped_total`, without delaying
+redirects. This is best-effort telemetry, not guaranteed delivery.
 
-**Why it matters:**
-- Fewer database round-trips
-- Lower commit overhead
-- Better throughput under traffic spikes
-- More realistic production-style ingestion pattern
+Use `docker compose --profile kafka up --build` for Kafka, or
+`docker compose --profile redis-streams up --build` for the smaller Redis Streams
+mode. Start one profile at a time. See the [event bus ADR](docs/adr/0003-event-bus.md)
+and [runbook](docs/developer.md#analytics-event-bus-step-15) for replay and limits.
 
 Observability
 -------------
@@ -759,7 +760,7 @@ Grafana visualizes the observability stack with pre-built dashboards.
 
 **Access Grafana:**
 
-When running `docker compose up`, Grafana is automatically available at:
+When running `docker compose --profile kafka up`, Grafana is automatically available at:
 
 ```
 http://localhost:3001

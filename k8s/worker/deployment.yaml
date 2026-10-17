@@ -15,6 +15,7 @@ spec:
       labels:
         app: worker
     spec:
+      terminationGracePeriodSeconds: 120
       initContainers:
       - name: wait-postgres
         image: busybox:1.38.0
@@ -27,6 +28,9 @@ spec:
         image: url-shortener:latest
         imagePullPolicy: IfNotPresent
         command: ["python", "-m", "app.workers.analytics_worker"]
+        ports:
+        - name: metrics
+          containerPort: 8001
         env:
         - name: DB_USER
           valueFrom:
@@ -55,6 +59,41 @@ spec:
               key: DB_NAME
         - name: DB_URL
           value: "postgresql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)"
+        - name: EVENT_BUS
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_BUS
+        - name: EVENT_TOPIC
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_TOPIC
+        - name: EVENT_DLQ_TOPIC
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_DLQ_TOPIC
+        - name: EVENT_CONSUMER_GROUP
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_CONSUMER_GROUP
+        - name: EVENT_BATCH_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_BATCH_SIZE
+        - name: EVENT_FLUSH_INTERVAL
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_FLUSH_INTERVAL
+        - name: EVENT_QUEUE_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_QUEUE_SIZE
         - name: KAFKA_BOOTSTRAP_SERVERS
           valueFrom:
             configMapKeyRef:
@@ -70,3 +109,17 @@ spec:
             memory: "512Mi"
             cpu: "500m"
       restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker
+  namespace: url-shortener
+spec:
+  selector:
+    app: worker
+  ports:
+  - name: metrics
+    port: 8001
+    targetPort: metrics

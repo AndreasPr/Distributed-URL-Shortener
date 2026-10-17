@@ -7,6 +7,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
 from app.core.config import settings
+from app.events.publisher import publisher
 from app.observability.logging import configure_logging_with_tracing
 from app.observability.metrics import configure_metrics
 from app.observability.tracing import init_tracing
@@ -49,8 +50,15 @@ async def _on_startup():
     except Exception:
         logging.getLogger().exception("configure_logging_with_tracing failed")
 
+    publisher.start()
+
     # Delay briefly to allow dependent services to become reachable in hostile envs
     await asyncio.sleep(0)
 
 
 app.include_router(router)
+
+
+@app.on_event("shutdown")
+async def _on_shutdown():
+    await asyncio.to_thread(publisher.close)

@@ -8,6 +8,33 @@ class Settings:
     )
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9094")
+    EVENT_BUS = os.getenv("EVENT_BUS", "kafka")
+    EVENT_TOPIC = os.getenv("EVENT_TOPIC", "url-events")
+    EVENT_DLQ_TOPIC = os.getenv("EVENT_DLQ_TOPIC", "url-events-dlq")
+    EVENT_CONSUMER_GROUP = os.getenv("EVENT_CONSUMER_GROUP", "analytics-group")
+    EVENT_BATCH_SIZE = int(os.getenv("EVENT_BATCH_SIZE", "100"))
+    EVENT_FLUSH_INTERVAL = float(os.getenv("EVENT_FLUSH_INTERVAL", "5"))
+    EVENT_QUEUE_SIZE = int(os.getenv("EVENT_QUEUE_SIZE", "1000"))
+    EVENT_RETRY_BACKOFF = float(os.getenv("EVENT_RETRY_BACKOFF", "0.25"))
+    EVENT_CLAIM_IDLE_MS = int(os.getenv("EVENT_CLAIM_IDLE_MS", "60000"))
+    EVENT_METRICS_PORT = int(os.getenv("EVENT_METRICS_PORT", "8001"))
+    if EVENT_BUS not in {"kafka", "redis_streams", "memory"}:
+        raise ValueError("EVENT_BUS must be kafka, redis_streams or memory")
+    if (
+        min(
+            EVENT_BATCH_SIZE,
+            EVENT_FLUSH_INTERVAL,
+            EVENT_QUEUE_SIZE,
+            EVENT_RETRY_BACKOFF,
+            EVENT_CLAIM_IDLE_MS,
+        )
+        <= 0
+    ):
+        raise ValueError(
+            "Event queue, batch, timer and retry settings must be positive"
+        )
+    if EVENT_TOPIC == EVENT_DLQ_TOPIC:
+        raise ValueError("Event and dead-letter topics must differ")
     CORS_ORIGINS = [
         origin.strip()
         for origin in os.getenv(

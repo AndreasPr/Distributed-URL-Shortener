@@ -1,10 +1,29 @@
+from datetime import timezone
 from typing import List
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.events.models import ClickEvent
+
 
 class AnalyticsRepository:
+    def create_event(self, db: Session, event: ClickEvent) -> None:
+        db.execute(
+            text(
+                "INSERT INTO analytics (short_code, event_id, clicked_at) "
+                "VALUES (:code, :event_id, :occurred_at) "
+                "ON CONFLICT (event_id) WHERE event_id IS NOT NULL DO NOTHING"
+            ),
+            {
+                "code": event.short_code,
+                "event_id": str(event.event_id),
+                "occurred_at": event.occurred_at.astimezone(timezone.utc).replace(
+                    tzinfo=None
+                ),
+            },
+        )
+
     def create_click(self, db: Session, short_code: str) -> None:
         db.execute(
             text("INSERT INTO analytics (short_code) VALUES (:short_code)"),
