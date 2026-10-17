@@ -81,3 +81,18 @@ circuit_breaker_state = Gauge(
 negative_cache_hits_total = Counter(
     "negative_cache_hits_total", "Unknown-code cache hits"
 )
+
+
+events_consumed_total = Counter("events_consumed_total", "Delivered analytics messages")
+events_failed_total = Counter(
+    "events_failed_total", "Failed analytics processing attempts"
+)
+dlq_events_total = Counter("dlq_events_total", "Confirmed dead-letter publications")
+events_dropped_total = Counter(
+    "events_dropped_total", "Click events dropped before broker acceptance"
+)
+consumer_lag = Gauge(
+    "consumer_lag",
+    "Broker backlog (stream length includes acknowledged records)",
+    ["backend", "kind"],
+)

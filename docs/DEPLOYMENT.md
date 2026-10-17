@@ -5,16 +5,19 @@ Run commands from the repository root. Only free local tools are required. See [
 ## Docker Compose
 
 ```sh
-cp .env.example .env
+# Only copy if .env does not already exist:
+cp -n .env.example .env
 # Edit .env locally: replace every credential placeholder.
-docker compose config --quiet
-docker compose up --build -d
+docker compose --profile kafka config --quiet
+docker compose --profile kafka up --build -d
 docker compose ps
 ```
 
 Compose reads `.env` automatically. Set `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `GRAFANA_ADMIN_USER`, and `GRAFANA_ADMIN_PASSWORD`; missing/empty values fail configuration. Use URL-safe database credentials (random hex works) because Compose constructs its internal DB_URL. The example contains placeholders only. Do not paste resolved `docker compose config` output: it contains credentials; use `--quiet` or redirect output to a private temporary file.
 
-The stack includes API, migration job, worker, PostgreSQL, Redis, Kafka (KRaft), the retained ZooKeeper service, Prometheus, Grafana, and Jaeger. Start the Next.js frontend separately with `cd frontend`, `npm ci`, `npm run dev`.
+For the lightweight mode use `docker compose --profile redis-streams up --build -d` instead; API/worker service names are `api-redis` and `worker-redis`. Kafka and ZooKeeper are excluded. Stop the selected profile before switching, without removing volumes. See [event-bus operations](developer.md#analytics-event-bus-step-15).
+
+The Kafka stack includes API, migration job, worker, PostgreSQL, Redis, Kafka (KRaft), the retained ZooKeeper service, Prometheus, Grafana, and Jaeger. Start the Next.js frontend separately with `cd frontend`, `npm ci`, `npm run dev`.
 
 - API: http://localhost:8000
 - Frontend: http://localhost:3000
@@ -32,7 +35,7 @@ Set the host-only `DB_URL` in `.env` to match the selected PostgreSQL credential
 set -a
 . ./.env
 set +a
-docker compose up -d postgres redis kafka zookeeper
+docker compose --profile kafka up -d postgres redis kafka zookeeper
 .venv/bin/alembic upgrade head
 .venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 # In another terminal with the same environment:
@@ -77,7 +80,7 @@ curl --fail http://localhost:8000/health/redis
 curl --fail http://localhost:9090/-/ready
 ```
 
-Inspect the health JSON, not just HTTP 200: `/health` can report degraded status with a successful HTTP status. A startup smoke test alone does not verify Kafka delivery or the full UI. The worker's five-second batch timeout is message-driven, as documented in the baseline.
+`/health` returns 503 when PostgreSQL or Redis is unavailable (including an open cache breaker). Broker delivery is best-effort and tracked by event metrics, not dependency health. Worker batches now flush on a timed poll even without new arrivals. A startup smoke test alone does not verify end-to-end delivery.
 
 Third-party versions are pinned to locally observed releases, preserving existing behavior rather than upgrading:
 

@@ -16,7 +16,13 @@ data:
   
   # Kafka
   KAFKA_BOOTSTRAP_SERVERS: kafka.url-shortener.svc.cluster.local:9092
-  KAFKA_TOPIC: url-events
+  EVENT_BUS: kafka
+  EVENT_TOPIC: url-events
+  EVENT_DLQ_TOPIC: url-events-dlq
+  EVENT_CONSUMER_GROUP: analytics-group
+  EVENT_BATCH_SIZE: "100"
+  EVENT_FLUSH_INTERVAL: "5"
+  EVENT_QUEUE_SIZE: "1000"
   
   # API
   API_HOST: 0.0.0.0

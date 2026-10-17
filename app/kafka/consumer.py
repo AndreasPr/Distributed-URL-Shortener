@@ -1,24 +1,16 @@
-import json
-import logging
-
 from kafka import KafkaConsumer
 
 from app.core.config import settings
 
-logger = logging.getLogger(__name__)
 
-TOPIC = "url-events"
-
-
-def create_consumer():
-    try:
-        return KafkaConsumer(
-            TOPIC,
-            bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
-            auto_offset_reset="earliest",
-            group_id="analytics-group",
-            value_deserializer=lambda value: json.loads(value.decode("utf-8")),
-        )
-    except Exception as exc:
-        logger.warning("Kafka consumer unavailable: %s", exc)
-        return None
+def create_consumer(topic: str, group: str):
+    # Keep raw bytes so malformed JSON is handled by the worker's DLQ path.
+    return KafkaConsumer(
+        topic,
+        bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
+        auto_offset_reset="earliest",
+        group_id=group,
+        enable_auto_commit=False,
+        api_version_auto_timeout_ms=1000,
+        max_poll_records=settings.EVENT_BATCH_SIZE,
+    )

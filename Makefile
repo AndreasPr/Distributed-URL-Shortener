@@ -1,3 +1,5 @@
+PROFILE ?= kafka
+
 PYTHON := $(CURDIR)/.venv/bin/python
 UV := $(CURDIR)/.venv/bin/uv
 PYTHON_VERSION := $(shell cat .python-version)
@@ -5,13 +7,13 @@ PYTHON_VERSION := $(shell cat .python-version)
 .PHONY: up down logs test lint typecheck check fmt frontend-check mcp-test demo lock
 
 up:
-	docker compose up --build -d
+	docker compose --profile $(PROFILE) up --build -d
 
 down:
-	docker compose down
+	docker compose --profile $(PROFILE) down
 
 logs:
-	docker compose logs --follow --tail=100
+	docker compose --profile $(PROFILE) logs --follow --tail=100
 
 # Normal pytest capture is enabled. Recreate .venv with the pinned interpreter
 # instead of using the broken Anaconda readline build documented in developer.md.

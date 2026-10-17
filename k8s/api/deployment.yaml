@@ -100,6 +100,41 @@ spec:
               key: REDIS_PORT
         - name: REDIS_URL
           value: "redis://$(REDIS_HOST):$(REDIS_PORT)"
+        - name: EVENT_BUS
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_BUS
+        - name: EVENT_TOPIC
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_TOPIC
+        - name: EVENT_DLQ_TOPIC
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_DLQ_TOPIC
+        - name: EVENT_CONSUMER_GROUP
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_CONSUMER_GROUP
+        - name: EVENT_BATCH_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_BATCH_SIZE
+        - name: EVENT_FLUSH_INTERVAL
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_FLUSH_INTERVAL
+        - name: EVENT_QUEUE_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_QUEUE_SIZE
         - name: KAFKA_BOOTSTRAP_SERVERS
           valueFrom:
             configMapKeyRef:

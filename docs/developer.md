@@ -50,7 +50,7 @@ Normal pytest now collects and runs both suites successfully. **There is no capt
 
 | Target | Behavior |
 | --- | --- |
-| `make up` | `docker compose up --build -d`; configure ignored `.env` first |
+| `make up` | `docker compose --profile kafka up --build -d`; configure ignored `.env` first |
 | `make down` | Stops Compose without deleting volumes |
 | `make logs` | Follows Compose logs, starting with the last 100 lines |
 | `make test` | Normal pytest discovery under tests/, statement coverage and ignored coverage.xml |
@@ -141,3 +141,88 @@ use disposable names, loopback ephemeral ports, and no project volumes. The Redi
 test stops only the container it created. No frontend or Kubernetes deployment is
 needed. See [cache strategy](adr/0002-cache-strategy.md) for lifecycle checks on
 positive hits and the bounded stale-404 tradeoff during failed invalidation.
+
+
+## Analytics event bus (step 1.5)
+
+Use exactly one Compose profile; `.env` supplies credentials as before:
+
+```sh
+# Full mode (also the default for make up):
+docker compose --profile kafka up --build -d
+# Stop before switching; preserve volumes:
+docker compose --profile kafka down
+# Lightweight mode, no Kafka or ZooKeeper:
+docker compose --profile redis-streams up --build -d
+# Equivalent: make up PROFILE=redis-streams
+```
+
+Kafka mode uses service names `api` / `worker`; lightweight mode uses `api-redis` /
+`worker-redis`. Both expose the API on 8000 and keep the `api`/`worker` network
+aliases for metrics. Plain Compose up starts common infrastructure only. Rebuild
+images when changing code. Do not start both profiles together (port conflict).
+
+For host execution export `EVENT_BUS=kafka` or `EVENT_BUS=redis_streams` and matching
+`KAFKA_BOOTSTRAP_SERVERS` or `REDIS_URL`. Run Uvicorn and
+`python -m app.workers.analytics_worker` in separate terminals as before.
+`EVENT_BUS=memory` is only for tests: separate processes cannot share it.
+
+Settings (also listed in `.env.example`): `EVENT_TOPIC`, `EVENT_DLQ_TOPIC`,
+`EVENT_CONSUMER_GROUP`, `EVENT_BATCH_SIZE` (100), `EVENT_FLUSH_INTERVAL` (5 seconds),
+`EVENT_QUEUE_SIZE` (1000), `EVENT_RETRY_BACKOFF` (0.25 seconds),
+`EVENT_CLAIM_IDLE_MS` (60000), `EVENT_METRICS_PORT` (8001).
+Compose explicitly selects the adapter and passes topic/group/batch/flush/queue
+settings; adjust deployment environment for the other advanced settings.
+Kubernetes uses Kafka with the same ConfigMap keys wired into both deployments.
+Do not reuse the analytics group for another independent application.
+
+Inspect or replay dead letters (use `api-redis` instead of `api` in lightweight mode):
+
+```sh
+docker compose --profile kafka exec api python -m app.cli dlq list --limit 20
+docker compose --profile kafka exec api python -m app.cli dlq replay --limit 20
+# Host equivalent with the correct exported environment:
+.venv/bin/python -m app.cli dlq list --limit 20
+```
+
+List prints envelope metadata/error class, not raw payload. Replay republishes valid
+original events with their original UUID, then acknowledges the DLQ delivery.
+It is safe against duplicate click inserts, but deliberately stops on malformed
+or unknown-version payloads; those need a deliberate schema repair/upgrade first.
+Commands wait up to five seconds of idle polling for group assignment/new records.
+Redis pending replay work is reclaimable after `EVENT_CLAIM_IDLE_MS`; Kafka resumes
+at committed offsets. Replay does not erase stored DLQ history.
+
+Worker metrics are exposed on port 8001 (internal Compose/Kubernetes service) and
+scraped by Prometheus: `events_consumed_total`, `events_failed_total`,
+`dlq_events_total`, and `consumer_lag{backend,kind}`. API `/metrics` exposes
+`events_dropped_total`. Redis `stream_length` includes acknowledged records;
+`pending` is unacknowledged delivered work, not unread entries. Kafka lag measures
+end offsets minus committed offsets. Existing `analytics_events_processed_total`
+counts successfully processed valid deliveries, including deduplicated deliveries.
+
+The API queue is bounded and not durable. Broker failures/full queues lose analytics
+without breaking redirects. Process termination can lose queued/in-flight events.
+Accepted broker events are processed at least once; the database UUID index makes
+click effects idempotent. A database outage leaves work unacknowledged, even during
+shutdown. Three poison attempts can recur after a crash. DLQ publications may be
+duplicated if acknowledgement fails. Old unversioned Kafka events go to the DLQ.
+
+Redis Streams shares resources with the redirect cache. Compose now persists Redis
+with AOF and a volume, but this is not replicated/zero-loss storage. Streams and DLQ
+history are not auto-trimmed: monitor memory and trim only safely processed history.
+Do not evict stream keys or delete pending entries. See [ADR 0003](adr/0003-event-bus.md)
+for throughput, partitioning and retention tradeoffs.
+
+Validation:
+
+```sh
+make check
+make mcp-test
+RUN_DOCKER_TESTS=1 .venv/bin/python -m pytest -q
+```
+
+Event tests cover duplicates, ack order, idle/shutdown flush, poison JSON/version,
+DLQ failure/replay, full queues, slow brokers, and Redis pending recovery. Docker
+cases create disposable PostgreSQL, Redis and Kafka containers; they do not stop the user's
+services. See [the actual verification record](event-bus-verification.md).
