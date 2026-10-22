@@ -37,6 +37,7 @@ fmt:
 frontend-check:
 	cd frontend && npm ci --no-audit --no-fund
 	cd frontend && npm run lint -- --max-warnings=0
+	cd frontend && npm test
 	cd frontend && ./node_modules/.bin/tsc --noEmit --incremental false
 
 mcp-test:

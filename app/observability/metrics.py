@@ -1,7 +1,10 @@
 from contextlib import contextmanager
 
+from fastapi import HTTPException
 from prometheus_client import Counter, Gauge, Histogram
 from prometheus_fastapi_instrumentator import Instrumentator
+
+from app.core.config import settings
 
 instrumentator = Instrumentator(excluded_handlers=["/metrics"])
 
@@ -32,9 +35,15 @@ analytics_events_processed_total = Counter(
 
 
 def configure_metrics(app) -> None:
-    instrumentator.instrument(app).expose(
-        app, endpoint="/metrics", include_in_schema=False
-    )
+    instrumentator.instrument(app)
+    if settings.METRICS_PORT:
+
+        @app.get("/metrics", include_in_schema=False)
+        def internal_metrics_only():
+            raise HTTPException(404, "Not found")
+
+    else:
+        instrumentator.expose(app, endpoint="/metrics", include_in_schema=False)
 
 
 def record_redirect() -> None:

@@ -3,11 +3,13 @@ import logging
 import os
 
 from fastapi import FastAPI
+from prometheus_client import start_http_server
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
 from app.core.config import settings
 from app.events.publisher import publisher
+from app.middleware.rate_limiter import rate_limit_middleware
 from app.observability.logging import configure_logging_with_tracing
 from app.observability.metrics import configure_metrics
 from app.observability.tracing import init_tracing
@@ -17,6 +19,8 @@ logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logging.getLogger().info("APP MODULE LOADED - PORT=%s", os.getenv("PORT", "not-set"))
 
 app = FastAPI(title="URL Shortener")
+
+app.middleware("http")(rate_limit_middleware)
 
 # Add CORS middleware FIRST (so it executes FIRST in middleware stack)
 app.add_middleware(
@@ -50,6 +54,10 @@ async def _on_startup():
     except Exception:
         logging.getLogger().exception("configure_logging_with_tracing failed")
 
+    if settings.METRICS_PORT:
+        app.state.metrics_server, app.state.metrics_thread = start_http_server(
+            settings.METRICS_PORT
+        )
     publisher.start()
 
     # Delay briefly to allow dependent services to become reachable in hostile envs
@@ -62,3 +70,7 @@ app.include_router(router)
 @app.on_event("shutdown")
 async def _on_shutdown():
     await asyncio.to_thread(publisher.close)
+    if hasattr(app.state, "metrics_server"):
+        await asyncio.to_thread(app.state.metrics_server.shutdown)
+        app.state.metrics_server.server_close()
+        await asyncio.to_thread(app.state.metrics_thread.join)

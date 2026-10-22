@@ -37,7 +37,7 @@ set -a
 set +a
 docker compose --profile kafka up -d postgres redis kafka zookeeper
 .venv/bin/alembic upgrade head
-.venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+.venv/bin/uvicorn app.main:app --no-proxy-headers --reload --host 0.0.0.0 --port 8000
 # In another terminal with the same environment:
 .venv/bin/python -m app.workers.analytics_worker
 ```

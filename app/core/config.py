@@ -1,3 +1,5 @@
+import ipaddress
+import math
 import os
 
 
@@ -35,6 +37,26 @@ class Settings:
         )
     if EVENT_TOPIC == EVENT_DLQ_TOPIC:
         raise ValueError("Event and dead-letter topics must differ")
+    WRITE_RATE_CAPACITY = int(os.getenv("WRITE_RATE_CAPACITY", "20"))
+    WRITE_RATE_REFILL = float(os.getenv("WRITE_RATE_REFILL", "1"))
+    REDIRECT_RATE_CAPACITY = int(os.getenv("REDIRECT_RATE_CAPACITY", "120"))
+    REDIRECT_RATE_REFILL = float(os.getenv("REDIRECT_RATE_REFILL", "10"))
+    TRUSTED_PROXIES = [
+        value.strip()
+        for value in os.getenv("TRUSTED_PROXIES", "").split(",")
+        if value.strip()
+    ]
+    METRICS_PORT = int(os.getenv("METRICS_PORT", "0"))
+    for network in TRUSTED_PROXIES:
+        ipaddress.ip_network(network, strict=False)
+    for rate in (
+        WRITE_RATE_CAPACITY,
+        WRITE_RATE_REFILL,
+        REDIRECT_RATE_CAPACITY,
+        REDIRECT_RATE_REFILL,
+    ):
+        if not math.isfinite(rate) or rate <= 0:
+            raise ValueError("Rate capacities/refill rates must be finite and positive")
     CORS_ORIGINS = [
         origin.strip()
         for origin in os.getenv(

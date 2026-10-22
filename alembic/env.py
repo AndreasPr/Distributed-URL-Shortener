@@ -5,11 +5,13 @@ from sqlalchemy import create_engine, pool
 from alembic import context
 from app.core.config import settings
 from app.models.analytics import Analytics
+from app.models.api_key import APIKey
 from app.models.url import Base
 
 # Import both models to populate the shared metadata.
 target_metadata = Base.metadata
 assert Analytics.__table__.metadata is target_metadata
+assert APIKey.__table__.metadata is target_metadata
 
 
 def migrate(connection):

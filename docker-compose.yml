@@ -2,7 +2,7 @@ services:
   api: &api
     profiles: [kafka]
     build: .
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    command: uvicorn app.main:app --no-proxy-headers --host 0.0.0.0 --port 8000
     restart: on-failure
     ports:
       - "8000:8000"
@@ -16,6 +16,11 @@ services:
       kafka:
         condition: service_started
     environment: &api_environment
+      WRITE_RATE_CAPACITY: ${WRITE_RATE_CAPACITY:-20}
+      WRITE_RATE_REFILL: ${WRITE_RATE_REFILL:-1}
+      REDIRECT_RATE_CAPACITY: ${REDIRECT_RATE_CAPACITY:-120}
+      REDIRECT_RATE_REFILL: ${REDIRECT_RATE_REFILL:-10}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       EVENT_BUS: kafka
       EVENT_TOPIC: ${EVENT_TOPIC:-url-events}
       EVENT_DLQ_TOPIC: ${EVENT_DLQ_TOPIC:-url-events-dlq}

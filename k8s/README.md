@@ -162,13 +162,13 @@ kubectl port-forward svc/prometheus 9090:9090 -n url-shortener
 
 Add to `/etc/hosts`:
 ```
-127.0.0.1 api.local grafana.local prometheus.local
+127.0.0.1 api.local grafana.local
 ```
 
 Then visit:
 - http://api.local
 - http://grafana.local (${GRAFANA_ADMIN_USER}/${GRAFANA_ADMIN_PASSWORD})
-- http://prometheus.local
+- Prometheus: internal only; use `kubectl port-forward svc/prometheus 9090:9090 -n url-shortener`
 
 **Note**: Ingress requires an ingress controller. Docker Desktop includes nginx-ingress by default.
 
@@ -371,3 +371,7 @@ kubectl delete namespace url-shortener
 ## Versioned database migrations
 
 Run `alembic upgrade head` using the project environment. See the [migration guide](../docs/migrations.md) for settings, empty databases, existing-volume adoption, rollback, and PostgreSQL tests. Existing pre-Alembic databases must be verified and stamped at revision 0001 before normal startup. Never blindly stamp head.
+
+API keys and internal metrics: see [security.md](../docs/security.md). API metrics
+use port 8002, restricted to Prometheus pods by NetworkPolicy; a policy-enforcing
+CNI is required. Public API port /metrics returns 404.

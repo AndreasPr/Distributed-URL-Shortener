@@ -38,7 +38,17 @@ The guide covers:
 Table of Contents
 -----------------
 - Deployment
-- Project summary
+- API authentication (step 2.1)
+-----------------------------
+
+Create a scoped API key with `python -m app.cli keys create --name browser --scopes read write`
+inside the API container (after migrations). Paste it into the frontend key field
+or Swagger Authorize dialog. Shortening, deletion, URL listing and analytics now
+require `X-API-Key`; redirects and health remain public. Keys are stored as hashes,
+with metadata/revocation available to admins. See [security setup](docs/security.md).
+For the curl examples below, set `$API_KEY` privately to your key.
+
+Project summary
 - Key Features
 - Architecture
 - Repository layout
@@ -174,7 +184,7 @@ docker compose --profile kafka up -d postgres redis kafka zookeeper
 5. Run the API locally (project root):
 
 ```bash
-.venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+.venv/bin/uvicorn app.main:app --no-proxy-headers --reload --host 0.0.0.0 --port 8000
 ```
 
 6. Run the analytics worker in another terminal:
@@ -199,7 +209,7 @@ The project includes a full-featured Next.js frontend at `127.0.0.1:3000`.
 1. **Ensure backend is running:**
 
 ```bash
-.venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+.venv/bin/uvicorn app.main:app --no-proxy-headers --reload --host 0.0.0.0 --port 8000
 ```
 
 2. **In a new terminal, start the frontend:**
@@ -342,8 +352,8 @@ kubectl port-forward svc/prometheus 9090:9090 -n url-shortener
 ```
 
 Or use **Ingress** (production-like):
-1. Add to `/etc/hosts`: `127.0.0.1 api.local grafana.local prometheus.local`
-2. Visit: http://api.local, http://grafana.local, http://prometheus.local
+1. Add to `/etc/hosts`: `127.0.0.1 api.local grafana.local`
+2. Visit: http://api.local and http://grafana.local (Prometheus is internal; use port-forward)
 
 ### Cloud-Native Features Demonstrated
 
@@ -478,7 +488,7 @@ Response (201 Created):
 }
 
 # Usage
-curl -X POST http://localhost:8000/shorten \
+curl -H "X-API-Key: $API_KEY" -X POST http://localhost:8000/shorten \
   -H "Content-Type: application/json" \
   -d '{"long_url":"https://example.com"}'
 ```
@@ -517,7 +527,7 @@ Response (200 OK):
 ]
 
 # Example
-curl http://localhost:8000/urls?limit=10
+curl -H "X-API-Key: $API_KEY" "http://localhost:8000/urls?limit=10"
 ```
 
 #### Get Analytics for a URL
@@ -542,7 +552,7 @@ Response (404 Not Found):
 }
 
 # Example
-curl http://localhost:8000/analytics/abc123 | jq .
+curl -H "X-API-Key: $API_KEY" http://localhost:8000/analytics/abc123 | jq .
 ```
 
 **Frontend Note:** The analytics page groups these timestamps by day and renders interactive charts.
@@ -586,23 +596,12 @@ curl http://localhost:8000/health/redis | jq .
 
 ### Rate Limiting
 
-The API enforces per-IP rate limiting on write endpoints:
-
-- **POST /shorten**: 20 requests per minute per IP
-- **Other endpoints**: No rate limit (reads)
-
-Rate limit exceeded:
-
-```bash
-HTTP/1.1 429 Too Many Requests
-Retry-After: 60
-
-{
-  "detail": "Rate limit exceeded. Try again in 60 seconds."
-}
-```
-
-**Note:** In the frontend, localhost API calls share the same IP; in production with a reverse proxy, ensure `X-Forwarded-For` or `X-Real-IP` headers are passed correctly.
+The registered Redis token bucket allows a write burst of 20 requests per API key
+and route template, refilling at one token/second. Public redirects share a looser
+IP bucket across all codes (120 tokens, 10/second). Exhaustion returns 429 with
+Retry-After and RateLimit-Limit/Remaining/Reset headers. Redis outages return 503
+for writes and fail open for redirects. Forwarded IPs require TRUSTED_PROXIES and
+project launchers use --no-proxy-headers. See [security details](docs/security.md).
 
 GitHub Actions CI/CD
 -------------------
@@ -825,7 +824,7 @@ The pytest suite covers:
 - Analytics repository batch inserts and query helpers
 - URL service shorten / resolve paths with cache and publish behavior
 - Analytics service aggregation logic
-- Sliding-window rate limiting middleware
+- Registered token-bucket rate limiting
 - API route handlers and Redis health check
 
 Load Testing with k6
@@ -853,7 +852,7 @@ BASE_URL=http://localhost:8000 DURATION=60s VUS=20 k6 run scripts/load_test.js
 ```
 
 **Key improvements in this test:**
-- **IP spoofing**: Each VU spoofs a different IP (192.168.1.100 - 192.168.1.109) via `X-Forwarded-For` header, so each gets its own rate limit bucket
+- **Legacy scripts**: these k6 scripts need API-key headers and updated token-bucket expectations before reuse. Spoofing X-Forwarded-For no longer creates independent buckets.
 - **Rate-limit awareness**: Treats HTTP 429 (rate limited) as expected behavior, not a failure
 - **Read vs write split**: Most requests are reads (redirects, analytics) which scale well; writes are rate-limited by design
 - **Realistic success criteria**: p95 latency < 100ms (redirects with cache), error rate < 10%
@@ -879,7 +878,7 @@ This discovers:
 
 Expected observations:
 - Redirects (cached, read-heavy): should handle 100+ VUs smoothly
-- Shorten (write-heavy, rate-limited): will hit 20 req/min/IP limit at ~300 VUs
+- Shorten writes now use per-key token buckets; historical load figures predate step 2.1 and must be remeasured with authenticated clients.
 - Analytics (aggregation): may show latency growth as load increases
 
 **Spike test** (sudden 10x traffic increase):
@@ -899,7 +898,7 @@ Tests recovery and graceful degradation under sudden spikes.
 
 What the load tests reveal:
 - **Redirects scale linearly** with concurrent users (cached, read-only, high throughput)
-- **Shorten endpoint hits rate limit** (intentional: 20 req/min/IP protects the database from write overload)
+- **Shorten endpoint hits rate limit** (intentional: the configured per-key token bucket protects writes)
 - **Analytics reads scale well** even under stress (distributed aggregation queries)
 - **Redis becomes a bottleneck** only if connection pool is exhausted (configure `max_connections` if needed)
 
@@ -915,7 +914,7 @@ End-to-end test:
 
 1. Create a short URL
 ```bash
-curl -s -X POST http://localhost:8000/shorten \\
+curl -s -H "X-API-Key: $API_KEY" -X POST http://localhost:8000/shorten \\
 	-H "Content-Type: application/json" \\
 	-d '{"long_url":"https://example.com"}'
 ```
@@ -925,7 +924,7 @@ curl -i http://localhost:8000/<short_code>
 ```
 3. Check analytics
 ```bash
-curl http://localhost:8000/analytics/<short_code> | jq .
+curl -H "X-API-Key: $API_KEY" http://localhost:8000/analytics/<short_code> | jq .
 ```
 
 Troubleshooting
@@ -934,7 +933,7 @@ Troubleshooting
 - `ModuleNotFoundError: No module named 'app'` — run `uvicorn` from project root:
 
 ```bash
-.venv/bin/uvicorn app.main:app --reload
+.venv/bin/uvicorn app.main:app --no-proxy-headers --reload
 ```
 
 - Port conflicts (8000, 5432, 6379, 9094):

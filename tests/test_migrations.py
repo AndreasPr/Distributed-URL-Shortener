@@ -42,7 +42,7 @@ def test_migrations_on_empty_sqlite():
             assert_matches_models(connection)
             assert (
                 connection.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0003"
+                == "0004"
             )
     finally:
         engine.dispose()

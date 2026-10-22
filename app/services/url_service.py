@@ -89,13 +89,14 @@ class URLService:
         long_url: str | HttpUrl,
         custom_alias: str | None = None,
         expires_at: datetime | None = None,
+        created_by: str | None = None,
     ) -> str:
         """Create a short URL and return the code."""
         with tracer.start_as_current_span("url.shorten") as span:
             _record_url_origin(span, str(long_url))
             long_url_str = str(long_url)
             with track_shorten_latency():
-                if custom_alias is None and expires_at is None:
+                if custom_alias is None and expires_at is None and created_by is None:
                     code = self.repo.create_with_code(db, long_url_str)
                 else:
                     expiry = (
@@ -104,7 +105,7 @@ class URLService:
                         else None
                     )
                     code = self.repo.create_with_code(
-                        db, long_url_str, custom_alias, expiry
+                        db, long_url_str, custom_alias, expiry, created_by=created_by
                     )
                 db.commit()
                 loads.invalidate(code)

@@ -15,6 +15,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+import app.models.api_key
 import app.models.analytics  # register Analytics model on shared Base
 from app.models.url import Base
 
@@ -109,3 +110,9 @@ def isolated_cache(monkeypatch):
     monkeypatch.setattr(service, 'loads', SingleFlight())
     circuit_breaker_state.set(0)
     return fake
+
+
+@pytest.fixture
+def auth_key(db_session):
+    from app.services.api_keys import create_key
+    return create_key(db_session, "test client", ["read", "write"])
