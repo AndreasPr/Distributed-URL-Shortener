@@ -1,6 +1,7 @@
 """Thread-safe Redis model with NX/PX/PXAT and the two cache Lua operations."""
 
 import time
+import math
 from collections import Counter
 from threading import RLock
 
@@ -14,6 +15,8 @@ class FakeRedis:
         self.calls = Counter()
         self.lock = RLock()
         self.down = False
+        self.buckets = {}
+        self.clock = time.time
 
     def check(self, name):
         self.calls[name] += 1
@@ -53,6 +56,19 @@ class FakeRedis:
     def eval(self, script, numkeys, *args):
         with self.lock:
             self.check("eval")
+            if "HMGET" in script:
+                key, capacity, refill = args
+                now = self.clock()
+                tokens, updated = self.buckets.get(key, (capacity, now))
+                now = max(now, updated)
+                tokens = min(capacity, tokens + (now - updated) * refill)
+                allowed = tokens >= 1
+                if allowed:
+                    tokens -= 1
+                self.buckets[key] = (tokens, now)
+                return [int(allowed), math.floor(tokens),
+                        0 if allowed else math.ceil((1 - tokens) / refill),
+                        math.ceil((capacity - tokens) / refill)]
             if numkeys == 2:
                 key, lock_key, token, value, deadline = args
                 if self.get(lock_key) != token:

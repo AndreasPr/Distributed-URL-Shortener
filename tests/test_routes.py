@@ -13,10 +13,10 @@ def test_create_short_url_returns_service_code(monkeypatch):
     db = MagicMock()
     req = URLCreate(long_url="https://example.com")
 
-    result = routes.create_short_url(req, db)
+    result = routes.create_short_url(req, key=SimpleNamespace(id=123), db=db)
 
     assert result == {"short_code": "abc"}
-    routes.service.shorten.assert_called_once_with(db, str(req.long_url))
+    routes.service.shorten.assert_called_once_with(db, str(req.long_url), None, None, created_by="123")
 
 
 def test_redirect_returns_redirect_response(monkeypatch):
@@ -46,7 +46,7 @@ def test_analytics_route_uses_service(monkeypatch):
     monkeypatch.setattr(routes.analytics_service, "get_analytics", MagicMock(return_value=payload))
     db = MagicMock()
 
-    result = routes.analytics("abc", db)
+    result = routes.analytics("abc", db=db)
 
     assert result == payload
     routes.analytics_service.get_analytics.assert_called_once_with(db, "abc")

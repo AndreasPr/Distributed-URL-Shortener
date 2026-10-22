@@ -91,3 +91,37 @@ def test_profile_selects_matching_brokers(compose_config, profile):
         assert not {"kafka", "zookeeper", "api", "worker"} & services.keys()
         assert services["api-redis"]["environment"]["EVENT_BUS"] == "redis_streams"
         assert services["worker-redis"]["environment"]["EVENT_BUS"] == "redis_streams"
+
+
+def test_kubernetes_metrics_use_internal_port_and_network_policy():
+    import yaml
+
+    documents = list(yaml.safe_load_all((ROOT / "k8s/api/deployment.yaml").read_text()))
+    deployment = next(item for item in documents if item["kind"] == "Deployment")
+    container = deployment["spec"]["template"]["spec"]["containers"][0]
+    assert "--no-proxy-headers" in container["command"]
+    assert {v["name"]: v.get("value") for v in container["env"]}[
+        "METRICS_PORT"
+    ] == "8002"
+    service = next(
+        item
+        for item in documents
+        if item["kind"] == "Service" and item["metadata"]["name"] == "api"
+    )
+    assert service["spec"]["type"] == "ClusterIP"
+    assert [port["targetPort"] for port in service["spec"]["ports"]] == [8000]
+    policy = next(item for item in documents if item["kind"] == "NetworkPolicy")
+    rules = policy["spec"]["ingress"]
+    assert rules[0] == {"ports": [{"protocol": "TCP", "port": 8000}]}
+    assert rules[1] == {
+        "from": [{"podSelector": {"matchLabels": {"app": "prometheus"}}}],
+        "ports": [{"protocol": "TCP", "port": 8002}],
+    }
+    ingress = yaml.safe_load((ROOT / "k8s/5-ingress.yaml").read_text())
+    backends = [
+        path["backend"]["service"]["name"]
+        for rule in ingress["spec"]["rules"]
+        for path in rule["http"]["paths"]
+    ]
+    assert "api-metrics" not in backends
+    assert "prometheus" not in backends

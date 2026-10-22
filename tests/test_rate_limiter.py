@@ -1,102 +1,77 @@
-import asyncio
-import json
+"""Token-bucket contract with a fake Redis; real Lua coverage is step 5.1."""
 
-from fastapi import FastAPI
-from fastapi.responses import PlainTextResponse
+from concurrent.futures import ThreadPoolExecutor
+
+import pytest
 from starlette.requests import Request
 
-import app.middleware.rate_limiter as rate_limiter_module
-from app.middleware.rate_limiter import rate_limit_middleware
+from app.core.config import settings
+from app.middleware.rate_limiter import check_bucket, client_ip
 
 
-def make_request(path="/shorten", client_host="127.0.0.1", headers=None):
-    header_items = []
-    for key, value in (headers or {}).items():
-        header_items.append((key.lower().encode(), value.encode()))
-
-    scope = {
-        "type": "http",
-        "http_version": "1.1",
-        "method": "GET",
-        "path": path,
-        "raw_path": path.encode(),
-        "query_string": b"",
-        "headers": header_items,
-        "client": (client_host, 12345),
-        "server": ("testserver", 80),
-        "scheme": "http",
+def test_bucket_burst_refill_and_identity_isolation(isolated_cache):
+    clock = [100.0]
+    isolated_cache.clock = lambda: clock[0]
+    for remaining in (2, 1, 0):
+        result = check_bucket("/shorten", "key:1", 3, 0.5)
+        assert result.allowed and result.remaining == remaining
+    denied = check_bucket("/shorten", "key:1", 3, 0.5)
+    assert not denied.allowed
+    assert denied.headers() == {
+        "RateLimit-Limit": "3",
+        "RateLimit-Remaining": "0",
+        "RateLimit-Reset": "6",
+        "Retry-After": "2",
     }
-    return Request(scope)
+    assert check_bucket("/shorten", "key:2", 3, 0.5).allowed
+    clock[0] += 1
+    assert not check_bucket("/shorten", "key:1", 3, 0.5).allowed
+    clock[0] += 1
+    assert check_bucket("/shorten", "key:1", 3, 0.5).allowed
+    clock[0] += 1000
+    assert check_bucket("/shorten", "key:1", 3, 0.5).remaining == 2
 
 
-def test_rate_limiter_allows_request_and_sets_headers(monkeypatch):
-    request = make_request(headers={"x-forwarded-for": "10.0.0.5, 10.0.0.6"})
-    captured = {}
-
-    def fake_check(key, limit):
-        captured["key"] = key
-        captured["limit"] = limit
-        return True, 7, 0
-
-    monkeypatch.setattr(rate_limiter_module, "_check_sliding_window", fake_check)
-
-    async def call_next(_request):
-        return PlainTextResponse("ok")
-
-    response = asyncio.run(rate_limit_middleware(request, call_next))
-
-    assert response.status_code == 200
-    assert response.body.decode() == "ok"
-    assert captured["key"] == "rate_limit:sw:/shorten:10.0.0.5"
-    assert captured["limit"] == 20
-    assert response.headers["X-RateLimit-Limit"] == "20"
-    assert response.headers["X-RateLimit-Remaining"] == "13"
+def test_bucket_concurrent_burst(isolated_cache):
+    isolated_cache.clock = lambda: 100.0
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        results = list(
+            pool.map(lambda _: check_bucket("/{code}", "ip:127.0.0.1", 5, 1), range(30))
+        )
+    assert sum(result.allowed for result in results) == 5
 
 
-def test_rate_limiter_rejects_request_when_limit_exceeded(monkeypatch):
-    request = make_request(path="/health/redis", client_host="192.168.1.9")
-    monkeypatch.setattr(rate_limiter_module, "_check_sliding_window", lambda key, limit: (False, limit, 45_000))
-
-    async def call_next(_request):
-        return PlainTextResponse("should not be used")
-
-    response = asyncio.run(rate_limit_middleware(request, call_next))
-
-    assert response.status_code == 429
-    assert response.headers["Retry-After"] == "45"
-    assert response.headers["X-RateLimit-Limit"] == "100"
-    assert response.headers["X-RateLimit-Remaining"] == "0"
-    assert json.loads(response.body)["error"] == "Rate limit exceeded"
+def test_bucket_error_and_clock_regression(isolated_cache):
+    isolated_cache.clock = lambda: 100.0
+    assert check_bucket("/shorten", "key:1", 1, 1).allowed
+    isolated_cache.clock = lambda: 99.0
+    assert not check_bucket("/shorten", "key:1", 1, 1).allowed
+    isolated_cache.down = True
+    with pytest.raises(ConnectionError):
+        check_bucket("/shorten", "key:1", 1, 1)
 
 
-def test_rate_limiter_fails_open_when_redis_unavailable(monkeypatch):
-    request = make_request()
-    monkeypatch.setattr(rate_limiter_module, "_check_sliding_window", lambda key, limit: (_ for _ in ()).throw(RuntimeError("redis down")))
-
-    async def call_next(_request):
-        return PlainTextResponse("ok")
-
-    response = asyncio.run(rate_limit_middleware(request, call_next))
-
-    assert response.status_code == 200
-    assert response.body.decode() == "ok"
-
-
-def test_rate_limiter_bypasses_metrics_endpoint(monkeypatch):
-    request = make_request(path="/metrics")
-    called = {"value": False}
-
-    def fake_check(*_args, **_kwargs):
-        called["value"] = True
-        return True, 0, 0
-
-    monkeypatch.setattr(rate_limiter_module, "_check_sliding_window", fake_check)
-
-    async def call_next(_request):
-        return PlainTextResponse("metrics")
-
-    response = asyncio.run(rate_limit_middleware(request, call_next))
-
-    assert response.status_code == 200
-    assert response.body.decode() == "metrics"
-    assert called["value"] is False
+@pytest.mark.parametrize(
+    "peer,forwarded,trusted,expected",
+    [
+        ("198.51.100.5", "1.2.3.4", [], "198.51.100.5"),
+        ("198.51.100.5", "1.2.3.4", ["10.0.0.0/8"], "198.51.100.5"),
+        ("10.0.0.1", "198.51.100.5", ["10.0.0.0/8"], "198.51.100.5"),
+        ("10.0.0.1", "1.2.3.4, 198.51.100.5", ["10.0.0.0/8"], "198.51.100.5"),
+        ("10.0.0.1", "198.51.100.5, 10.0.0.2", ["10.0.0.0/8"], "198.51.100.5"),
+        ("::1", "2001:db8::1", ["::1/128"], "2001:db8::1"),
+        ("10.0.0.1", "garbage", ["10.0.0.0/8"], "10.0.0.1"),
+    ],
+)
+def test_forwarded_headers_only_from_trusted_peers(
+    monkeypatch, peer, forwarded, trusted, expected
+):
+    monkeypatch.setattr(settings, "TRUSTED_PROXIES", trusted)
+    request = Request(
+        {
+            "type": "http",
+            "client": (peer, 1234),
+            "headers": [(b"x-forwarded-for", forwarded.encode())],
+        }
+    )
+    assert client_ip(request) == expected

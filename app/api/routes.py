@@ -6,13 +6,16 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
+from app.api.auth import require_admin, require_read, require_write
 from app.cache.redis_client import read_cache, redis_client
 from app.db.database import get_db
+from app.models.api_key import APIKey
 from app.models.url import URL
 from app.observability.metrics import record_redirect
 from app.repositories.url_repository import AliasTakenError
 from app.schemas.url_schema import URLCreate, URLResponse
 from app.services.analytics_service import AnalyticsService, URLNotFoundError
+from app.services.api_keys import list_keys, revoke_key
 from app.services.url_service import LinkExpiredError, URLService
 
 logger = logging.getLogger(__name__)
@@ -30,21 +33,26 @@ analytics_service = AnalyticsService()
         422: {"description": "Invalid URL, alias, or expiry"},
     },
 )
-def create_short_url(req: URLCreate, db: Session = Depends(get_db)):
+def create_short_url(
+    req: URLCreate, key: APIKey = Depends(require_write), db: Session = Depends(get_db)
+):
     try:
-        if req.custom_alias is None and req.expires_at is None:
-            code = service.shorten(db, str(req.long_url))
-        else:
-            code = service.shorten(
-                db, str(req.long_url), req.custom_alias, req.expires_at
-            )
+        code = service.shorten(
+            db,
+            str(req.long_url),
+            req.custom_alias,
+            req.expires_at,
+            created_by=str(key.id),
+        )
     except AliasTakenError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {"short_code": code}
 
 
 @router.get("/analytics/{short_code}")
-def analytics(short_code: str, db: Session = Depends(get_db)):
+def analytics(
+    short_code: str, key: APIKey = Depends(require_read), db: Session = Depends(get_db)
+):
     try:
         return analytics_service.get_analytics(db, short_code)
     except URLNotFoundError as exc:
@@ -55,7 +63,9 @@ def analytics(short_code: str, db: Session = Depends(get_db)):
 
 
 @router.get("/urls", summary="List recent links, excluding soft-deleted entries")
-def list_urls(limit: int = 20, db: Session = Depends(get_db)):
+def list_urls(
+    limit: int = 20, key: APIKey = Depends(require_read), db: Session = Depends(get_db)
+):
     try:
         return service.list_recent_urls(db, limit=limit)
     except Exception as exc:
@@ -141,9 +151,25 @@ def redis_health():
     summary="Soft-delete a link and evict its cache",
     responses={404: {"description": "Missing or already deleted"}},
 )
-def delete_url(code: str, db: Session = Depends(get_db)):
+def delete_url(
+    code: str, key: APIKey = Depends(require_write), db: Session = Depends(get_db)
+):
     if not service.delete(db, code):
         raise HTTPException(status_code=404, detail="Not found")
+    return Response(status_code=204)
+
+
+@router.get("/admin/keys", summary="List key metadata (never key hashes)")
+def admin_keys(key: APIKey = Depends(require_admin), db: Session = Depends(get_db)):
+    return list_keys(db)
+
+
+@router.delete("/admin/keys/{key_id}", status_code=204)
+def admin_revoke(
+    key_id: int, key: APIKey = Depends(require_admin), db: Session = Depends(get_db)
+):
+    if not revoke_key(db, key_id):
+        raise HTTPException(404, "Key not found")
     return Response(status_code=204)
 
 

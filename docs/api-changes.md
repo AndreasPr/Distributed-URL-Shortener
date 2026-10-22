@@ -68,3 +68,25 @@ cached for 30 seconds; creations invalidate that entry and its in-flight loader.
 A failed invalidation during a partial Redis outage can briefly leave a stale
 404 on another replica (bounded by the negative TTL). Positive redirects still
 validate deletion/expiry in PostgreSQL. See [ADR](adr/0002-cache-strategy.md).
+
+
+# Step 2.1: API-key authorization and token buckets
+
+- POST /shorten, DELETE /urls/{code}, GET /urls and GET /analytics/{short_code}
+  now return 401 for missing/invalid/revoked keys, or 403 for insufficient scope.
+  Admin includes read/write; write alone does not include read.
+- GET /admin/keys requires admin and returns metadata only. DELETE
+  /admin/keys/{key_id} requires admin and returns 204 (including already revoked)
+  or 404 if absent. CLI creation prints the full key once.
+- Authenticated mutations can now return 429 with Retry-After and RateLimit headers;
+  Redis limiter unavailability returns 503 with Retry-After: 1. Authentication
+  database failures return 503. Public redirects can return 429 but fail open on
+  Redis failure. Bucket identity uses route templates, not individual short codes.
+- Successful existing response shapes remain unchanged. New URLs record the key
+  ID in created_by; permissions remain workspace-wide, not per-owner.
+- /health, /livez and redirects remain public. Local /metrics remains public;
+  Kubernetes serves metrics only on internal port 8002 and returns 404 for the
+  API-port /metrics path. Public Prometheus ingress is removed.
+- The limiter is now registered and the old assembled-app xfail has been removed.
+
+See [security.md](security.md) for scopes, headers, proxy trust and deployment steps.

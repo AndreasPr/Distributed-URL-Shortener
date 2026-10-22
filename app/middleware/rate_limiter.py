@@ -1,119 +1,150 @@
-import time
-import uuid
+"""Atomic Redis token buckets shared across replicas and matched route templates."""
 
-from fastapi import Request
+import hashlib
+import ipaddress
+from dataclasses import dataclass
+
+from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
+from starlette.routing import Match
 
-from app.cache.redis_client import redis_client
+from app.cache import redis_client as cache
+from app.core.config import settings
 
-WINDOW_SECONDS = 60
-WINDOW_MILLISECONDS = WINDOW_SECONDS * 1000
-DEFAULT_LIMIT = 100
-
-ROUTE_LIMITS = {
-    "/shorten": 20,
-}
-
-# Atomic sliding-window check/add in Redis
-_SLIDING_WINDOW_LUA = """
-local key = KEYS[1]
-local now_ms = tonumber(ARGV[1])
-local window_ms = tonumber(ARGV[2])
-local limit = tonumber(ARGV[3])
-local member = ARGV[4]
-
-redis.call('ZREMRANGEBYSCORE', key, '-inf', now_ms - window_ms)
-
-local current_count = redis.call('ZCARD', key)
-if current_count >= limit then
-    local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
-    local retry_after_ms = window_ms
-
-    if oldest[2] then
-        retry_after_ms = window_ms - (now_ms - tonumber(oldest[2]))
-        if retry_after_ms < 0 then
-            retry_after_ms = 0
-        end
-    end
-
-    return {0, current_count, retry_after_ms}
+TOKEN_BUCKET_LUA = """
+local now_parts = redis.call('TIME')
+local now = tonumber(now_parts[1]) + tonumber(now_parts[2]) / 1000000
+local capacity = tonumber(ARGV[1])
+local refill = tonumber(ARGV[2])
+local previous = redis.call('HMGET', KEYS[1], 'tokens', 'updated')
+local tokens = tonumber(previous[1]) or capacity
+local updated = tonumber(previous[2]) or now
+now = math.max(now, updated)
+tokens = math.min(capacity, tokens + (now - updated) * refill)
+local allowed = 0
+if tokens >= 1 then
+    allowed = 1
+    tokens = tokens - 1
 end
-
-redis.call('ZADD', key, now_ms, member)
-redis.call('PEXPIRE', key, window_ms)
-
-return {1, current_count + 1, 0}
+redis.call('HSET', KEYS[1], 'tokens', tokens, 'updated', now)
+redis.call('PEXPIRE', KEYS[1], math.ceil(capacity / refill * 1000))
+local retry = 0
+if allowed == 0 then retry = math.ceil((1 - tokens) / refill) end
+return {allowed, math.floor(tokens), retry, math.ceil((capacity - tokens) / refill)}
 """
 
 
-def _get_client_ip(request: Request) -> str:
-    forwarded_for = request.headers.get("x-forwarded-for")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
+@dataclass(frozen=True)
+class BucketResult:
+    allowed: bool
+    remaining: int
+    retry_after: int
+    reset: int
+    capacity: int
 
-    if request.client and request.client.host:
-        return request.client.host
+    def headers(self) -> dict[str, str]:
+        headers = {
+            "RateLimit-Limit": str(self.capacity),
+            "RateLimit-Remaining": str(self.remaining),
+            "RateLimit-Reset": str(self.reset),
+        }
+        if not self.allowed:
+            headers["Retry-After"] = str(max(1, self.retry_after))
+        return headers
 
-    return "unknown"
 
-
-def _resolve_limit(path: str) -> int:
-    return ROUTE_LIMITS.get(path, DEFAULT_LIMIT)
-
-
-def _check_sliding_window(key: str, limit: int) -> tuple[bool, int, int]:
-    now_ms = int(time.time() * 1000)
-    member = f"{now_ms}-{uuid.uuid4().hex}"
-
-    allowed, current_count, retry_after_ms = redis_client.eval(
-        _SLIDING_WINDOW_LUA,
-        1,
-        key,
-        now_ms,
-        WINDOW_MILLISECONDS,
-        limit,
-        member,
+def check_bucket(
+    template: str, identity: str, capacity: int, refill: float
+) -> BucketResult:
+    identity_hash = hashlib.sha256(identity.encode()).hexdigest()
+    key = f"rate_limit:tb:{template}:{identity_hash}"
+    result = cache.read_cache(
+        lambda: cache.redis_client.eval(TOKEN_BUCKET_LUA, 1, key, capacity, refill)
     )
+    if result is None:
+        raise ConnectionError("Rate limit store unavailable")
+    allowed, remaining, retry, reset = result
+    return BucketResult(bool(allowed), int(remaining), int(retry), int(reset), capacity)
 
-    return bool(allowed), int(current_count), int(retry_after_ms)
+
+def client_ip(request: Request) -> str:
+    peer = request.client.host if request.client else "unknown"
+    trusted = [
+        ipaddress.ip_network(network, strict=False)
+        for network in settings.TRUSTED_PROXIES
+    ]
+
+    def is_trusted(address: str) -> bool:
+        try:
+            ip = ipaddress.ip_address(address)
+            return any(ip in network for network in trusted)
+        except ValueError:
+            return False
+
+    if not is_trusted(peer):
+        return peer
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if not forwarded or len(forwarded) > 4096:
+        return peer
+    # Walk from the socket toward the client; never trust an attacker-added prefix.
+    current = peer
+    for value in reversed(forwarded.split(",")):
+        if not is_trusted(current):
+            break
+        try:
+            current = str(ipaddress.ip_address(value.strip()))
+        except ValueError:
+            return peer
+    return current
+
+
+def limit_write(request: Request, key_id: int) -> None:
+    template = request.scope["route"].path
+    try:
+        result = check_bucket(
+            template,
+            f"key:{key_id}",
+            settings.WRITE_RATE_CAPACITY,
+            settings.WRITE_RATE_REFILL,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            503, "Write rate limiter unavailable", headers={"Retry-After": "1"}
+        ) from exc
+    request.state.rate_limit_headers = result.headers()
+    if not result.allowed:
+        raise HTTPException(429, "Rate limit exceeded", headers=result.headers())
 
 
 async def rate_limit_middleware(request: Request, call_next):
-    # Skip rate limiting for preflight requests and metrics
-    if request.method == "OPTIONS" or request.url.path == "/metrics":
-        return await call_next(request)
-
-    client_ip = _get_client_ip(request)
-    path = request.url.path
-    limit = _resolve_limit(path)
-    key = f"rate_limit:sw:{path}:{client_ip}"
-
-    try:
-        allowed, current_count, retry_after_ms = _check_sliding_window(key, limit)
-    except Exception:
-        # Fail open if Redis is temporarily unavailable.
-        return await call_next(request)
-
-    if not allowed:
-        retry_after_seconds = max(1, (retry_after_ms + 999) // 1000)
-        return JSONResponse(
-            status_code=429,
-            content={
-                "error": "Rate limit exceeded",
-                "path": path,
-                "limit": limit,
-                "window_seconds": WINDOW_SECONDS,
-                "retry_after_seconds": retry_after_seconds,
-            },
-            headers={
-                "Retry-After": str(retry_after_seconds),
-                "X-RateLimit-Limit": str(limit),
-                "X-RateLimit-Remaining": "0",
-            },
-        )
-
+    # Middleware runs before routing. Match in the same order as Starlette;
+    # /health, /metrics and other fixed routes must not become /{code} buckets.
+    template = None
+    for route in request.app.router.routes:
+        match, _ = route.matches(request.scope)
+        if match == Match.FULL:
+            template = getattr(route, "path", None)
+            break
+    headers = {}
+    if request.method == "GET" and template == "/{code}":
+        try:
+            result = await run_in_threadpool(
+                check_bucket,
+                template,
+                f"ip:{client_ip(request)}",
+                settings.REDIRECT_RATE_CAPACITY,
+                settings.REDIRECT_RATE_REFILL,
+            )
+        except Exception:
+            # Redirect availability wins over limiting during Redis outages.
+            pass
+        else:
+            headers = result.headers()
+            if not result.allowed:
+                return JSONResponse(
+                    {"detail": "Rate limit exceeded"}, status_code=429, headers=headers
+                )
     response = await call_next(request)
-    remaining = max(limit - current_count, 0)
-    response.headers["X-RateLimit-Limit"] = str(limit)
-    response.headers["X-RateLimit-Remaining"] = str(remaining)
+    response.headers.update(getattr(request.state, "rate_limit_headers", headers))
     return response

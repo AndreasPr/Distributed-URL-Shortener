@@ -7,9 +7,11 @@ import time
 from uuid import uuid4
 
 from app.core.config import settings
+from app.db.database import SessionLocal
 from app.events import create_event_bus
 from app.events.base import EventBus
 from app.events.models import ClickEvent, DeadLetter
+from app.services.api_keys import create_key, list_keys, revoke_key
 
 
 def dead_letters(bus: EventBus, action: str, limit: int) -> int:
@@ -59,7 +61,44 @@ def main() -> None:
     dlq = sub.add_parser("dlq")
     dlq.add_argument("action", choices=["list", "replay"])
     dlq.add_argument("--limit", type=int, default=100)
+    keys = sub.add_parser("keys", help="Local operator key management")
+    actions = keys.add_subparsers(dest="action", required=True)
+    create = actions.add_parser("create")
+    create.add_argument("--name", required=True)
+    create.add_argument(
+        "--scopes",
+        nargs="+",
+        choices=["read", "write", "admin"],
+        default=["read", "write"],
+    )
+    actions.add_parser("list")
+    revoke = actions.add_parser("revoke")
+    revoke.add_argument("id", type=int)
     args = parser.parse_args()
+    if args.command == "keys":
+        if SessionLocal is None:
+            raise RuntimeError("Database not configured")
+        with SessionLocal() as db:
+            if args.action == "create":
+                key, raw = create_key(db, args.name, args.scopes)
+                print(
+                    json.dumps(
+                        {
+                            "id": key.id,
+                            "name": key.name,
+                            "prefix": key.prefix,
+                            "scopes": key.scopes,
+                            "key": raw,
+                        }
+                    )
+                )
+            elif args.action == "list":
+                print(json.dumps(list_keys(db)))
+            elif not revoke_key(db, args.id):
+                parser.error("Key not found")
+            else:
+                print(json.dumps({"id": args.id, "revoked": True}))
+        return
     bus = create_event_bus()
     try:
         dead_letters(bus, args.action, args.limit)

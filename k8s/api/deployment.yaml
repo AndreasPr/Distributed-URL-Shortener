@@ -35,7 +35,7 @@ spec:
         app: api
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "8000"
+        prometheus.io/port: "8002"
         prometheus.io/path: "/metrics"
     spec:
       initContainers:
@@ -54,13 +54,42 @@ spec:
       containers:
       - name: api
         # The migration Job owns schema changes; replicas only serve requests.
-        command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+        command: ["uvicorn", "app.main:app", "--no-proxy-headers", "--host", "0.0.0.0", "--port", "8000"]
         image: url-shortener:latest
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
           name: http
+        - containerPort: 8002
+          name: metrics
         env:
+        - name: METRICS_PORT
+          value: "8002"
+        - name: WRITE_RATE_CAPACITY
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: WRITE_RATE_CAPACITY
+        - name: WRITE_RATE_REFILL
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: WRITE_RATE_REFILL
+        - name: REDIRECT_RATE_CAPACITY
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: REDIRECT_RATE_CAPACITY
+        - name: REDIRECT_RATE_REFILL
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: REDIRECT_RATE_REFILL
+        - name: TRUSTED_PROXIES
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: TRUSTED_PROXIES
         - name: DB_USER
           valueFrom:
             secretKeyRef:
@@ -177,3 +206,40 @@ spec:
           periodSeconds: 1
           timeoutSeconds: 2
           failureThreshold: 30
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-metrics
+  namespace: url-shortener
+spec:
+  type: ClusterIP
+  selector:
+    app: api
+  ports:
+  - name: metrics
+    port: 8002
+    targetPort: metrics
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-ingress-and-internal-metrics
+  namespace: url-shortener
+spec:
+  podSelector:
+    matchLabels:
+      app: api
+  policyTypes: [Ingress]
+  ingress:
+  - ports:
+    - protocol: TCP
+      port: 8000
+  - from:
+    - podSelector:
+        matchLabels:
+          app: prometheus
+    ports:
+    - protocol: TCP
+      port: 8002

@@ -32,3 +32,10 @@ data:
   # Prometheus
   PROMETHEUS_HOST: prometheus.url-shortener.svc.cluster.local
   PROMETHEUS_PORT: "9090"
+
+  WRITE_RATE_CAPACITY: "20"
+  WRITE_RATE_REFILL: "1"
+  REDIRECT_RATE_CAPACITY: "120"
+  REDIRECT_RATE_REFILL: "10"
+  # Set to actual trusted ingress peer CIDRs; never trust all addresses.
+  TRUSTED_PROXIES: ""

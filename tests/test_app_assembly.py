@@ -17,8 +17,10 @@ from app.middleware.rate_limiter import rate_limit_middleware
 
 
 @pytest.fixture
-def client(monkeypatch, db_session):
+def client(monkeypatch, db_session, auth_key):
+    from cache_fakes import FakeRedis
     fake = Mock()
+    fake.eval.side_effect = FakeRedis().eval
     fake.get.return_value = None
     fake.ping.return_value = True
     fake.dbsize.return_value = 0
@@ -31,7 +33,7 @@ def client(monkeypatch, db_session):
     main.app.dependency_overrides[get_db] = lambda: db_session
     main.app.dependency_overrides[routes.get_health_db] = lambda: db_session
     try:
-        with TestClient(main.app) as test_client:
+        with TestClient(main.app, headers={"X-API-Key": auth_key[1]}) as test_client:
             yield test_client
     finally:
         main.app.dependency_overrides = previous
@@ -42,6 +44,7 @@ def test_middleware_and_metrics(client):
     assert {m.cls.__name__ for m in middleware} == {
         "CORSMiddleware",
         "PrometheusInstrumentatorMiddleware",
+        "BaseHTTPMiddleware",
     }
     cors = next(m for m in middleware if m.cls is CORSMiddleware)
     assert cors.kwargs == dict(
@@ -69,9 +72,6 @@ def test_cors_preflight(client):
     assert response.headers["access-control-allow-origin"] == origin
 
 
-@pytest.mark.xfail(
-    strict=True, reason="Step 2.1: rate limiter is not registered in app/main.py yet"
-)
 def test_rate_limiter_is_registered():
     assert any(
         m.kwargs.get("dispatch") is rate_limit_middleware

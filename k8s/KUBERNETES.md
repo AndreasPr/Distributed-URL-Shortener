@@ -71,7 +71,7 @@ Query examples:
 ```
 Internet / Load Balancer
          ↓
-Ingress (api.local, grafana.local, prometheus.local)
+Ingress (api.local, grafana.local)
          ↓
 ┌─────────────────────────────────────────────────┐
 │         Kubernetes Cluster                      │
@@ -188,13 +188,13 @@ kubectl get ingress -n url-shortener
 
 Configure `/etc/hosts`:
 ```
-127.0.0.1 api.local grafana.local prometheus.local
+127.0.0.1 api.local grafana.local
 ```
 
 Then access:
 - http://api.local — API
 - http://grafana.local — Grafana (${GRAFANA_ADMIN_USER}/${GRAFANA_ADMIN_PASSWORD})
-- http://prometheus.local — Prometheus
+- Prometheus: internal only; use `kubectl port-forward svc/prometheus 9090:9090 -n url-shortener`
 
 ### 13. RBAC (Role-Based Access Control)
 Least-privilege permissions for Prometheus:
@@ -452,3 +452,7 @@ k8s/
 ├── deploy-simple.sh              # Core-only deployment
 └── README.md                     # Full documentation
 ```
+
+API keys and internal metrics: see [security.md](../docs/security.md). API metrics
+use port 8002, restricted to Prometheus pods by NetworkPolicy; a policy-enforcing
+CNI is required. Public API port /metrics returns 404.

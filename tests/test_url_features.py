@@ -135,8 +135,10 @@ def test_expiry_normalized_to_utc():
 
 
 @pytest.fixture
-def client(db_session, monkeypatch):
+def client(db_session, monkeypatch, auth_key):
+    from cache_fakes import FakeRedis
     fake = Mock()
+    fake.eval.side_effect = FakeRedis().eval
     fake.get.return_value = None
     monkeypatch.setattr(cache, "redis_client", fake)
     monkeypatch.setattr(service_module, "publish_click_event", Mock())
@@ -145,7 +147,7 @@ def client(db_session, monkeypatch):
     previous = main.app.dependency_overrides.copy()
     main.app.dependency_overrides[get_db] = lambda: db_session
     try:
-        with TestClient(main.app) as client:
+        with TestClient(main.app, headers={"X-API-Key": auth_key[1]}) as client:
             yield client
     finally:
         main.app.dependency_overrides = previous

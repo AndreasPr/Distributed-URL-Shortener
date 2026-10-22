@@ -31,6 +31,7 @@ class URLRepository:
         long_url: str,
         custom_alias: str | None = None,
         expires_at: datetime | None = None,
+        created_by: str | None = None,
     ) -> str:
         """Reserve a candidate atomically; the caller owns the transaction."""
         for _ in range(MAX_CODE_ATTEMPTS):
@@ -41,7 +42,12 @@ class URLRepository:
                 continue
             statement = (
                 insert(URL)
-                .values(long_url=long_url, short_code=code, expires_at=expires_at)
+                .values(
+                    long_url=long_url,
+                    short_code=code,
+                    expires_at=expires_at,
+                    created_by=created_by,
+                )
                 .on_conflict_do_nothing(index_elements=[URL.short_code])
                 .returning(URL.short_code)
             )

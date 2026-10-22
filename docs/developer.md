@@ -226,3 +226,24 @@ Event tests cover duplicates, ack order, idle/shutdown flush, poison JSON/versio
 DLQ failure/replay, full queues, slow brokers, and Redis pending recovery. Docker
 cases create disposable PostgreSQL, Redis and Kafka containers; they do not stop the user's
 services. See [the actual verification record](event-bus-verification.md).
+
+
+## API keys and enforced rate limits (step 2.1)
+
+Apply migrations, then bootstrap a key with `python -m app.cli keys create --name
+browser --scopes read write` inside `api` (Kafka) or `api-redis` (Redis Streams).
+The JSON response prints the full key once. Use the frontend's in-memory key field
+or Swagger Authorize. CLI list/revoke and HTTP admin metadata/revocation endpoints
+are described in [security.md](security.md).
+
+Protected API callers now need X-API-Key, including GET /urls and GET /analytics.
+Use `.venv/bin/uvicorn app.main:app --no-proxy-headers --reload` for host runs;
+application proxy trust must see the original socket peer. Configure TRUSTED_PROXIES
+only for the actual proxy IPs/CIDRs. Redis outages fail writes closed with 503.
+Kubernetes metrics move to internal port 8002; local Compose keeps /metrics.
+
+`make frontend-check` now also runs three Node API-client tests (no new dependencies)
+for header attachment, omission on public health, and clearing/non-persistence.
+The assembled-app limiter test is a normal passing assertion, no longer xfail.
+[Verification results](auth-verification.md) include PostgreSQL migration checks;
+new real-Redis Lua tests remain deferred to step 5.1.
