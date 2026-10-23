@@ -6,7 +6,7 @@ pytest-cov==7.1.0
 black==26.5.1
 isort==8.0.1
 flake8==7.3.0
-mypy==2.1.0
+mypy==2.4.0
 types-requests==2.33.0.20260518
 pre-commit==4.2.0
 uv==0.9.9
