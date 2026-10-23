@@ -1,33 +1,32 @@
-"""
-OpenTelemetry Distributed Tracing Setup
-
-Configures auto-instrumentation for:
-- FastAPI (HTTP endpoints)
-- Redis (cache calls)
-- SQLAlchemy (database queries)
-- Requests (HTTP client calls)
-
-Exports traces to Jaeger for visualization and analysis.
-"""
+"""OTLP/HTTP export and shared privacy controls for every process."""
 
 import logging
-import os
-from typing import Optional
 from urllib.parse import urlsplit
 
-from opentelemetry.trace import Span
+from fastapi import FastAPI
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.instrumentation.redis import RedisInstrumentor
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from requests import PreparedRequest
 
+from app.core.config import settings
+from app.observability.privacy import PrivacySpanProcessor
+
 logger = logging.getLogger(__name__)
+_provider: TracerProvider | None = None
 
 
-def _redact_redis_arguments(span: Span, instance, args, kwargs) -> None:
-    # Redis instrumentation otherwise embeds SET values (full URLs).
+def _redact_redis_arguments(span: trace.Span, instance, args, kwargs) -> None:
     span.set_attribute("db.statement", "[arguments redacted]")
 
 
-def _redact_http_url(span: Span, request: PreparedRequest) -> None:
-    # Requests instrumentation otherwise includes the URL path and query.
+def _redact_http_url(span: trace.Span, request: PreparedRequest) -> None:
     parsed = urlsplit(request.url or "")
     span.set_attribute("http.url", "[redacted]")
     span.set_attribute("url.scheme", parsed.scheme)
@@ -35,148 +34,44 @@ def _redact_http_url(span: Span, request: PreparedRequest) -> None:
         span.set_attribute("url.host", parsed.hostname)
 
 
-def _safe_imports():
-    try:
-        from opentelemetry import metrics, trace
-        from opentelemetry.exporter.jaeger.thrift import JaegerExporter
-        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-        from opentelemetry.instrumentation.redis import RedisInstrumentor
-        from opentelemetry.instrumentation.requests import RequestsInstrumentor
-        from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
-        from opentelemetry.sdk.resources import Resource
-        from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import BatchSpanProcessor
-
-        return {
-            "metrics": metrics,
-            "trace": trace,
-            "JaegerExporter": JaegerExporter,
-            "FastAPIInstrumentor": FastAPIInstrumentor,
-            "RedisInstrumentor": RedisInstrumentor,
-            "RequestsInstrumentor": RequestsInstrumentor,
-            "SQLAlchemyInstrumentor": SQLAlchemyInstrumentor,
-            "Resource": Resource,
-            "TracerProvider": TracerProvider,
-            "BatchSpanProcessor": BatchSpanProcessor,
-        }
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.exception("OpenTelemetry imports failed: %s", exc)
-        return None
+def _response_hook(span, scope, message) -> None:
+    if message.get("type") == "http.response.start":
+        logger.info("HTTP response status=%s", message.get("status"))
 
 
-def init_tracing(service_name: str = "url-shortener") -> Optional[object]:
-    imports = _safe_imports()
-    if not imports:
-        logger.info("OpenTelemetry not available; skipping tracing initialization")
-        return None
+def instrument_app(app: FastAPI) -> None:
+    # Must run before Starlette constructs the middleware stack, not in startup.
+    FastAPIInstrumentor.instrument_app(
+        app,
+        client_response_hook=_response_hook,
+        excluded_urls="",
+    )
 
-    try:
-        trace = imports["trace"]
-        JaegerExporter = imports["JaegerExporter"]
-        RedisInstrumentor = imports["RedisInstrumentor"]
-        RequestsInstrumentor = imports["RequestsInstrumentor"]
-        SQLAlchemyInstrumentor = imports["SQLAlchemyInstrumentor"]
-        Resource = imports["Resource"]
-        TracerProvider = imports["TracerProvider"]
-        BatchSpanProcessor = imports["BatchSpanProcessor"]
 
-        jaeger_host = os.getenv("JAEGER_AGENT_HOST", "localhost")
-        jaeger_port = int(os.getenv("JAEGER_AGENT_PORT", 6831))
-        jaeger_collector = os.getenv("JAEGER_COLLECTOR_ENDPOINT")
-
-        if jaeger_collector:
-            logger.info(
-                "Initializing OpenTelemetry tracing (Jaeger collector: %s)",
-                jaeger_collector,
-            )
-            jaeger_exporter = JaegerExporter(
-                collector_endpoint=jaeger_collector, timeout=5
-            )
-        else:
-            logger.info(
-                "Initializing OpenTelemetry tracing (Jaeger agent: %s:%s)",
-                jaeger_host,
-                jaeger_port,
-            )
-            jaeger_exporter = JaegerExporter(
-                agent_host_name=jaeger_host,
-                agent_port=jaeger_port,
-                timeout=5,
-            )
-
-        resource = Resource.create(
-            {
-                "service.name": service_name,
-                "service.version": os.getenv("VERSION", "dev"),
-            }
+def init_tracing(service_name: str = "api"):
+    global _provider
+    if _provider is None:
+        _provider = TracerProvider(resource=Resource({"service.name": service_name}))
+        exporter = OTLPSpanExporter(
+            endpoint=settings.OTEL_EXPORTER_OTLP_ENDPOINT.rstrip("/") + "/v1/traces",
+            timeout=5,
         )
+        _provider.add_span_processor(PrivacySpanProcessor(BatchSpanProcessor(exporter)))
+        trace.set_tracer_provider(_provider)
+        RedisInstrumentor().instrument(request_hook=_redact_redis_arguments)
+        RequestsInstrumentor().instrument(request_hook=_redact_http_url)
+        # The application engine already exists when startup runs.
+        from app.db.database import engine
 
-        tracer_provider = TracerProvider(resource=resource)
+        SQLAlchemyInstrumentor().instrument(engine=engine)
+    return trace.get_tracer(__name__)
 
-        try:
-            max_queue = int(os.getenv("OTEL_BSP_MAX_QUEUE", "2048"))
-            schedule_delay = int(os.getenv("OTEL_BSP_SCHEDULE_DELAY_MS", "5000"))
-            max_batch = int(os.getenv("OTEL_BSP_MAX_EXPORT_BATCH", "128"))
-        except Exception:
-            max_queue = 2048
-            schedule_delay = 5000
-            max_batch = 128
 
-        tracer_provider.add_span_processor(
-            BatchSpanProcessor(
-                jaeger_exporter,
-                max_queue_size=max_queue,
-                schedule_delay_millis=schedule_delay,
-                max_export_batch_size=max_batch,
-            )
-        )
-
-        trace.set_tracer_provider(tracer_provider)
-
-        logger.info("Auto-instrumenting Redis, SQLAlchemy, Requests")
-        try:
-            RedisInstrumentor().instrument(request_hook=_redact_redis_arguments)
-        except Exception:
-            logger.exception("Redis auto-instrumentation failed")
-        try:
-            SQLAlchemyInstrumentor().instrument()
-        except Exception:
-            logger.exception("SQLAlchemy auto-instrumentation failed")
-        try:
-            RequestsInstrumentor().instrument(request_hook=_redact_http_url)
-        except Exception:
-            logger.exception("Requests auto-instrumentation failed")
-
-        logger.info("OpenTelemetry tracing initialized successfully")
-
-        return trace.get_tracer(__name__)
-
-    except Exception as exc:
-        logger.exception("Failed to initialize OpenTelemetry tracing: %s", exc)
-        logger.info("Continuing without distributed tracing")
-        return None
+def shutdown_tracing() -> None:
+    if _provider is not None:
+        _provider.force_flush(timeout_millis=5000)
+        _provider.shutdown()
 
 
 def get_tracer():
-    """Get the global tracer instance if available, else return a noop-like object."""
-    imports = _safe_imports()
-    if not imports:
-
-        class _NoopTracer:
-            def start_as_current_span(self, *a, **k):
-                class _Ctx:
-                    def __enter__(self):
-                        return None
-
-                    def __exit__(self, exc_type, exc, tb):
-                        return False
-
-                return _Ctx()
-
-        return _NoopTracer()
-
-    trace = imports.get("trace")
-    try:
-        return trace.get_tracer(__name__)
-    except Exception:
-        return None
+    return trace.get_tracer(__name__)

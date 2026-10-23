@@ -5,6 +5,9 @@ from urllib.parse import urlsplit
 
 
 class Settings:
+    OTEL_EXPORTER_OTLP_ENDPOINT = os.getenv(
+        "OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318"
+    )
     ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
     MAX_REQUEST_BODY_BYTES = int(os.getenv("MAX_REQUEST_BODY_BYTES", "16384"))
     if MAX_REQUEST_BODY_BYTES <= 0:

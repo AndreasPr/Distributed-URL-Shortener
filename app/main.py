@@ -13,10 +13,10 @@ from app.middleware.hardening import BodyLimitMiddleware, install_error_handlers
 from app.middleware.rate_limiter import rate_limit_middleware
 from app.observability.logging import configure_logging_with_tracing
 from app.observability.metrics import configure_metrics
-from app.observability.tracing import init_tracing
+from app.observability.tracing import init_tracing, instrument_app, shutdown_tracing
 
 # Configure basic logging early so startup logs appear in platform logs
-logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+configure_logging_with_tracing("api")
 logging.getLogger().info("APP MODULE LOADED - PORT=%s", os.getenv("PORT", "not-set"))
 
 app = FastAPI(title="URL Shortener")
@@ -52,7 +52,7 @@ async def _on_startup():
     logging.getLogger().info("APP STARTUP event - initializing observability")
     # Initialize tracing and instrumentation (non-fatal on error)
     try:
-        init_tracing(service_name="url-shortener-api")
+        init_tracing(service_name="api")
     except Exception as exc:  # pragma: no cover - defensive
         logging.getLogger().exception("init_tracing failed: %s", exc)
 
@@ -73,11 +73,13 @@ async def _on_startup():
 
 
 app.include_router(router)
+instrument_app(app)
 
 
 @app.on_event("shutdown")
 async def _on_shutdown():
     await asyncio.to_thread(publisher.close)
+    await asyncio.to_thread(shutdown_tracing)
     if hasattr(app.state, "metrics_server"):
         await asyncio.to_thread(app.state.metrics_server.shutdown)
         app.state.metrics_server.server_close()

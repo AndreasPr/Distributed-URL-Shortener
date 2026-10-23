@@ -34,8 +34,7 @@ services:
       DB_URL: "postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:?Set POSTGRES_DB in .env}"
       REDIS_URL: redis://redis:6379/0
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      JAEGER_AGENT_HOST: jaeger
-      JAEGER_AGENT_PORT: 6831
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318}
 
   migrate:
     build: .
@@ -63,6 +62,7 @@ services:
       - "6831:6831/udp"  # Jaeger agent compact thrift
       - "6832:6832/udp"  # Jaeger agent compact thrift
       - "5778:5778"      # Jaeger agent HTTP
+      - "127.0.0.1:4318:4318" # OTLP/HTTP for host-run processes
       - "16686:16686"    # Jaeger UI
       - "14268:14268"    # Jaeger collector HTTP (for /api/traces)
     environment:

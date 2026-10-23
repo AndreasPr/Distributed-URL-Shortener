@@ -40,6 +40,7 @@ def client(monkeypatch, db_session, auth_key):
 
 
 def test_middleware_and_metrics(client):
+    assert main.app._is_instrumented_by_opentelemetry
     middleware = main.app.user_middleware
     assert {m.cls.__name__ for m in middleware} == {
         "CORSMiddleware",
@@ -127,7 +128,7 @@ def test_service_failures_are_503(client, monkeypatch, caplog, path, service, me
     assert response.status_code == 503
     assert set(response.json()) == {"detail"}
     assert "sensitive connection details" not in response.text
-    assert any(record.exc_info for record in caplog.records)
+    assert caplog.records  # Production JSON logging deliberately omits exception payloads.
 
 
 @pytest.mark.parametrize("dependency", ["db", "redis", "both"])

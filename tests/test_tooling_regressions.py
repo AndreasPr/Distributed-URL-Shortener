@@ -1,6 +1,7 @@
 """Protect runtime behavior touched while adding static typing."""
 
 import logging
+import json
 
 import pytest
 from sqlalchemy import TIMESTAMP, Integer, String, Text
@@ -40,11 +41,19 @@ def test_trace_logging_preserves_message_for_default_formatter(monkeypatch):
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter())
     logger.addHandler(handler)
-    monkeypatch.setattr(logging, "getLogger", lambda: logger)
+    original = logging.getLogger
+    monkeypatch.setattr(
+        logging,
+        "getLogger",
+        lambda name=None: logger if name is None else original(name),
+    )
     configure_logging_with_tracing()
     record = logging.LogRecord("test", logging.INFO, "", 0, "hello", (), None)
     handler.filter(record)
-    assert handler.format(record) == "hello [trace_id=none]"
+    output = json.loads(handler.format(record))
+    assert output["message"] == "hello"
+    assert output["trace_id"] == "0" * 32
+    assert output["span_id"] == "0" * 16
 
 
 def test_worker_reports_unconfigured_database(monkeypatch):

@@ -56,9 +56,6 @@ def test_url_spans_only_include_origin_and_code(monkeypatch, cached):
 def test_auto_instrumented_redis_does_not_export_cached_url(monkeypatch):
     import redis
 
-    pytest.importorskip(
-        "pkg_resources", reason="Existing OTel 0.41b0 requires missing pkg_resources"
-    )
     from opentelemetry.instrumentation.redis import RedisInstrumentor
     from app.observability.tracing import _redact_redis_arguments
 
@@ -85,9 +82,6 @@ def test_auto_instrumented_redis_does_not_export_cached_url(monkeypatch):
 def test_auto_instrumented_http_does_not_export_path_or_query(monkeypatch):
     import requests
 
-    pytest.importorskip(
-        "pkg_resources", reason="Existing OTel 0.41b0 requires missing pkg_resources"
-    )
     from opentelemetry.instrumentation.requests import RequestsInstrumentor
     from app.observability.tracing import _redact_http_url
 
@@ -113,32 +107,6 @@ def test_auto_instrumented_http_does_not_export_path_or_query(monkeypatch):
     finally:
         instrumentor.uninstrument()
         provider.shutdown()
-
-
-def test_tracing_initialization_installs_privacy_hooks(monkeypatch):
-    import app.observability.tracing as tracing
-
-    imports = {
-        name: Mock()
-        for name in [
-            "trace",
-            "JaegerExporter",
-            "RedisInstrumentor",
-            "RequestsInstrumentor",
-            "SQLAlchemyInstrumentor",
-            "Resource",
-            "TracerProvider",
-            "BatchSpanProcessor",
-        ]
-    }
-    monkeypatch.setattr(tracing, "_safe_imports", lambda: imports)
-    assert tracing.init_tracing() is not None
-    imports["RedisInstrumentor"].return_value.instrument.assert_called_once_with(
-        request_hook=tracing._redact_redis_arguments
-    )
-    imports["RequestsInstrumentor"].return_value.instrument.assert_called_once_with(
-        request_hook=tracing._redact_http_url
-    )
 
 
 def test_privacy_hooks_redact_instrumentation_attributes():

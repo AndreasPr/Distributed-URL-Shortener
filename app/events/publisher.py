@@ -7,10 +7,13 @@ from queue import Empty, Full, Queue
 from threading import Event as StopEvent
 from threading import Lock, Thread
 
+from opentelemetry import trace
+
 from app.core.config import settings
 from app.events import create_event_bus
 from app.events.base import EventBus
 from app.events.models import ClickEvent
+from app.observability.context import event_span, inject_context
 from app.observability.metrics import events_dropped_total
 
 logger = logging.getLogger(__name__)
@@ -56,7 +59,9 @@ class BackgroundPublisher:
             if self.stop.is_set():
                 self.dropped()
                 return
-            self.queue.put_nowait(ClickEvent(short_code=short_code))
+            self.queue.put_nowait(
+                ClickEvent(short_code=short_code, trace_context=inject_context())
+            )
         except (Full, ValueError):
             self.dropped()
 
@@ -68,14 +73,20 @@ class BackgroundPublisher:
                     event = self.queue.get(timeout=0.1)
                 except Empty:
                     continue
-                try:
-                    if bus is None:
-                        bus = self.factory()
-                    bus.publish(settings.EVENT_TOPIC, event)
-                except Exception:
-                    self.dropped()
-                finally:
-                    self.queue.task_done()
+                with event_span(
+                    "events.publish", event.trace_context, trace.SpanKind.PRODUCER
+                ):
+                    try:
+                        event.trace_context = inject_context()
+                        if bus is None:
+                            bus = self.factory()
+                        bus.publish(settings.EVENT_TOPIC, event)
+                        logger.info("Click event published")
+                    except Exception:
+                        trace.get_current_span().set_status(trace.StatusCode.ERROR)
+                        self.dropped()
+                    finally:
+                        self.queue.task_done()
         finally:
             if bus is not None:
                 bus.close()
