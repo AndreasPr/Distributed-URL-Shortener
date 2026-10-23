@@ -16,7 +16,11 @@ try:
     engine = create_engine(
         settings.DB_URL,
         pool_pre_ping=True,
-        connect_args={"connect_timeout": 5},
+        pool_timeout=5,
+        connect_args={
+            "connect_timeout": 5,
+            "options": "-c statement_timeout=5000 -c lock_timeout=2000",
+        },
     )
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 except Exception as exc:  # pragma: no cover - defensive

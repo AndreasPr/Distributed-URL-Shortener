@@ -247,3 +247,20 @@ for header attachment, omission on public health, and clearing/non-persistence.
 The assembled-app limiter test is a normal passing assertion, no longer xfail.
 [Verification results](auth-verification.md) include PostgreSQL migration checks;
 new real-Redis Lua tests remain deferred to step 5.1.
+
+## Security hardening
+
+Set `ENVIRONMENT=production` and an explicit comma-separated `CORS_ORIGINS`
+list of exact origins (no paths, credentials or wildcards) for a production API.
+Compose forwards these settings; its development default is http://localhost:3000.
+`MAX_REQUEST_BODY_BYTES` defaults to 16384; exceeding it returns JSON 413,
+and sending a body for longer than ten seconds returns JSON 408.
+Browser API calls abort after ten seconds. Configure NEXT_PUBLIC_API_URL at
+frontend build time; its exact origin is included in the CSP. Rebuild after changing it.
+
+Run `make audit` after installing requirements-dev.txt. It audits both locked
+backend and MCP dependency sets against public Python advisories and exits
+nonzero on findings or operational failures. It requires network/cache access.
+Review Dependabot changes and run `make lock` to keep hashed locks synchronized.
+See [threat model](threat-model.md), [ADR](adr/0008-security-hardening.md), and
+[deployment verification](security-hardening-verification.md) for limitations.

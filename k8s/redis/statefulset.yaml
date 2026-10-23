@@ -35,19 +35,21 @@ spec:
         - containerPort: 6379
           name: redis
         command:
-          - redis-server
-          - "--appendonly"
-          - "yes"
+        - redis-server
+        - --appendonly
+        - 'yes'
         volumeMounts:
         - name: redis-storage
           mountPath: /data
+        - name: tmp
+          mountPath: /tmp
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "100m"
+            memory: 128Mi
+            cpu: 100m
           limits:
-            memory: "256Mi"
-            cpu: "200m"
+            memory: 256Mi
+            cpu: 200m
         livenessProbe:
           exec:
             command:
@@ -66,12 +68,32 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 2
           failureThreshold: 2
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 64Mi
   volumeClaimTemplates:
-      - metadata:
-          name: redis-storage
-        spec:
-          accessModes: [ "ReadWriteOnce" ]
-          storageClassName: hostpath
-          resources:
-            requests:
-              storage: 2Gi
+  - metadata:
+      name: redis-storage
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      storageClassName: hostpath
+      resources:
+        requests:
+          storage: 2Gi

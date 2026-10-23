@@ -35,6 +35,9 @@ sleep 2
 # Step 2: Create ConfigMap
 echo "Step 2: Creating ConfigMap..."
 kubectl apply -f k8s/1-configmap.yaml
+kubectl apply -f k8s/7-network-policies.yaml
+# Remove the previous additive allow-all ingress policy after replacement.
+kubectl delete networkpolicy api-ingress-and-internal-metrics -n "$NAMESPACE" --ignore-not-found
 sleep 2
 
 # Step 3: Require the separately created local Secret

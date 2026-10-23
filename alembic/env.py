@@ -39,7 +39,14 @@ else:
     if connection is not None:
         migrate(connection)
     else:
-        engine = create_engine(settings.DB_URL, poolclass=pool.NullPool)
+        engine = create_engine(
+            settings.DB_URL,
+            poolclass=pool.NullPool,
+            connect_args={
+                "connect_timeout": 5,
+                "options": "-c statement_timeout=60000 -c lock_timeout=5000",
+            },
+        )
         try:
             with engine.connect() as connection:
                 migrate(connection)

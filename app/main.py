@@ -9,6 +9,7 @@ from starlette.middleware.cors import CORSMiddleware
 from app.api.routes import router
 from app.core.config import settings
 from app.events.publisher import publisher
+from app.middleware.hardening import BodyLimitMiddleware, install_error_handlers
 from app.middleware.rate_limiter import rate_limit_middleware
 from app.observability.logging import configure_logging_with_tracing
 from app.observability.metrics import configure_metrics
@@ -20,16 +21,23 @@ logging.getLogger().info("APP MODULE LOADED - PORT=%s", os.getenv("PORT", "not-s
 
 app = FastAPI(title="URL Shortener")
 
+install_error_handlers(app)
 app.middleware("http")(rate_limit_middleware)
+app.add_middleware(BodyLimitMiddleware, limit=settings.MAX_REQUEST_BODY_BYTES)
 
 # Add CORS middleware FIRST (so it executes FIRST in middleware stack)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "X-API-Key"],
+    expose_headers=[
+        "RateLimit-Limit",
+        "RateLimit-Remaining",
+        "RateLimit-Reset",
+        "Retry-After",
+    ],
 )
 
 # Configure metrics before the app starts so middleware can be added successfully.

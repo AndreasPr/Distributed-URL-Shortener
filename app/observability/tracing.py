@@ -89,7 +89,9 @@ def init_tracing(service_name: str = "url-shortener") -> Optional[object]:
                 "Initializing OpenTelemetry tracing (Jaeger collector: %s)",
                 jaeger_collector,
             )
-            jaeger_exporter = JaegerExporter(collector_endpoint=jaeger_collector)
+            jaeger_exporter = JaegerExporter(
+                collector_endpoint=jaeger_collector, timeout=5
+            )
         else:
             logger.info(
                 "Initializing OpenTelemetry tracing (Jaeger agent: %s:%s)",
@@ -99,6 +101,7 @@ def init_tracing(service_name: str = "url-shortener") -> Optional[object]:
             jaeger_exporter = JaegerExporter(
                 agent_host_name=jaeger_host,
                 agent_port=jaeger_port,
+                timeout=5,
             )
 
         resource = Resource.create(

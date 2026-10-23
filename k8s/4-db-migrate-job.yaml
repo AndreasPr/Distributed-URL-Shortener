@@ -13,21 +13,37 @@ spec:
       - name: wait-postgres
         image: busybox:1.38.0
         command:
-          - sh
-          - -c
-          - |
-            echo "Waiting for PostgreSQL..."
-            until nc -z postgres.url-shortener.svc.cluster.local 5432; do
-              echo "PostgreSQL is unavailable - sleeping"
-              sleep 2
-            done
-            echo "PostgreSQL is up!"
+        - sh
+        - -c
+        - "echo \"Waiting for PostgreSQL...\"\nuntil nc -z postgres.url-shortener.svc.cluster.local\
+          \ 5432; do\n  echo \"PostgreSQL is unavailable - sleeping\"\n  sleep 2\n\
+          done\necho \"PostgreSQL is up!\"\n"
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 25m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
       containers:
       - name: migrate
         image: url-shortener:latest
         imagePullPolicy: IfNotPresent
         workingDir: /app
-        command: ["alembic", "upgrade", "head"]
+        command:
+        - alembic
+        - upgrade
+        - head
         env:
         - name: DB_USER
           valueFrom:
@@ -55,4 +71,36 @@ spec:
               name: url-shortener-config
               key: DB_NAME
         - name: DB_URL
-          value: "postgresql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)"
+          value: postgresql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 64Mi
+    metadata:
+      labels:
+        app: db-migrate

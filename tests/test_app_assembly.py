@@ -45,14 +45,15 @@ def test_middleware_and_metrics(client):
         "CORSMiddleware",
         "PrometheusInstrumentatorMiddleware",
         "BaseHTTPMiddleware",
+        "BodyLimitMiddleware",
     }
     cors = next(m for m in middleware if m.cls is CORSMiddleware)
     assert cors.kwargs == dict(
         allow_origins=settings.CORS_ORIGINS,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-        expose_headers=["*"],
+        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "X-API-Key"],
+        expose_headers=["RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset", "Retry-After"],
     )
     response = client.get("/metrics")
     assert response.status_code == 200

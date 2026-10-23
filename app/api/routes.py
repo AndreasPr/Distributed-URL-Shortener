@@ -141,8 +141,9 @@ def redis_health():
             "redis": "reachable" if pong else "unreachable",
             "dbsize": size,
         }
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Redis unavailable: {exc}")
+    except Exception:
+        logger.exception("Redis health check failed")
+        raise HTTPException(status_code=503, detail="Redis unavailable")
 
 
 @router.delete(

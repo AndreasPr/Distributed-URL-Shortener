@@ -90,3 +90,11 @@ validate deletion/expiry in PostgreSQL. See [ADR](adr/0002-cache-strategy.md).
 - The limiter is now registered and the old assembled-app xfail has been removed.
 
 See [security.md](security.md) for scopes, headers, proxy trust and deployment steps.
+
+## Step 2.2: request/error hardening
+
+- Requests exceeding MAX_REQUEST_BODY_BYTES (default 16384) return JSON 413.
+- Body reads exceeding ten seconds return JSON 408.
+- Unexpected exceptions return JSON 500 with `detail: Internal server error`.
+- Validation remains 422 with the `detail` list; entries omit `input` and `ctx`.
+- Redis health remains 503 on failure but no longer includes exception text.

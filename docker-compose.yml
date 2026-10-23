@@ -16,6 +16,9 @@ services:
       kafka:
         condition: service_started
     environment: &api_environment
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      MAX_REQUEST_BODY_BYTES: ${MAX_REQUEST_BODY_BYTES:-16384}
       WRITE_RATE_CAPACITY: ${WRITE_RATE_CAPACITY:-20}
       WRITE_RATE_REFILL: ${WRITE_RATE_REFILL:-1}
       REDIRECT_RATE_CAPACITY: ${REDIRECT_RATE_CAPACITY:-120}
@@ -36,6 +39,8 @@ services:
 
   migrate:
     build: .
+    healthcheck:
+      disable: true
     command: alembic upgrade head
     depends_on:
       postgres:
@@ -85,6 +90,8 @@ services:
     stop_grace_period: 120s
     profiles: [kafka]
     build: .
+    healthcheck:
+      disable: true
     command: python -m app.workers.analytics_worker
     restart: on-failure
     depends_on:

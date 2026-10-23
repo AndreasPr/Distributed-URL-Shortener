@@ -239,7 +239,7 @@ def test_kafka_raw_poll_and_explicit_offsets(monkeypatch):
         == 8
     )
     adapter.close()
-    consumer.close.assert_called_once_with(autocommit=False)
+    consumer.close.assert_called_once_with(autocommit=False, timeout_ms=5000)
 
 
 def test_redis_groups_recover_pending_before_new_reads():

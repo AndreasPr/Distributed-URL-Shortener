@@ -54,13 +54,17 @@ spec:
         - name: postgres-storage
           mountPath: /var/lib/postgresql/data
           subPath: postgres
+        - name: tmp
+          mountPath: /tmp
+        - name: postgres-run
+          mountPath: /var/run/postgresql
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "250m"
+            memory: 256Mi
+            cpu: 250m
           limits:
-            memory: "512Mi"
-            cpu: "500m"
+            memory: 512Mi
+            cpu: 500m
         livenessProbe:
           exec:
             command:
@@ -81,12 +85,34 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 3
           failureThreshold: 3
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 64Mi
+      - name: postgres-run
+        emptyDir: {}
   volumeClaimTemplates:
-      - metadata:
-          name: postgres-storage
-        spec:
-          accessModes: [ "ReadWriteOnce" ]
-          storageClassName: hostpath
-          resources:
-            requests:
-              storage: 5Gi
+  - metadata:
+      name: postgres-storage
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      storageClassName: hostpath
+      resources:
+        requests:
+          storage: 5Gi

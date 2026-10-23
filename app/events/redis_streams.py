@@ -2,7 +2,9 @@ from typing import Any, Protocol, cast
 from uuid import uuid4
 
 from redis import Redis
+from redis.backoff import NoBackoff
 from redis.exceptions import ResponseError
+from redis.retry import Retry
 
 from app.core.config import settings
 from app.events.base import Delivery
@@ -57,7 +59,10 @@ class RedisStreamsEventBus:
             else cast(
                 StreamClient,
                 Redis.from_url(
-                    settings.REDIS_URL, socket_connect_timeout=0.2, socket_timeout=1.0
+                    settings.REDIS_URL,
+                    socket_connect_timeout=0.2,
+                    retry=Retry(NoBackoff(), 0),
+                    socket_timeout=1.0,
                 ),
             )
         )
