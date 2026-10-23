@@ -1,4 +1,4 @@
-"""Versioned wire envelopes; trace propagation is reserved for step 3.1."""
+"""Versioned wire envelopes; W3C traceparent is carried without baggage."""
 
 from datetime import datetime, timezone
 from typing import Literal

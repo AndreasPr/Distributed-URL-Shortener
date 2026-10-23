@@ -1,75 +1,75 @@
-"""
-Logging configuration with OpenTelemetry trace ID correlation.
+"""JSON logs correlated at record creation, including background threads."""
 
-This module provides a logging filter that automatically adds trace IDs
-to log records, enabling correlation between logs, metrics, and traces.
-"""
-
+import json
 import logging
+import os
+from datetime import datetime, timezone
 
 from opentelemetry import trace
 
+from app.observability.privacy import redact
+
+_service = "api"
+_factory = logging.getLogRecordFactory()
+
 
 class TraceIDFilter(logging.Filter):
-    """
-    Logging filter that injects the current trace ID into log records.
-
-    This allows logs to be correlated with traces in systems like Jaeger
-    and enables debugging by connecting logs with the full distributed trace.
-    """
-
     def filter(self, record: logging.LogRecord) -> bool:
-        """Add trace ID to the log record if an active span exists."""
-        span = trace.get_current_span()
-        if span and span.is_recording():
-            trace_id = span.get_span_context().trace_id
-            record.trace_id = f"{trace_id:032x}"
-        else:
-            record.trace_id = "none"
+        context = trace.get_current_span().get_span_context()
+        record.trace_id = format(context.trace_id, "032x")
+        record.span_id = format(context.span_id, "016x")
+        record.service = _service
+        record.msg = redact(record.getMessage())
+        record.args = ()
+        # Exception strings/stack traces can embed SQL parameters and credentials.
+        record.exc_info = None
+        record.exc_text = None
+        record.stack_info = None
         return True
 
 
-def configure_logging_with_tracing() -> None:
-    """
-    Configure the root logger to include trace IDs in all log messages.
+class JSONFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        return json.dumps(
+            {
+                "timestamp": datetime.fromtimestamp(
+                    record.created, timezone.utc
+                ).isoformat(),
+                "level": record.levelname,
+                "message": redact(record.getMessage()),
+                "service": getattr(record, "service", _service),
+                "trace_id": getattr(record, "trace_id", "0" * 32),
+                "span_id": getattr(record, "span_id", "0" * 16),
+            }
+        )
 
-    Call this function early in application startup, after OpenTelemetry
-    has been initialized.
-    """
-    # Configure root logger
-    root_logger = logging.getLogger()
 
-    # Add trace ID filter
-    trace_filter = TraceIDFilter()
+def _record_factory(*args, **kwargs):
+    record = _factory(*args, **kwargs)
+    TraceIDFilter().filter(record)
+    return record
 
-    # Apply filter to all handlers
-    for handler in root_logger.handlers:
-        handler.addFilter(trace_filter)
 
-    # Add filter to new handlers
-    root_logger.addFilter(trace_filter)
-
-    # Update formatter to include trace ID
-    for handler in root_logger.handlers:
-        if handler.formatter:
-            # Get existing format
-            fmt = handler.formatter._fmt or "%(message)s"
-            # Add trace ID if not already present
-            if "trace_id" not in fmt:
-                new_fmt = fmt + " [trace_id=%(trace_id)s]"
-                handler.setFormatter(logging.Formatter(new_fmt))
+def configure_logging_with_tracing(service_name: str = "api") -> None:
+    global _service
+    _service = service_name
+    logging.setLogRecordFactory(_record_factory)
+    root = logging.getLogger()
+    root.setLevel(os.getenv("LOG_LEVEL", "INFO"))
+    if not root.handlers:
+        root.addHandler(logging.StreamHandler())
+    for handler in root.handlers:
+        handler.setFormatter(JSONFormatter())
+    # Uvicorn's raw access log contains arbitrary paths/query strings. The
+    # instrumented response hook emits a correlated, payload-free replacement.
+    logging.getLogger("uvicorn.access").disabled = True
+    for name in ("uvicorn", "uvicorn.error"):
+        logger = logging.getLogger(name)
+        logger.handlers.clear()
+        logger.propagate = True
 
 
 def get_logger_with_tracing(name: str) -> logging.Logger:
-    """
-    Get a logger with trace ID support.
-
-    Args:
-        name: Logger name (typically __name__)
-
-    Returns:
-        Logger with trace ID filter applied
-    """
     logger = logging.getLogger(name)
     if not any(isinstance(f, TraceIDFilter) for f in logger.filters):
         logger.addFilter(TraceIDFilter())

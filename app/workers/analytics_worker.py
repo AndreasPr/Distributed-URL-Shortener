@@ -6,6 +6,7 @@ import signal
 import time
 from threading import Event as StopEvent
 
+from opentelemetry import trace
 from prometheus_client import start_http_server
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.orm import Session
@@ -15,6 +16,7 @@ from app.db.database import SessionLocal
 from app.events import create_event_bus
 from app.events.base import Delivery, EventBus
 from app.events.models import ClickEvent, DeadLetter
+from app.observability.context import event_span, inject_context, wire_context
 from app.observability.logging import configure_logging_with_tracing
 from app.observability.metrics import (
     consumer_lag,
@@ -23,7 +25,7 @@ from app.observability.metrics import (
     events_failed_total,
     record_analytics_events_processed,
 )
-from app.observability.tracing import init_tracing
+from app.observability.tracing import init_tracing, shutdown_tracing
 from app.repositories.analytics_repository import AnalyticsRepository
 
 logger = logging.getLogger(__name__)
@@ -54,35 +56,46 @@ class AnalyticsWorker:
         processed = 0
         try:
             for message in self.buffer:
-                for attempt in range(1, 4):
-                    try:
-                        event = ClickEvent.from_wire(message.payload)
-                        # Savepoints isolate poison rows from healthy rows.
-                        with self.db.begin_nested():
-                            self.repository.create_event(self.db, event)
-                        processed += 1
-                        break
-                    except Exception as exc:
-                        events_failed_total.inc()
-                        if isinstance(exc, DBAPIError) and not isinstance(
-                            exc, IntegrityError
-                        ):
-                            # Infrastructure failures never divert clicks.
-                            # The run loop retries the retained batch.
-                            raise
-                        if attempt < 3:
-                            time.sleep(self.backoff * (2 ** (attempt - 1)))
-                            continue
-                        dead_letters.append(
-                            DeadLetter(
-                                source_topic=message.topic,
-                                payload_base64=base64.b64encode(
-                                    message.payload
-                                ).decode(),
-                                # Never include SQL parameters or raw payload.
-                                error=type(exc).__name__,
+                with event_span(
+                    "analytics.process",
+                    wire_context(message.payload),
+                    trace.SpanKind.CONSUMER,
+                ):
+                    for attempt in range(1, 4):
+                        try:
+                            event = ClickEvent.from_wire(message.payload)
+                            # Savepoints isolate poison rows from healthy rows.
+                            with self.db.begin_nested():
+                                self.repository.create_event(self.db, event)
+                            logger.info("Click row staged")
+                            processed += 1
+                            break
+                        except Exception as exc:
+                            trace.get_current_span().set_status(trace.StatusCode.ERROR)
+                            logger.warning(
+                                "Click processing failed (%s)", type(exc).__name__
                             )
-                        )
+                            events_failed_total.inc()
+                            if isinstance(exc, DBAPIError) and not isinstance(
+                                exc, IntegrityError
+                            ):
+                                # Infrastructure failures never divert clicks.
+                                # The run loop retries the retained batch.
+                                raise
+                            if attempt < 3:
+                                time.sleep(self.backoff * (2 ** (attempt - 1)))
+                                continue
+                            dead_letters.append(
+                                DeadLetter(
+                                    trace_context=inject_context(),
+                                    source_topic=message.topic,
+                                    payload_base64=base64.b64encode(
+                                        message.payload
+                                    ).decode(),
+                                    # Never include SQL parameters or raw payload.
+                                    error=type(exc).__name__,
+                                )
+                            )
             try:
                 self.db.commit()
             except Exception:
@@ -94,7 +107,11 @@ class AnalyticsWorker:
         # Kafka commits advance over earlier messages: acknowledge the entire
         # ordered batch only after EVERY row commits or its DLQ publish succeeds.
         for dead_letter in dead_letters:
-            self.bus.publish(settings.EVENT_DLQ_TOPIC, dead_letter)
+            with event_span(
+                "events.dead_letter", dead_letter.trace_context, trace.SpanKind.PRODUCER
+            ):
+                dead_letter.trace_context = inject_context()
+                self.bus.publish(settings.EVENT_DLQ_TOPIC, dead_letter)
             dlq_events_total.inc()
         self.bus.ack(self.buffer)
         record_analytics_events_processed(processed)
@@ -156,13 +173,16 @@ class AnalyticsWorker:
 def main() -> None:
     if SessionLocal is None:
         raise RuntimeError("Database not configured")
-    init_tracing(service_name="url-shortener-worker")
-    configure_logging_with_tracing()
+    configure_logging_with_tracing("worker")
+    init_tracing(service_name="worker")
     start_http_server(settings.EVENT_METRICS_PORT)
     worker = AnalyticsWorker(create_event_bus(), SessionLocal())
     signal.signal(signal.SIGTERM, lambda *_: worker.stop.set())
     signal.signal(signal.SIGINT, lambda *_: worker.stop.set())
-    worker.run()
+    try:
+        worker.run()
+    finally:
+        shutdown_tracing()
 
 
 if __name__ == "__main__":

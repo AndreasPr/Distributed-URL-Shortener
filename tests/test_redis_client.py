@@ -26,7 +26,7 @@ def test_read_errors_are_logged_and_counted(monkeypatch, caplog, error, operatio
     assert result is None
     assert cache_errors_total._value.get() == before + 1
     assert "Redis read failed" in caplog.text
-    assert caplog.records[-1].exc_info
+    assert caplog.records[-1].getMessage() == "Redis read failed"
 
 
 def test_programming_errors_are_not_hidden(monkeypatch):

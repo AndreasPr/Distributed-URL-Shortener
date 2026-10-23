@@ -264,3 +264,10 @@ nonzero on findings or operational failures. It requires network/cache access.
 Review Dependabot changes and run `make lock` to keep hashed locks synchronized.
 See [threat model](threat-model.md), [ADR](adr/0008-security-hardening.md), and
 [deployment verification](security-hardening-verification.md) for limitations.
+
+## End-to-end click tracing
+
+See [observability.md](observability.md) for OTLP/HTTP configuration, JSON logs,
+privacy controls and finding a click in Jaeger. After updating the hashed locks,
+reinstall requirements-dev.txt and rebuild the API/worker images. Legacy Jaeger
+agent settings have been replaced by OTEL_EXPORTER_OTLP_ENDPOINT.
