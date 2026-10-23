@@ -65,3 +65,10 @@ kubectl rollout history deployment/api -n url-shortener
 ```
 
 When a previously working rollout must be restored, `kubectl rollout undo deployment/api -n url-shortener` restores the Deployment revision; verify readiness afterward. It does not roll back database migrations or data. Kubernetes has known baseline failures; a script completing does not prove the application is healthy.
+
+### SLO rule gate
+
+`make check` now runs `make prometheus-check` after backend checks. CI needs a
+native promtool or a working Docker daemon to run the pinned Prometheus image.
+Rule syntax errors, synthetic alert-test failures, and an unavailable tool all
+fail the gate. See [SLO verification](slo-verification.md).

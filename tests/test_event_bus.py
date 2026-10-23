@@ -395,7 +395,7 @@ def test_real_redis_pending_recovery_and_ack(real_redis, monkeypatch):
         first.publish("clicks", event)
         original = first.poll(0.01, 1)
         assert len(original) == 1
-        assert first.lag() == {"pending": 1, "stream_length": 1}
+        assert first.lag() == {"pending": 1, "stream_length": 1, "unread": 0}
         time.sleep(0.01)
         recovered.subscribe("clicks", "analytics")
         messages = recovered.poll(0.01, 1)

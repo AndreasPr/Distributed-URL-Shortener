@@ -271,3 +271,16 @@ See [observability.md](observability.md) for OTLP/HTTP configuration, JSON logs,
 privacy controls and finding a click in Jaeger. After updating the hashed locks,
 reinstall requirements-dev.txt and rebuild the API/worker images. Legacy Jaeger
 agent settings have been replaced by OTEL_EXPORTER_OTLP_ENDPOINT.
+
+## SLO monitoring rules
+
+`make check` now includes `make prometheus-check`: Prometheus rule validation and
+synthetic alert tests. Install promtool locally or run Docker Desktop; the fallback
+uses `prom/prometheus:v3.15.0` with a read-only rules mount and no network. The
+image must be available locally or Docker must be able to pull it. Failure to run
+the tool fails the gate rather than silently skipping validation.
+
+Edit canonical rules/dashboard, then run `.venv/bin/python scripts/sync-monitoring.py`
+to regenerate Kubernetes ConfigMaps. See [SLOs](slo.md), [runbook](runbook.md), and
+[verification](slo-verification.md). The targets are goals, not evidence of achieved
+latency/freshness compliance.

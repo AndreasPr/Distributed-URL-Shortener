@@ -1,0 +1,123 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: url-shortener
+data:
+  slo.yml: |
+    groups:
+    - name: url-shortener-recording
+      interval: 30s
+      rules:
+      - record: redirect:slo_error_ratio:5m
+        expr: ((sum(rate(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status=~"5.."}[5m]))
+          or (0 * sum(rate(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET"}[5m])))) / sum(rate(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET"}[5m])))
+          and (sum(rate(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET"}[5m])) > 0)
+      - record: redirect:slo_burn_rate:5m
+        expr: redirect:slo_error_ratio:5m / 0.001
+      - record: redirect:slo_error_ratio:1h
+        expr: ((sum(rate(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status=~"5.."}[1h]))
+          or (0 * sum(rate(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET"}[1h])))) / sum(rate(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET"}[1h])))
+          and (sum(rate(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET"}[1h])) > 0)
+      - record: redirect:slo_burn_rate:1h
+        expr: redirect:slo_error_ratio:1h / 0.001
+      - record: redirect:slo_error_ratio:30m
+        expr: ((sum(rate(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status=~"5.."}[30m]))
+          or (0 * sum(rate(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET"}[30m])))) / sum(rate(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET"}[30m])))
+          and (sum(rate(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET"}[30m])) > 0)
+      - record: redirect:slo_burn_rate:30m
+        expr: redirect:slo_error_ratio:30m / 0.001
+      - record: redirect:slo_error_ratio:6h
+        expr: ((sum(rate(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status=~"5.."}[6h]))
+          or (0 * sum(rate(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET"}[6h])))) / sum(rate(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET"}[6h])))
+          and (sum(rate(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET"}[6h])) > 0)
+      - record: redirect:slo_burn_rate:6h
+        expr: redirect:slo_error_ratio:6h / 0.001
+      - record: redirect:slo_error_ratio:30d
+        expr: ((sum(increase(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status=~"5.."}[30d]))
+          or (0 * sum(increase(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET"}[30d]))))
+          / sum(increase(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET"}[30d]))) and (sum(increase(http_requests_total{job="url-shortener-api",handler="/{code}",method="GET"}[30d]))
+          > 0)
+      - record: redirect:slo_availability:30d
+        expr: 1 - redirect:slo_error_ratio:30d
+      - record: redirect:slo_error_budget_remaining:30d
+        expr: 1 - (redirect:slo_error_ratio:30d / 0.001)
+      - record: cache:miss_ratio:5m
+        expr: sum(rate(cache_misses_total{job="url-shortener-api"}[5m])) / (sum(rate(cache_hits_total{job="url-shortener-api"}[5m]))
+          + sum(rate(cache_misses_total{job="url-shortener-api"}[5m])))
+      - record: analytics:backlog
+        expr: sum(consumer_lag{job="url-shortener-worker",backend="kafka",kind="uncommitted"}) or (max(consumer_lag{job="url-shortener-worker",backend="redis_streams",kind="unread"})
+          + max(consumer_lag{job="url-shortener-worker",backend="redis_streams",kind="pending"}))
+      - record: analytics:dlq_retained_size
+        expr: max(dlq_queue_size{job="url-shortener-worker"})
+    - name: url-shortener-alerts
+      interval: 30s
+      rules:
+      - alert: RedirectAvailabilityFastBurn
+        expr: (redirect:slo_burn_rate:5m > 14.4) and (redirect:slo_burn_rate:1h > 14.4)
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Redirect availability budget is burning faster than 14.4x
+          runbook: docs/runbook.md#redirectavailabilityfastburn
+      - alert: RedirectAvailabilitySlowBurn
+        expr: (redirect:slo_burn_rate:30m > 6) and (redirect:slo_burn_rate:6h > 6)
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Redirect availability budget is burning faster than 6x
+          runbook: docs/runbook.md#redirectavailabilityslowburn
+      - alert: AnalyticsConsumerLagHigh
+        expr: analytics:backlog > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Analytics backlog exceeds 1000 events or offsets
+          runbook: docs/runbook.md#analyticsconsumerlaghigh
+      - alert: DeadLetterGrowth
+        expr: sum(increase(dlq_events_total{job="url-shortener-worker"}[15m])) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: New analytics dead letters were published
+          runbook: docs/runbook.md#deadlettergrowth
+      - alert: RedisCircuitBreakerOpen
+        expr: max(circuit_breaker_state{job="url-shortener-api"}) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: At least one API Redis circuit is open or half-open
+          runbook: docs/runbook.md#rediscircuitbreakeropen
+      - alert: HighCacheMissRatio
+        expr: (cache:miss_ratio:5m > 0.5) and (sum(increase(cache_hits_total{job="url-shortener-api"}[5m])) + sum(increase(cache_misses_total{job="url-shortener-api"}[5m]))
+          > 100)
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Cache misses exceed 50 percent with sufficient traffic
+          runbook: docs/runbook.md#highcachemissratio
+      - alert: TelemetryTargetDown
+        expr: min by (job) (up{job=~"url-shortener-api|url-shortener-worker"}) == 0 or absent(up{job="url-shortener-api"})
+          or absent(up{job="url-shortener-worker"})
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: API or worker telemetry is unavailable; SLO data may be incomplete
+          runbook: docs/runbook.md#telemetrytargetdown
+      - alert: AnalyticsTelemetryStale
+        expr: time() - min(analytics_broker_metrics_last_success_timestamp_seconds{job="url-shortener-worker"}) > 120
+          or sum(absent(analytics_broker_metrics_last_success_timestamp_seconds{job="url-shortener-worker"})) or absent(analytics:backlog)
+          or (analytics:backlog != analytics:backlog)
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Worker backlog and DLQ measurements are stale or missing
+          runbook: docs/runbook.md#analyticstelemetrystale

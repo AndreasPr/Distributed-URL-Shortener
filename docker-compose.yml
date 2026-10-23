@@ -48,12 +48,15 @@ services:
       DB_URL: "postgresql://${POSTGRES_USER:?Set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:?Set POSTGRES_DB in .env}"
 
   prometheus:
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus", "--storage.tsdb.retention.time=35d"]
     image: prom/prometheus:v3.15.0
     restart: on-failure
     ports:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
 
   jaeger:
     image: jaegertracing/all-in-one:1.76.0
@@ -184,6 +187,7 @@ services:
       KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
 
 volumes:
+  prometheus_data:
   postgres_data:
   redis_data:
   grafana_data:

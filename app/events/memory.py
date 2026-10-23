@@ -59,5 +59,9 @@ class InMemoryEventBus:
             "unread": len(self.messages[self.topic]) - self.offsets[key],
         }
 
+    def queue_size(self, topic: str) -> float:
+        with self.lock:
+            return float(len(self.messages[topic]))
+
     def close(self) -> None:
         pass

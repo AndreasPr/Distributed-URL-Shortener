@@ -45,6 +45,8 @@ class StreamClient(Protocol):
 
     def xlen(self, name: str) -> int: ...
 
+    def xinfo_groups(self, name: str) -> list[dict[str, Any]]: ...
+
     def xgroup_destroy(self, name: str, groupname: str) -> object: ...
 
     def close(self) -> None: ...
@@ -116,10 +118,24 @@ class RedisStreamsEventBus:
 
     def lag(self) -> dict[str, float]:
         pending = self.client.xpending(self.topic, self.group)
-        return {
+        result = {
             "stream_length": self.client.xlen(self.topic),
             "pending": pending["pending"],
         }
+        for group in self.client.xinfo_groups(self.topic):
+            name = group["name"]
+            if (name.decode() if isinstance(name, bytes) else name) == self.group:
+                # Redis can report unknown lag after deletions or arbitrary IDs.
+                # NaN prevents an old gauge value from masquerading as current.
+                result["unread"] = (
+                    float(group["lag"])
+                    if group.get("lag") is not None
+                    else float("nan")
+                )
+        return result
+
+    def queue_size(self, topic: str) -> float:
+        return float(self.client.xlen(topic))
 
     def close(self) -> None:
         if self.group.startswith("dlq-inspect-"):

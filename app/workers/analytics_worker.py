@@ -19,8 +19,10 @@ from app.events.models import ClickEvent, DeadLetter
 from app.observability.context import event_span, inject_context, wire_context
 from app.observability.logging import configure_logging_with_tracing
 from app.observability.metrics import (
+    analytics_broker_metrics_last_success_timestamp_seconds,
     consumer_lag,
     dlq_events_total,
+    dlq_queue_size,
     events_consumed_total,
     events_failed_total,
     record_analytics_events_processed,
@@ -154,6 +156,12 @@ class AnalyticsWorker:
                     if time.monotonic() - last_lag >= 5:
                         for kind, lag in self.bus.lag().items():
                             consumer_lag.labels(settings.EVENT_BUS, kind).set(lag)
+                        dlq_queue_size.labels(settings.EVENT_BUS).set(
+                            self.bus.queue_size(settings.EVENT_DLQ_TOPIC)
+                        )
+                        analytics_broker_metrics_last_success_timestamp_seconds.set(
+                            time.time()
+                        )
                         last_lag = time.monotonic()
                 except Exception as exc:
                     failures += 1
