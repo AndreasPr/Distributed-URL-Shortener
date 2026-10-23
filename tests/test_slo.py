@@ -143,3 +143,27 @@ def test_headless_metrics_services_include_unready_replicas():
         )
         assert service["spec"]["clusterIP"] == "None"
         assert service["spec"]["publishNotReadyAddresses"] is True
+
+
+def test_grafana_upgrade_preserves_existing_datasource_identity():
+    """An imposed UID breaks provisioning over a legacy generated datasource UID."""
+    local = yaml.safe_load(
+        (ROOT / "grafana/provisioning/datasources/prometheus.yml").read_text()
+    )
+    manifests = list(
+        yaml.safe_load_all((ROOT / "k8s/grafana/deployment.yaml").read_text())
+    )
+    config = next(
+        m for m in manifests if m["metadata"]["name"] == "grafana-datasources"
+    )
+    kubernetes = yaml.safe_load(config["data"]["prometheus.yaml"])
+    for provision in (local, kubernetes):
+        datasource = provision["datasources"][0]
+        assert datasource["name"] == "Prometheus"
+        assert datasource["isDefault"] is True
+        assert "uid" not in datasource
+        assert "deleteDatasources" not in provision
+    dashboard = json.loads(
+        (ROOT / "grafana/dashboards/url-shortener-dashboard.json").read_text()
+    )
+    assert all("datasource" not in panel for panel in dashboard["panels"])

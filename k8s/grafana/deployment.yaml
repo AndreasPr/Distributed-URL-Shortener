@@ -8,7 +8,6 @@ data:
     apiVersion: 1
     datasources:
     - name: Prometheus
-      uid: prometheus
       type: prometheus
       access: proxy
       url: http://prometheus.url-shortener.svc.cluster.local:9090
@@ -52,7 +51,7 @@ data:
       ],
       "timezone": "browser",
       "schemaVersion": 30,
-      "version": 2,
+      "version": 3,
       "refresh": "10s",
       "time": {
         "from": "now-6h",
@@ -287,10 +286,6 @@ data:
           "id": 100,
           "title": "Redirect availability (observed 30d, target 99.9%)",
           "type": "stat",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
           "gridPos": {
             "x": 0,
             "y": 36,
@@ -339,10 +334,6 @@ data:
           "id": 101,
           "title": "Redirect error budget remaining (30d; negative = exhausted)",
           "type": "stat",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
           "gridPos": {
             "x": 12,
             "y": 36,
@@ -395,10 +386,6 @@ data:
           "id": 102,
           "title": "Analytics backlog (events / Kafka offsets)",
           "type": "stat",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
           "gridPos": {
             "x": 0,
             "y": 42,
@@ -434,10 +421,6 @@ data:
           "id": 103,
           "title": "DLQ retained entries (Kafka offset upper bound)",
           "type": "stat",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
           "gridPos": {
             "x": 12,
             "y": 42,
@@ -473,10 +456,6 @@ data:
           "id": 104,
           "title": "Redis circuit (0 closed, 1 open, 2 half-open)",
           "type": "stat",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
           "gridPos": {
             "x": 0,
             "y": 48,

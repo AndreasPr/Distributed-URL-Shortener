@@ -31,3 +31,14 @@ binding a new Prometheus PVC; it does not change the public API Service.
 Alertmanager/notification delivery and external probes are not added. Local Alerts
 and runbooks are the operational surface. See docs/slo.md for measurement gaps,
 partial-history caveats and the Google SRE reference behind the burn thresholds.
+
+### Follow-up: preserve existing Grafana datasource identities
+
+An existing Compose Grafana volume failed startup after adding `uid: prometheus`
+to the previously name-only datasource provisioning. Removing that imposed UID
+restored startup with the same volume. Keep name-based provisioning and use the
+default Prometheus datasource in dashboard panels. This preserves legacy generated
+UIDs; deleting the datasource or volume would unnecessarily break references or
+lose data. The tradeoff is that changing the default datasource changes these
+panels' selection. A regression test covers Compose/Kubernetes configuration and
+dashboard selection, with fresh-installation and existing-volume runtime checks.

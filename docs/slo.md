@@ -106,6 +106,9 @@ provider automatically. `make prometheus-check` validates and unit-tests rules;
 `make check` now includes it. See [runbook](runbook.md) and
 [verification](slo-verification.md).
 
-The provisioned Prometheus datasource now has the stable UID `prometheus`. If an
-existing manually configured datasource conflicts by name/UID, reconcile that
-configuration and verify the panels; do not erase the Grafana volume to fix it.
+The provisioned Prometheus datasource is selected by name and remains the default.
+Do not assign a new UID when upgrading an existing Grafana volume: Grafana can
+fail provisioning when the existing name has a different UID. Dashboard panels
+use the default datasource so both existing generated UIDs and fresh installations
+work without deleting or recreating datasource records. After updating these
+files, run `docker compose restart grafana`; preserve the Grafana volume.
