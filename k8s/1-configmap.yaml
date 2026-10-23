@@ -4,6 +4,8 @@ metadata:
   name: url-shortener-config
   namespace: url-shortener
 data:
+  # Replace with the actual browser origin before deploying.
+  CORS_ORIGINS: "https://shortener.example.com"
   # Database
   DB_NAME: url_db
   DB_HOST: postgres.url-shortener.svc.cluster.local

@@ -110,10 +110,10 @@ def test_kubernetes_metrics_use_internal_port_and_network_policy():
     )
     assert service["spec"]["type"] == "ClusterIP"
     assert [port["targetPort"] for port in service["spec"]["ports"]] == [8000]
-    policy = next(item for item in documents if item["kind"] == "NetworkPolicy")
+    policies = list(yaml.safe_load_all((ROOT / "k8s/7-network-policies.yaml").read_text()))
+    policy = next(item for item in policies if item["metadata"]["name"] == "api-metrics")
     rules = policy["spec"]["ingress"]
-    assert rules[0] == {"ports": [{"protocol": "TCP", "port": 8000}]}
-    assert rules[1] == {
+    assert rules[0] == {
         "from": [{"podSelector": {"matchLabels": {"app": "prometheus"}}}],
         "ports": [{"protocol": "TCP", "port": 8002}],
     }

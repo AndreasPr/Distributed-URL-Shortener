@@ -167,3 +167,9 @@ Tests: `tests/test_auth.py`, `tests/test_rate_limiter.py`, the assembled-app tes
 `make mcp-test`. Real Redis Lua integration tests are deferred to the Testcontainers
 suite in step 5.1; the fake validates bucket behavior, not the Redis interpreter.
 See [verification](auth-verification.md) for exact results and limits.
+
+Step 2.2 adds bounded request bodies, exact-origin CORS, sanitized error
+responses, outbound deadlines and container/network isolation. See the
+[threat model](threat-model.md) for implemented controls and residual risks,
+and the [verification and rollout checklist](security-hardening-verification.md)
+before updating an existing deployment.

@@ -51,3 +51,7 @@ lock:
 	$(UV) pip compile requirements-dev.in --python-version $(PYTHON_VERSION) --universal --generate-hashes --custom-compile-command "make lock" -q -o requirements-dev.txt
 	$(UV) pip compile requirements.in -c requirements-dev.txt --python-version $(PYTHON_VERSION) --universal --generate-hashes --custom-compile-command "make lock" -q -o requirements.txt
 	$(UV) pip compile mcp-server/requirements.in -c requirements-dev.txt --python-version $(PYTHON_VERSION) --universal --generate-hashes --custom-compile-command "make lock" -q -o mcp-server/requirements.txt
+
+.PHONY: audit
+audit:
+	$(PYTHON) -m pip_audit --disable-pip --no-deps -r requirements.txt -r mcp-server/requirements.txt

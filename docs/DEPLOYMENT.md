@@ -103,3 +103,13 @@ Version tags improve reproducibility but are not immutable digests or a security
 ## Versioned database migrations
 
 Run `alembic upgrade head` using the project environment. See the [migration guide](migrations.md) for settings, empty databases, existing-volume adoption, rollback, and PostgreSQL tests. Existing pre-Alembic databases must be verified and stamped at revision 0001 before normal startup. Never blindly stamp head.
+
+## Security hardening rollout
+
+Read the [Step 2.2 rollout checklist](security-hardening-verification.md) before
+applying the updated manifests. It covers persistent-volume ownership, immutable
+migration Jobs, CNI/ingress/DNS selectors, resource limits and removal of old
+additive policies/RBAC. Set the ConfigMap's CORS_ORIGINS to the actual public
+frontend origin. Build the frontend with `--build-arg NEXT_PUBLIC_API_URL=https://YOUR_API_ORIGIN`;
+this is public configuration, never an API key. Kubernetes security tests are
+static checks; they do not establish that your CNI enforces these policies.

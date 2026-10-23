@@ -12,5 +12,8 @@ def create_consumer(topic: str, group: str):
         group_id=group,
         enable_auto_commit=False,
         api_version_auto_timeout_ms=1000,
+        request_timeout_ms=10000,
+        session_timeout_ms=6000,
+        heartbeat_interval_ms=2000,
         max_poll_records=settings.EVENT_BATCH_SIZE,
     )

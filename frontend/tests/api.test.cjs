@@ -13,7 +13,7 @@ function clientUnderTest() {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
   const context = {
-    exports: {}, process: { env: {} },
+    AbortSignal, exports: {}, process: { env: {} },
     fetch: async (url, options = {}) => {
       requests.push({ url, options })
       return { ok: true, json: async () => ({ short_code: 'example' }) }
@@ -33,6 +33,7 @@ test('protected reads and writes send only the in-memory key', async () => {
   assert.equal(requests.length, 4)
   for (const { options } of requests) {
     assert.equal(options.headers['X-API-Key'], 'test-placeholder')
+    assert.ok(options.signal instanceof AbortSignal)
   }
   assert.equal(requests[3].options.method, 'DELETE')
 })

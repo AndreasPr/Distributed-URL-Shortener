@@ -44,7 +44,7 @@ class KafkaEventBus:
             if partition not in offsets or next_offset > offsets[partition].offset:
                 offsets[partition] = OffsetAndMetadata(next_offset, "", -1)
         if offsets:
-            self.consumer.commit(offsets=offsets)
+            self.consumer.commit(offsets=offsets, timeout_ms=5000)
 
     def lag(self) -> dict[str, float]:
         if self.consumer is None:
@@ -52,13 +52,13 @@ class KafkaEventBus:
         ends = self.consumer.end_offsets(self.consumer.assignment())
         return {
             "uncommitted": sum(
-                max(0, end - (self.consumer.committed(p) or 0))
+                max(0, end - (self.consumer.committed(p, timeout_ms=5000) or 0))
                 for p, end in ends.items()
             )
         }
 
     def close(self) -> None:
         if self.consumer is not None:
-            self.consumer.close(autocommit=False)
+            self.consumer.close(autocommit=False, timeout_ms=5000)
         if self.producer is not None:
             self.producer.close(timeout=5)

@@ -1,6 +1,11 @@
 // API client for URL Shortener service
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
+// Abort includes response-body consumption, not just receipt of HTTP headers.
+function timedFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  return fetch(url, { ...options, signal: AbortSignal.timeout(10000) })
+}
+
 export interface ShortenRequest {
   long_url: string
   custom_alias?: string
@@ -52,7 +57,7 @@ export class APIClient {
   }
 
   async shorten(longUrl: string, customAlias?: string, expiresAt?: string): Promise<ShortenResponse> {
-    const response = await fetch(`${this.baseUrl}/shorten`, {
+    const response = await timedFetch(`${this.baseUrl}/shorten`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
       body: JSON.stringify({ long_url: longUrl, custom_alias: customAlias, expires_at: expiresAt }),
@@ -71,7 +76,7 @@ export class APIClient {
   }
 
   async getAnalytics(shortCode: string): Promise<Analytics> {
-    const response = await fetch(`${this.baseUrl}/analytics/${encodeURIComponent(shortCode)}`, { headers: this.authHeaders() })
+    const response = await timedFetch(`${this.baseUrl}/analytics/${encodeURIComponent(shortCode)}`, { headers: this.authHeaders() })
 
     if (!response.ok) {
       throw new Error(`Analytics failed: ${response.statusText}`)
@@ -81,14 +86,14 @@ export class APIClient {
   }
 
   async deleteUrl(code: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/urls/${encodeURIComponent(code)}`, {
+    const response = await timedFetch(`${this.baseUrl}/urls/${encodeURIComponent(code)}`, {
       method: 'DELETE', headers: this.authHeaders(),
     })
     if (!response.ok) throw new Error(`Delete failed: ${response.statusText}`)
   }
 
   async getHealth(): Promise<HealthResponse> {
-    const response = await fetch(`${this.baseUrl}/health`)
+    const response = await timedFetch(`${this.baseUrl}/health`)
 
     if (!response.ok) {
       throw new Error(`Health check failed: ${response.statusText}`)
@@ -98,7 +103,7 @@ export class APIClient {
   }
 
   async listUrls(): Promise<URLEntry[]> {
-    const response = await fetch(`${this.baseUrl}/urls`, { headers: this.authHeaders() })
+    const response = await timedFetch(`${this.baseUrl}/urls`, { headers: this.authHeaders() })
 
     if (!response.ok) {
       throw new Error(`List URLs failed: ${response.statusText}`)

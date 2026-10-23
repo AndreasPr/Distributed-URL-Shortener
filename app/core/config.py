@@ -1,9 +1,14 @@
 import ipaddress
 import math
 import os
+from urllib.parse import urlsplit
 
 
 class Settings:
+    ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+    MAX_REQUEST_BODY_BYTES = int(os.getenv("MAX_REQUEST_BODY_BYTES", "16384"))
+    if MAX_REQUEST_BODY_BYTES <= 0:
+        raise ValueError("MAX_REQUEST_BODY_BYTES must be positive")
     # Accept DATABASE_URL or DB_URL for local Docker Desktop / Kubernetes deployments
     DB_URL: str = os.environ.get("DATABASE_URL") or os.environ.get(
         "DB_URL", "postgresql://user:pass@localhost:5433/url_db"
@@ -68,6 +73,22 @@ class Settings:
         ).split(",")
         if origin.strip()
     ]
+
+    for origin in CORS_ORIGINS:
+        parsed = urlsplit(origin)
+        if (
+            "*" in origin
+            or parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username
+            or parsed.password
+            or parsed.path
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("CORS_ORIGINS must contain exact HTTP(S) origins")
+    if ENVIRONMENT == "production" and not os.getenv("CORS_ORIGINS"):
+        raise ValueError("Production requires explicit CORS_ORIGINS")
 
     if DB_URL.startswith("sqlite"):
         raise ValueError(

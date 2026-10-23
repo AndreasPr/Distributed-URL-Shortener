@@ -20,14 +20,34 @@ spec:
       - name: wait-postgres
         image: busybox:1.38.0
         command:
-          - sh
-          - -c
-          - until nc -z postgres.url-shortener.svc.cluster.local 5432; do sleep 2; done
+        - sh
+        - -c
+        - until nc -z postgres.url-shortener.svc.cluster.local 5432; do sleep 2; done
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 25m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
       containers:
       - name: worker
         image: url-shortener:latest
         imagePullPolicy: IfNotPresent
-        command: ["python", "-m", "app.workers.analytics_worker"]
+        command:
+        - python
+        - -m
+        - app.workers.analytics_worker
         ports:
         - name: metrics
           containerPort: 8001
@@ -58,7 +78,7 @@ spec:
               name: url-shortener-config
               key: DB_NAME
         - name: DB_URL
-          value: "postgresql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)"
+          value: postgresql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)
         - name: EVENT_BUS
           valueFrom:
             configMapKeyRef:
@@ -100,15 +120,37 @@ spec:
               name: url-shortener-config
               key: KAFKA_BOOTSTRAP_SERVERS
         - name: LOG_LEVEL
-          value: "INFO"
+          value: INFO
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "250m"
+            memory: 256Mi
+            cpu: 250m
           limits:
-            memory: "512Mi"
-            cpu: "500m"
+            memory: 512Mi
+            cpu: 500m
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
       restartPolicy: Always
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 64Mi
 
 ---
 apiVersion: v1
