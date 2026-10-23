@@ -1,5 +1,5 @@
 # Build stage
-FROM python:3.11.14-slim AS builder
+FROM python:3.14.7-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -17,7 +17,7 @@ COPY requirements.txt ./
 RUN python -m venv /opt/venv && /opt/venv/bin/pip install --no-cache-dir --require-hashes -r requirements.txt
 
 # Runtime stage
-FROM python:3.11.14-slim
+FROM python:3.14.7-slim
 
 ARG VERSION=unknown
 ARG BUILD_DATE=unknown
