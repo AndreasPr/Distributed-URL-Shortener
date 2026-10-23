@@ -105,3 +105,16 @@ consumer_lag = Gauge(
     "Broker backlog (stream length includes acknowledged records)",
     ["backend", "kind"],
 )
+
+
+dlq_queue_size = Gauge(
+    "dlq_queue_size",
+    "Retained DLQ entries; Kafka offset range is an upper bound, "
+    "not unresolved failures",
+    ["backend"],
+)
+
+analytics_broker_metrics_last_success_timestamp_seconds = Gauge(
+    "analytics_broker_metrics_last_success_timestamp_seconds",
+    "Unix time of the worker last successful backlog and DLQ inspection",
+)

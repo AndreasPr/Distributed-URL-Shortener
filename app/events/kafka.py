@@ -50,12 +50,25 @@ class KafkaEventBus:
         if self.consumer is None:
             return {}
         ends = self.consumer.end_offsets(self.consumer.assignment())
-        return {
-            "uncommitted": sum(
-                max(0, end - (self.consumer.committed(p, timeout_ms=5000) or 0))
-                for p, end in ends.items()
-            )
-        }
+        lag = 0
+        for partition, end in ends.items():
+            committed = self.consumer.committed(partition, timeout_ms=5000)
+            if committed is None:
+                # A new group starts at earliest retained data, not offset zero.
+                committed = self.consumer.beginning_offsets([partition])[partition]
+            lag += max(0, end - committed)
+        return {"uncommitted": float(lag)}
+
+    def queue_size(self, topic: str) -> float:
+        if self.consumer is None:
+            raise RuntimeError("Subscribe before inspecting queue size")
+        partitions = self.consumer.partitions_for_topic(topic) or set()
+        if not partitions:
+            return 0.0
+        selected = [TopicPartition(topic, partition) for partition in partitions]
+        starts = self.consumer.beginning_offsets(selected)
+        ends = self.consumer.end_offsets(selected)
+        return float(sum(max(0, ends[p] - starts[p]) for p in selected))
 
     def close(self) -> None:
         if self.consumer is not None:

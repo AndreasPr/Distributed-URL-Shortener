@@ -28,7 +28,7 @@ lint:
 typecheck:
 	$(PYTHON) -m mypy app/
 
-check: lint typecheck test
+check: lint typecheck test prometheus-check
 
 fmt:
 	$(PYTHON) -m isort app/
@@ -55,3 +55,7 @@ lock:
 .PHONY: audit
 audit:
 	$(PYTHON) -m pip_audit --disable-pip --no-deps -r requirements.txt -r mcp-server/requirements.txt
+
+.PHONY: prometheus-check
+prometheus-check:
+	sh scripts/check-prometheus.sh

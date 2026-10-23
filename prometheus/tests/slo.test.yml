@@ -1,0 +1,261 @@
+rule_files:
+- ../rules/slo.yml
+evaluation_interval: 30s
+tests:
+- name: healthy
+  interval: 1m
+  input_series:
+  - series: http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status="3xx"}
+    values: 0+1000x420
+  alert_rule_test:
+  - eval_time: 7h
+    alertname: RedirectAvailabilityFastBurn
+    exp_alerts: []
+  - eval_time: 7h
+    alertname: RedirectAvailabilitySlowBurn
+    exp_alerts: []
+- name: sustained 2 percent errors
+  interval: 1m
+  input_series:
+  - series: http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status="3xx"}
+    values: 0+980x420
+  - series: http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status="5xx"}
+    values: 0+20x420
+  alert_rule_test:
+  - eval_time: 7h
+    alertname: RedirectAvailabilityFastBurn
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+      exp_annotations:
+        summary: Redirect availability budget is burning faster than 14.4x
+        runbook: docs/runbook.md#redirectavailabilityfastburn
+  - eval_time: 7h
+    alertname: RedirectAvailabilitySlowBurn
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+      exp_annotations:
+        summary: Redirect availability budget is burning faster than 6x
+        runbook: docs/runbook.md#redirectavailabilityslowburn
+- name: no traffic
+  interval: 1m
+  input_series:
+  - series: http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status="3xx"}
+    values: 0+0x420
+  - series: http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status="5xx"}
+    values: 0+0x420
+  alert_rule_test:
+  - eval_time: 7h
+    alertname: RedirectAvailabilityFastBurn
+    exp_alerts: []
+  - eval_time: 7h
+    alertname: RedirectAvailabilitySlowBurn
+    exp_alerts: []
+- name: missing telemetry
+  interval: 1m
+  input_series: []
+  alert_rule_test:
+  - eval_time: 7h
+    alertname: RedirectAvailabilityFastBurn
+    exp_alerts: []
+  - eval_time: 7h
+    alertname: RedirectAvailabilitySlowBurn
+    exp_alerts: []
+- name: recovered short windows
+  interval: 1m
+  input_series:
+  - series: http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status="3xx"}
+    values: 0+980x360 352800+1000x60
+  - series: http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status="5xx"}
+    values: 0+20x360 7200+0x60
+  alert_rule_test:
+  - eval_time: 7h
+    alertname: RedirectAvailabilityFastBurn
+    exp_alerts: []
+  - eval_time: 7h
+    alertname: RedirectAvailabilitySlowBurn
+    exp_alerts: []
+- name: short spike alone does not page
+  interval: 1m
+  input_series:
+  - series: http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status="3xx"}
+    values: 0+1000x60 60000+900x5
+  - series: http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status="5xx"}
+    values: 0+0x60 0+100x5
+  alert_rule_test:
+  - eval_time: 65m
+    alertname: RedirectAvailabilityFastBurn
+    exp_alerts: []
+- name: counter reset preserves ratio
+  interval: 1m
+  input_series:
+  - series: http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status="3xx"}
+    values: 0+980x10 0+980x10
+  - series: http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status="5xx"}
+    values: 0+20x10 0+20x10
+  promql_expr_test:
+  - expr: redirect:slo_error_ratio:5m
+    eval_time: 20m
+    exp_samples:
+    - labels: redirect:slo_error_ratio:5m
+      value: 0.02
+- name: healthy without an error series
+  interval: 1m
+  input_series:
+  - series: http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status="3xx"}
+    values: 0+1000x60
+  promql_expr_test:
+  - expr: redirect:slo_availability:30d
+    eval_time: 1h
+    exp_samples:
+    - labels: redirect:slo_availability:30d
+      value: 1
+  - expr: redirect:slo_error_budget_remaining:30d
+    eval_time: 1h
+    exp_samples:
+    - labels: redirect:slo_error_budget_remaining:30d
+      value: 1
+- name: zero requests never claims 100 percent
+  interval: 1m
+  input_series:
+  - series: http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status="3xx"}
+    values: 0+0x60
+  promql_expr_test:
+  - expr: redirect:slo_availability:30d
+    eval_time: 1h
+    exp_samples: []
+- name: operational alerts and replicated Redis gauge aggregation
+  interval: 1m
+  input_series:
+  - series: consumer_lag{job="url-shortener-worker",backend="redis_streams",kind="unread",instance="a"}
+    values: 1500+0x30
+  - series: consumer_lag{job="url-shortener-worker",backend="redis_streams",kind="pending",instance="a"}
+    values: 10+0x30
+  - series: consumer_lag{job="url-shortener-worker",backend="redis_streams",kind="unread",instance="b"}
+    values: 1500+0x30
+  - series: consumer_lag{job="url-shortener-worker",backend="redis_streams",kind="pending",instance="b"}
+    values: 10+0x30
+  - series: dlq_events_total{job="url-shortener-worker"}
+    values: 0+1x30
+  - series: circuit_breaker_state{job="url-shortener-api"}
+    values: 1+0x30
+  - series: cache_misses_total{job="url-shortener-api"}
+    values: 0+80x30
+  - series: cache_hits_total{job="url-shortener-api"}
+    values: 0+20x30
+  alert_rule_test:
+  - eval_time: 30m
+    alertname: AnalyticsConsumerLagHigh
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+      exp_annotations:
+        summary: Analytics backlog exceeds 1000 events or offsets
+        runbook: docs/runbook.md#analyticsconsumerlaghigh
+  - eval_time: 30m
+    alertname: DeadLetterGrowth
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+      exp_annotations:
+        summary: New analytics dead letters were published
+        runbook: docs/runbook.md#deadlettergrowth
+  - eval_time: 30m
+    alertname: RedisCircuitBreakerOpen
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+      exp_annotations:
+        summary: At least one API Redis circuit is open or half-open
+        runbook: docs/runbook.md#rediscircuitbreakeropen
+  - eval_time: 30m
+    alertname: HighCacheMissRatio
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+      exp_annotations:
+        summary: Cache misses exceed 50 percent with sufficient traffic
+        runbook: docs/runbook.md#highcachemissratio
+  promql_expr_test:
+  - expr: analytics:backlog
+    eval_time: 30m
+    exp_samples:
+    - labels: analytics:backlog
+      value: 1510
+- name: slow burn independently of fast threshold
+  interval: 1m
+  input_series:
+  - series: http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status="3xx"}
+    values: 0+992x420
+  - series: http_requests_total{job="url-shortener-api",handler="/{code}",method="GET",status="5xx"}
+    values: 0+8x420
+  alert_rule_test:
+  - eval_time: 7h
+    alertname: RedirectAvailabilitySlowBurn
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+      exp_annotations:
+        summary: Redirect availability budget is burning faster than 6x
+        runbook: docs/runbook.md#redirectavailabilityslowburn
+  - eval_time: 7h
+    alertname: RedirectAvailabilityFastBurn
+    exp_alerts: []
+- name: telemetry recovers
+  interval: 1m
+  input_series:
+  - series: analytics_broker_metrics_last_success_timestamp_seconds{job="url-shortener-worker"}
+    values: 0+60x30
+  - series: up{job="url-shortener-api"}
+    values: 1+0x30
+  - series: up{job="url-shortener-worker"}
+    values: 1+0x30
+  - series: consumer_lag{job="url-shortener-worker",backend="kafka",kind="uncommitted"}
+    values: 0+0x30
+  alert_rule_test:
+  - eval_time: 30m
+    alertname: AnalyticsTelemetryStale
+    exp_alerts: []
+  - eval_time: 30m
+    alertname: TelemetryTargetDown
+    exp_alerts: []
+- name: telemetry down and stale
+  interval: 1m
+  input_series:
+  - series: analytics_broker_metrics_last_success_timestamp_seconds{job="url-shortener-worker"}
+    values: 0+0x30
+  - series: up{job="url-shortener-api"}
+    values: 0+0x30
+  - series: up{job="url-shortener-worker"}
+    values: 1+0x30
+  alert_rule_test:
+  - eval_time: 30m
+    alertname: AnalyticsTelemetryStale
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+      exp_annotations:
+        summary: Worker backlog and DLQ measurements are stale or missing
+        runbook: docs/runbook.md#analyticstelemetrystale
+  - eval_time: 30m
+    alertname: TelemetryTargetDown
+    exp_alerts:
+    - exp_labels:
+        severity: critical
+        job: url-shortener-api
+      exp_annotations:
+        summary: API or worker telemetry is unavailable; SLO data may be incomplete
+        runbook: docs/runbook.md#telemetrytargetdown
+- name: missing worker metrics produces one diagnostic alert
+  interval: 1m
+  input_series: []
+  alert_rule_test:
+  - eval_time: 30m
+    alertname: AnalyticsTelemetryStale
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+      exp_annotations:
+        summary: Worker backlog and DLQ measurements are stale or missing
+        runbook: docs/runbook.md#analyticstelemetrystale

@@ -16,7 +16,7 @@
 Use CPython 3.11.14 from `.python-version` (also used by Docker and CI). Follow [docs/developer.md](docs/developer.md) to create a clean `.venv` with uv 0.9.9 and install the hashed `requirements-dev.txt` lock. The former Anaconda readline crash is resolved by recreating the environment; do not disable pytest capture or plugins in the gate.
 
 - `make up`, `make down`, `make logs`: local Compose stack. Copy `.env.example` only when `.env` is absent and replace placeholders locally; preserve existing volume credentials.
-- `make check`: Black check, isort check, full Flake8, blocking mypy, backend tests with coverage.
+- `make check`: Black check, isort check, full Flake8, blocking mypy, backend tests with coverage, and Prometheus rule validation/unit tests (native promtool or Docker required).
 - `make fmt`: apply Black and isort to app/.
 - `make test`, `make lint`, `make typecheck`: individual backend checks.
 - `make frontend-check`: npm ci, noninteractive core-web-vitals ESLint, tsc --noEmit. Use Node 22.13+ (CI uses Node 22).

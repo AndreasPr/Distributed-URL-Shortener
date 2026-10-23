@@ -290,3 +290,5 @@ spec:
   - name: metrics
     port: 8002
     targetPort: metrics
+  clusterIP: None
+  publishNotReadyAddresses: true

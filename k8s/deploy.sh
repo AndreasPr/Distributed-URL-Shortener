@@ -97,6 +97,7 @@ sleep 5
 
 # Step 11: Deploy Prometheus
 echo "Step 11: Deploying Prometheus..."
+kubectl apply -f k8s/prometheus/rules-configmap.yaml
 kubectl apply -f k8s/prometheus/deployment.yaml
 echo "   Waiting for Prometheus to be ready..."
 kubectl wait --for=condition=available deployment/prometheus -n $NAMESPACE --timeout=60s 2>/dev/null || echo "Prometheus still starting"
