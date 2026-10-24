@@ -26,6 +26,9 @@ services:
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       EVENT_BUS: kafka
       EVENT_TOPIC: ${EVENT_TOPIC:-url-events}
+      ABUSE_TOPIC: ${ABUSE_TOPIC:-url-created}
+      ABUSE_GROUP: ${ABUSE_GROUP:-abuse-group}
+      ABUSE_DLQ_TOPIC: ${ABUSE_DLQ_TOPIC:-abuse-dlq}
       EVENT_DLQ_TOPIC: ${EVENT_DLQ_TOPIC:-url-events-dlq}
       EVENT_CONSUMER_GROUP: ${EVENT_CONSUMER_GROUP:-analytics-group}
       EVENT_BATCH_SIZE: ${EVENT_BATCH_SIZE:-100}
@@ -131,6 +134,40 @@ services:
     networks:
       default:
         aliases: [worker]
+
+  abuse-worker:
+    <<: *worker
+    command: python -m app.workers.abuse_worker
+    environment: &abuse_environment
+      <<: *api_environment
+      LLM_PROVIDER: ${LLM_PROVIDER:-fake}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-}
+      LLM_DAILY_BUDGET: ${LLM_DAILY_BUDGET:-100}
+      LLM_CONCURRENCY: ${LLM_CONCURRENCY:-2}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-15}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-2}
+      LLM_BACKOFF_SECONDS: ${LLM_BACKOFF_SECONDS:-0.25}
+      LLM_MAX_OUTPUT_TOKENS: ${LLM_MAX_OUTPUT_TOKENS:-512}
+      ABUSE_GRAY_LOW: ${ABUSE_GRAY_LOW:-0.25}
+      ABUSE_GRAY_HIGH: ${ABUSE_GRAY_HIGH:-0.75}
+      ABUSE_VERDICT_TTL: ${ABUSE_VERDICT_TTL:-3600}
+      ABUSE_LLM_INPUT_LIMIT: ${ABUSE_LLM_INPUT_LIMIT:-512}
+      ABUSE_METRICS_PORT: 8003
+
+  abuse-worker-redis:
+    <<: *worker
+    profiles: [redis-streams]
+    command: python -m app.workers.abuse_worker
+    depends_on: *redis_dependencies
+    environment:
+      <<: *abuse_environment
+      EVENT_BUS: redis_streams
+    networks:
+      default:
+        aliases: [abuse-worker]
 
   postgres:
     image: postgres:16.13-alpine

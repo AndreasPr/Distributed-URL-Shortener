@@ -55,3 +55,18 @@ test('a fresh client has no persisted key', async () => {
   await second.client.shorten('https://example.com')
   assert.equal(second.requests[0].options.headers['X-API-Key'], undefined)
 })
+
+test('flagged list and review use admin key, encoded code and bounded fetch', async () => {
+  const { client, requests } = clientUnderTest()
+  client.setApiKey('test-placeholder')
+  await client.listFlagged(50)
+  await client.reviewFlagged('a/b', 'block')
+  assert.equal(requests[0].url, 'http://test/admin/flagged?limit=50&offset=50')
+  assert.equal(requests[1].url, 'http://test/admin/flagged/a%2Fb/review')
+  assert.equal(requests[1].options.method, 'POST')
+  assert.equal(JSON.parse(requests[1].options.body).decision, 'block')
+  for (const { options } of requests) {
+    assert.equal(options.headers['X-API-Key'], 'test-placeholder')
+    assert.ok(options.signal instanceof AbortSignal)
+  }
+})

@@ -39,6 +39,17 @@ export interface URLEntry {
   click_count: number
 }
 
+export interface FlaggedURL {
+  short_code: string
+  long_url: string
+  verdict: 'suspicious' | 'malicious'
+  score: number
+  reasons: string[]
+  source: string
+  model: string | null
+  created_at: string
+}
+
 export class APIClient {
   private apiKey = ''
 
@@ -90,6 +101,20 @@ export class APIClient {
       method: 'DELETE', headers: this.authHeaders(),
     })
     if (!response.ok) throw new Error(`Delete failed: ${response.statusText}`)
+  }
+
+  async listFlagged(offset = 0): Promise<FlaggedURL[]> {
+    const response = await timedFetch(`${this.baseUrl}/admin/flagged?limit=50&offset=${offset}`, { headers: this.authHeaders() })
+    if (!response.ok) throw new Error(`Review queue unavailable (${response.status}); an admin key is required`)
+    return response.json()
+  }
+
+  async reviewFlagged(code: string, decision: 'allow' | 'block'): Promise<void> {
+    const response = await timedFetch(`${this.baseUrl}/admin/flagged/${encodeURIComponent(code)}/review`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+      body: JSON.stringify({ decision }),
+    })
+    if (!response.ok) throw new Error(`Review failed (${response.status})`)
   }
 
   async getHealth(): Promise<HealthResponse> {

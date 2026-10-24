@@ -1021,4 +1021,10 @@ Click tracing: [OTLP, JSON logs and finding a trace in Jaeger](docs/observabilit
 Monitoring: [SLO definitions and measurement gaps](docs/slo.md), [alert runbook](docs/runbook.md). `make check` includes promtool rule validation and tests; install promtool or start Docker.
 
 The optional [LLM provider layer](docs/llm.md) defaults to deterministic offline
-responses, supports Gemini/local Ollama, and is not yet connected to request flows.
+responses and supports Gemini/local Ollama. The abuse worker uses it only for
+gray-zone decisions; request threads do not run inference.
+
+[Asynchronous abuse review](docs/abuse-pipeline.md) analyzes newly created links
+without fetching pages, blocks committed malicious verdicts with HTTP 451, and
+provides an admin Flagged queue. Pending links remain redirectable; heuristic/model
+verdicts can be wrong and require review. Both Compose profiles include the worker.

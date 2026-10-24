@@ -1,11 +1,13 @@
 import logging
 from collections.abc import Iterator
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
+from app.abuse.persistence import LinkBlockedError, flagged, review
+from app.abuse.schemas import ReviewRequest
 from app.api.auth import require_admin, require_read, require_write
 from app.cache.redis_client import read_cache, redis_client
 from app.db.database import get_db
@@ -174,6 +176,28 @@ def admin_revoke(
     return Response(status_code=204)
 
 
+@router.get("/admin/flagged", summary="Unreviewed suspicious and malicious links")
+def admin_flagged(
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    key: APIKey = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    return flagged(db, limit, offset)
+
+
+@router.post("/admin/flagged/{code}/review", status_code=204)
+def admin_review(
+    code: str,
+    request: ReviewRequest,
+    key: APIKey = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    if not review(db, code, request.decision, str(key.id)):
+        raise HTTPException(404, "Verdict not found")
+    return Response(status_code=204)
+
+
 @router.get(
     "/{code}",
     status_code=307,
@@ -182,11 +206,14 @@ def admin_revoke(
         307: {"description": "Redirect to active destination"},
         404: {"description": "Missing or deleted link"},
         410: {"description": "Expired link"},
+        451: {"description": "Blocked by abuse verdict or admin review"},
     },
 )
 def redirect(code: str, db: Session = Depends(get_db)):
     try:
         long_url = service.resolve(db, code)
+    except LinkBlockedError as exc:
+        raise HTTPException(status_code=451, detail=str(exc)) from exc
     except LinkExpiredError as exc:
         raise HTTPException(status_code=410, detail=str(exc)) from exc
 

@@ -9,6 +9,7 @@ from opentelemetry import trace
 from pydantic import HttpUrl
 from sqlalchemy.orm import Session
 
+from app.abuse.persistence import enforce, enqueue_created
 from app.cache.redis_client import acquire_lock, get_cache
 from app.cache.redis_client import invalidate_cache as delete_cache
 from app.cache.redis_client import release_lock, set_cache
@@ -107,6 +108,7 @@ class URLService:
                     code = self.repo.create_with_code(
                         db, long_url_str, custom_alias, expiry, created_by=created_by
                     )
+                enqueue_created(db, code)
                 db.commit()
                 loads.invalidate(code)
                 delete_cache(code)
@@ -121,6 +123,7 @@ class URLService:
             if destination.long_url is None:
                 return None
             self._check_expiry(destination.expires_at)
+            enforce(db, code)
             self._record_click(code)
             self._check_expiry(destination.expires_at)
             _record_url_origin(span, destination.long_url)

@@ -2,15 +2,16 @@
 
 `app/llm/` provides synchronous `classify_json(system_prompt, user_content, schema)`.
 The result has `.value` (your validated Pydantic model) and `.metadata` (provider,
-model, elapsed milliseconds, input/output tokens when reported). No application
-route or worker calls it yet; do not put blocking model calls on the redirect path.
+model, elapsed milliseconds, input/output tokens when reported). The abuse worker uses it for gray-zone decisions (see [abuse-pipeline.md](abuse-pipeline.md));
+request threads never call it.
 No SDK/dependency change is necessary: the adapters use the existing pinned requests.
 
 ## Local setup and example
 
 Settings read **exported environment variables at process startup**, not `.env`
 automatically. Compose's `.env` substitution does not pass arbitrary variables to
-containers; this layer is currently intended for host-run code. Keep keys in your
+containers. The Compose abuse worker now explicitly passes the documented LLM
+settings; host-run scripts still require exports. Keep keys in your
 private environment; never put them in frontend variables or committed files.
 
 Default provider is `fake`, which performs no network activity. Supply deterministic

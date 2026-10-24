@@ -1,0 +1,5 @@
+# Illustrative heuristic, not a blocklist or claim about every site on these TLDs.
+zip
+mov
+click
+top

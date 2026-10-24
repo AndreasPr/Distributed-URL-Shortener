@@ -93,6 +93,8 @@ sleep 5
 # Step 10: Deploy Worker
 echo "Step 10: Deploying Analytics Worker..."
 kubectl apply -f k8s/worker/deployment.yaml
+kubectl apply -f k8s/abuse-worker/network-policy.yaml
+kubectl apply -f k8s/abuse-worker/deployment.yaml
 sleep 5
 
 # Step 11: Deploy Prometheus

@@ -14,3 +14,7 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets: ["worker:8001"]
+  - job_name: "url-shortener-abuse-worker"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["abuse-worker:8003"]
