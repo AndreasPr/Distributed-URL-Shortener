@@ -1019,3 +1019,6 @@ For questions or support, please open an issue on GitHub.
 Click tracing: [OTLP, JSON logs and finding a trace in Jaeger](docs/observability.md).
 
 Monitoring: [SLO definitions and measurement gaps](docs/slo.md), [alert runbook](docs/runbook.md). `make check` includes promtool rule validation and tests; install promtool or start Docker.
+
+The optional [LLM provider layer](docs/llm.md) defaults to deterministic offline
+responses, supports Gemini/local Ollama, and is not yet connected to request flows.

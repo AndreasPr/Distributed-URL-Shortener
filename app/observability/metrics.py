@@ -118,3 +118,22 @@ analytics_broker_metrics_last_success_timestamp_seconds = Gauge(
     "analytics_broker_metrics_last_success_timestamp_seconds",
     "Unix time of the worker last successful backlog and DLQ inspection",
 )
+
+
+llm_requests_total = Counter(
+    "llm_requests_total", "LLM attempts including retry and repair", ["provider"]
+)
+llm_errors_total = Counter(
+    "llm_errors_total",
+    "LLM attempt errors and admission rejections",
+    ["provider", "kind"],
+)
+llm_latency_seconds = Histogram(
+    "llm_latency_seconds",
+    "Whole classification latency including waits and retries",
+    ["provider"],
+)
+llm_budget_remaining = Gauge(
+    "llm_budget_remaining",
+    "Process UTC daily attempts remaining; refreshes on reservation",
+)
