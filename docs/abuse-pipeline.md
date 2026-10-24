@@ -25,7 +25,7 @@ Default `LLM_PROVIDER=fake` requires no credentials and makes gray-zone links
 suspicious with llm_invalid_output. For a real local model, set `LLM_PROVIDER=ollama`,
 `OLLAMA_MODEL` to your installed model and, for Docker Desktop,
 `OLLAMA_BASE_URL=http://host.docker.internal:11434` in your local environment/.env.
-An existing host-only `http://localhost:11434` value will not reach your Mac from a
+An existing host-only `http://localhost:11434` value will not reach your Mac/Windows from a
 container. Keep Ollama cloud disabled. Worker environment passes Gemini key/model
 only if you explicitly configure them; only send non-sensitive data. Paths can
 contain sensitive information even after query removal. Claude is not configured
