@@ -4,27 +4,27 @@ repos:
     hooks:
       - id: black
         name: black (check)
-        entry: .venv/bin/python -m black --check app/
+        entry: .venv/bin/python -m black --check app/ eval/
         language: system
-        files: ^app/.*\.py$
+        files: ^(app|eval)/.*\.py$
         pass_filenames: false
       - id: isort
         name: isort (check)
-        entry: .venv/bin/python -m isort --check-only app/
+        entry: .venv/bin/python -m isort --check-only app/ eval/
         language: system
-        files: ^app/.*\.py$
+        files: ^(app|eval)/.*\.py$
         pass_filenames: false
       - id: flake8
         name: flake8
-        entry: .venv/bin/python -m flake8 app/
+        entry: .venv/bin/python -m flake8 app/ eval/
         language: system
-        files: ^app/.*\.py$
+        files: ^(app|eval)/.*\.py$
         pass_filenames: false
       - id: mypy
         name: mypy
-        entry: .venv/bin/python -m mypy app/
+        entry: .venv/bin/python -m mypy app/ eval/
         language: system
-        files: ^app/.*\.py$
+        files: ^(app|eval)/.*\.py$
         pass_filenames: false
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.24.2

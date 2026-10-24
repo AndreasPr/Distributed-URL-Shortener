@@ -1028,3 +1028,7 @@ gray-zone decisions; request threads do not run inference.
 without fetching pages, blocks committed malicious verdicts with HTTP 451, and
 provides an admin Flagged queue. Pending links remain redirectable; heuristic/model
 verdicts can be wrong and require review. Both Compose profiles include the worker.
+
+Run `make eval EVAL_PROVIDER=fake` for the [offline abuse evaluation](eval/abuse/README.md).
+[Generated results](docs/eval-results.md) are synthetic regression evidence, not
+real-world phishing accuracy. Public feeds are never downloaded automatically.

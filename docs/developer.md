@@ -284,3 +284,10 @@ Edit canonical rules/dashboard, then run `.venv/bin/python scripts/sync-monitori
 to regenerate Kubernetes ConfigMaps. See [SLOs](slo.md), [runbook](runbook.md), and
 [verification](slo-verification.md). The targets are goals, not evidence of achieved
 latency/freshness compliance.
+
+## Abuse evaluation
+
+`make eval EVAL_PROVIDER=fake` runs offline held-out heuristics and combined checks
+and updates `docs/eval-results.md`. See [evaluation instructions](../eval/abuse/README.md)
+for dev-only tuning, manual public data preparation, and explicitly selected local
+model runs. `make check` includes the fake regression and lints/types eval/ too.

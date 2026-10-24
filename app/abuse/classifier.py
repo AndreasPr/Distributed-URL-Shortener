@@ -1,6 +1,7 @@
 import hashlib
 import json
 from collections.abc import Callable
+from typing import Literal
 
 from pydantic import ValidationError
 
@@ -20,22 +21,51 @@ If uncertain, return suspicious with reason llm_uncertain."""
 
 
 class Classifier:
-    def __init__(self, factory: Callable[[], LLMProvider] = get_provider):
+    def __init__(
+        self,
+        factory: Callable[[], LLMProvider] = get_provider,
+        *,
+        variant: Literal["heuristics", "llm", "combined"] = "combined",
+        use_cache: bool = True,
+        gray_low: float | None = None,
+        gray_high: float | None = None,
+        input_limit: int | None = None,
+    ):
         self.factory = factory
+        self.variant, self.use_cache = variant, use_cache
+        self.gray_low = settings.ABUSE_GRAY_LOW if gray_low is None else gray_low
+        self.gray_high = settings.ABUSE_GRAY_HIGH if gray_high is None else gray_high
+        self.input_limit = (
+            settings.ABUSE_LLM_INPUT_LIMIT if input_limit is None else input_limit
+        )
+        if variant not in {"heuristics", "llm", "combined"}:
+            raise ValueError("Invalid classifier variant")
+        if (
+            not 0 <= self.gray_low < self.gray_high <= 1
+            or not 64 <= self.input_limit <= 2048
+        ):
+            raise ValueError("Invalid classifier policy")
 
     def classify(self, url: str) -> Assessment:
         features = analyze(url)
         score = features.score
-        if score < settings.ABUSE_GRAY_LOW or score >= settings.ABUSE_GRAY_HIGH:
+        if self.variant == "heuristics" or (
+            self.variant == "combined"
+            and (score < self.gray_low or score >= self.gray_high)
+        ):
             llm_calls_saved_total.inc()
             return Assessment(
-                verdict="clean" if score < settings.ABUSE_GRAY_LOW else "malicious",
+                verdict=(
+                    "clean"
+                    if score < self.gray_low
+                    else "malicious" if score >= self.gray_high else "suspicious"
+                ),
                 score=score,
                 reasons=features.reasons,
                 source="heuristic",
             )
         # No query, fragment, scheme or credentials cross the model boundary.
-        data = (features.host + features.path)[: settings.ABUSE_LLM_INPUT_LIMIT]
+        data = (features.host + features.path)[: self.input_limit]
         # JSON quote + escape delimiter characters: URL text cannot close the block.
         quoted = (
             json.dumps(data, ensure_ascii=True)
@@ -55,8 +85,10 @@ class Classifier:
                 settings.GEMINI_MODEL,
                 settings.OLLAMA_MODEL,
                 settings.ANTHROPIC_MODEL,
-                settings.ABUSE_GRAY_LOW,
-                settings.ABUSE_GRAY_HIGH,
+                self.gray_low,
+                self.gray_high,
+                self.input_limit,
+                self.variant,
             ]
         )
         key = (
@@ -65,7 +97,11 @@ class Classifier:
             + ":"
             + hashlib.sha256(context.encode()).hexdigest()
         )
-        raw = cache.read_cache(lambda: cache.redis_client.get(key))
+        raw = (
+            cache.read_cache(lambda: cache.redis_client.get(key))
+            if self.use_cache
+            else None
+        )
         if isinstance(raw, (str, bytes)):
             try:
                 result = Assessment.model_validate_json(raw)
@@ -89,14 +125,14 @@ class Classifier:
                 verdict="suspicious",
                 score=score,
                 reasons=list(dict.fromkeys(features.reasons + ["llm_invalid_output"])),
-                source="combined",
+                source="llm" if self.variant == "llm" else "combined",
             )
         except LLMError:
             return Assessment(
                 verdict="suspicious",
                 score=score,
                 reasons=list(dict.fromkeys(features.reasons + ["llm_unavailable"])),
-                source="combined",
+                source="llm" if self.variant == "llm" else "combined",
             )
         # A model cannot remove heuristic concerns. Gray-zone clean stays reviewable.
         result = Assessment(
@@ -112,9 +148,26 @@ class Classifier:
             source="combined",
             model=response.metadata.model,
         )
-        cache.read_cache(
-            lambda: cache.redis_client.set(
-                key, result.model_dump_json(), ex=settings.ABUSE_VERDICT_TTL
+        if self.variant == "llm":
+            result = Assessment(
+                verdict=(
+                    "suspicious"
+                    if verdict.verdict == "malicious" and verdict.confidence < 0.8
+                    else verdict.verdict
+                ),
+                score=(
+                    1 - verdict.confidence
+                    if verdict.verdict == "clean"
+                    else verdict.confidence
+                ),
+                reasons=verdict.reasons,
+                source="llm",
+                model=response.metadata.model,
             )
-        )
+        if self.use_cache:
+            cache.read_cache(
+                lambda: cache.redis_client.set(
+                    key, result.model_dump_json(), ex=settings.ABUSE_VERDICT_TTL
+                )
+            )
         return result

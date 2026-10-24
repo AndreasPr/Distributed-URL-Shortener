@@ -38,3 +38,4 @@ docker-compose.yml
 .gitignore
 
 .venv-*
+eval

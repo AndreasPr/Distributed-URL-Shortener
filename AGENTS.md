@@ -17,7 +17,8 @@ Use CPython 3.11.14 from `.python-version` (also used by Docker and CI). Follow 
 
 - `make up`, `make down`, `make logs`: local Compose stack. Copy `.env.example` only when `.env` is absent and replace placeholders locally; preserve existing volume credentials.
 - `make check`: Black check, isort check, full Flake8, blocking mypy, backend tests with coverage, and Prometheus rule validation/unit tests (native promtool or Docker required).
-- `make fmt`: apply Black and isort to app/.
+- `make fmt`: apply Black and isort to app/ and eval/.
+- `make eval EVAL_PROVIDER=fake`: offline synthetic abuse evaluation; writes docs/eval-results.md.
 - `make test`, `make lint`, `make typecheck`: individual backend checks.
 - `make frontend-check`: npm ci, noninteractive core-web-vitals ESLint, tsc --noEmit. Use Node 22.13+ (CI uses Node 22).
 - `make mcp-test`: the separate MCP pytest suite.
