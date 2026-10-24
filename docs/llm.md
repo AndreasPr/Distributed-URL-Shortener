@@ -61,8 +61,8 @@ before calling this layer. The adapter sends the key as a header, not in the URL
 
 ## Ollama on this Mac
 
-This machine reports Apple Silicon (arm64) and 32 GiB RAM. Start with the local
-instruction-tuned [llama3.2:1b](https://ollama.com/library/llama3.2:1b) model (about
+Start with the local
+instruction-tuned [llama3.2:3b](https://ollama.com/library/llama3.2:3b) model (about
 1.3 GB download). It leaves room for Docker; actual runtime memory also depends on
 context length. This is a small demonstration model, not evidence of accurate
 abuse classification.
@@ -75,10 +75,10 @@ abuse classification.
 3. Pull the model and set the application's variables:
 
    ```bash
-   ollama pull llama3.2:1b
+   ollama pull llama3.2:3b
    export LLM_PROVIDER=ollama
    export OLLAMA_BASE_URL=http://localhost:11434
-   export OLLAMA_MODEL=llama3.2:1b
+   export OLLAMA_MODEL=llama3.2:3b
    export LLM_TIMEOUT_SECONDS=30
    ```
 
