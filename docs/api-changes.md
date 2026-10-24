@@ -98,3 +98,16 @@ See [security.md](security.md) for scopes, headers, proxy trust and deployment s
 - Unexpected exceptions return JSON 500 with `detail: Internal server error`.
 - Validation remains 422 with the `detail` list; entries omit `input` and `ctx`.
 - Redis health remains 503 on failure but no longer includes exception text.
+
+## Step 4.2: abuse verdict enforcement
+
+- GET /{code}: adds **451** for a committed malicious verdict or admin block,
+  including cache hits; admin allow overrides the verdict. Pending/suspicious
+  links retain 307, expired links 410, and deleted/missing links 404.
+- GET /admin/flagged: new admin-only 200 paginated unreviewed queue; 401/403 for
+  missing/invalid key or insufficient scope, 422 for invalid pagination.
+- POST /admin/flagged/{code}/review: new admin-only 204 for allow/block;
+  404 for missing/deleted link or missing verdict, 422 for invalid decision,
+  401/403 for auth failure, and existing write-limiter 429/503 semantics.
+- POST /shorten retains its response shape/status; creation now atomically records
+  an outbox entry. No broker or model request is made on the creation thread.

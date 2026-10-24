@@ -173,3 +173,12 @@ responses, outbound deadlines and container/network isolation. See the
 [threat model](threat-model.md) for implemented controls and residual risks,
 and the [verification and rollout checklist](security-hardening-verification.md)
 before updating an existing deployment.
+
+
+## Abuse review
+
+GET /admin/flagged and POST /admin/flagged/{code}/review require admin scope.
+Reviews record API-key ID and timestamp; write rate limits apply. Malicious or
+manually blocked links return 451 even on cache hits. Suspicious and pending
+links remain redirectable. The async classifier is not proof of safety; see
+[the pipeline's boundaries and residual risks](abuse-pipeline.md).

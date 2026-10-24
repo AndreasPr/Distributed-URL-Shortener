@@ -137,3 +137,16 @@ llm_budget_remaining = Gauge(
     "llm_budget_remaining",
     "Process UTC daily attempts remaining; refreshes on reservation",
 )
+
+
+abuse_checks_total = Counter(
+    "abuse_checks_total", "Committed new URL verdicts", ["verdict", "source"]
+)
+llm_calls_saved_total = Counter(
+    "llm_calls_saved_total", "Abuse decisions bypassing LLM via heuristics or cache"
+)
+abuse_queue_size = Gauge(
+    "abuse_queue_size",
+    "Abuse work: outbox rows or broker unread plus pending",
+    ["kind"],
+)

@@ -133,7 +133,8 @@ def test_all_kubernetes_containers_have_security_and_resources():
                 ] in {"kafka", "zookeeper"}
                 for bound in ("requests", "limits"):
                     assert {"cpu", "memory"} <= c["resources"][bound].keys()
-    assert len(workloads) == 10
+    assert len(workloads) == 11
+    assert "abuse-worker" in workloads
 
 
 def test_network_policy_default_deny_and_exact_dependency_ports():

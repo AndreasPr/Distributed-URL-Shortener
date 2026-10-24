@@ -13,6 +13,7 @@ export default function Navbar() {
           <div className="flex items-center space-x-4">
             <Link href="/dashboard" className="text-slate-600">Dashboard</Link>
             <Link href="/analytics" className="text-slate-600">Analytics</Link>
+            <Link href="/flagged" className="text-slate-600">Flagged</Link>
             <Link href="/health" className="text-slate-600">Health</Link>
           </div>
         </div>

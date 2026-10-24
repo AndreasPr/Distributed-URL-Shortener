@@ -44,3 +44,25 @@ class DeadLetter(Event):
     payload_base64: str
     error: str
     attempts: int = 3
+
+
+class URLCreatedEvent(Event):
+    event_type: Literal["url.created"] = "url.created"
+    short_code: str = Field(min_length=1, max_length=32, pattern=r"^[A-Za-z0-9_-]+$")
+
+    @classmethod
+    def from_wire(cls, payload: bytes) -> "URLCreatedEvent":
+        event = cls.model_validate_json(payload)
+        if (
+            not {
+                "event_id",
+                "event_type",
+                "occurred_at",
+                "schema_version",
+                "short_code",
+                "trace_context",
+            }
+            <= event.model_fields_set
+        ):
+            raise ValueError("Incomplete creation event")
+        return event

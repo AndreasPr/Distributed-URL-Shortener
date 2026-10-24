@@ -5,6 +5,18 @@ from urllib.parse import urlsplit
 
 
 class Settings:
+    ABUSE_TOPIC = os.getenv("ABUSE_TOPIC", "url-created")
+    ABUSE_GROUP = os.getenv("ABUSE_GROUP", "abuse-group")
+    ABUSE_DLQ_TOPIC = os.getenv("ABUSE_DLQ_TOPIC", "abuse-dlq")
+    ABUSE_GRAY_LOW = float(os.getenv("ABUSE_GRAY_LOW", "0.25"))
+    ABUSE_GRAY_HIGH = float(os.getenv("ABUSE_GRAY_HIGH", "0.75"))
+    ABUSE_VERDICT_TTL = int(os.getenv("ABUSE_VERDICT_TTL", "3600"))
+    ABUSE_LLM_INPUT_LIMIT = int(os.getenv("ABUSE_LLM_INPUT_LIMIT", "512"))
+    ABUSE_METRICS_PORT = int(os.getenv("ABUSE_METRICS_PORT", "8003"))
+    if not 0 <= ABUSE_GRAY_LOW < ABUSE_GRAY_HIGH <= 1:
+        raise ValueError("Invalid abuse gray-zone thresholds")
+    if ABUSE_VERDICT_TTL <= 0 or not 64 <= ABUSE_LLM_INPUT_LIMIT <= 2048:
+        raise ValueError("Invalid abuse cache/input limits")
     LLM_PROVIDER = os.getenv("LLM_PROVIDER", "fake")
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "")
@@ -70,6 +82,8 @@ class Settings:
         )
     if EVENT_TOPIC == EVENT_DLQ_TOPIC:
         raise ValueError("Event and dead-letter topics must differ")
+    if len({ABUSE_TOPIC, ABUSE_DLQ_TOPIC, EVENT_TOPIC, EVENT_DLQ_TOPIC}) != 4:
+        raise ValueError("Abuse and analytics topics must differ")
     WRITE_RATE_CAPACITY = int(os.getenv("WRITE_RATE_CAPACITY", "20"))
     WRITE_RATE_REFILL = float(os.getenv("WRITE_RATE_REFILL", "1"))
     REDIRECT_RATE_CAPACITY = int(os.getenv("REDIRECT_RATE_CAPACITY", "120"))
