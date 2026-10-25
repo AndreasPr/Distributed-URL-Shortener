@@ -1,7 +1,8 @@
 import logging
 from collections.abc import Iterator
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
@@ -13,9 +14,11 @@ from app.cache.redis_client import read_cache, redis_client
 from app.db.database import get_db
 from app.models.api_key import APIKey
 from app.models.url import URL
+from app.models.url_verdict import URLVerdict
 from app.observability.metrics import record_redirect
 from app.repositories.url_repository import AliasTakenError
 from app.schemas.url_schema import URLCreate, URLResponse
+from app.services.activity_signals import signals
 from app.services.analytics_service import AnalyticsService, URLNotFoundError
 from app.services.api_keys import list_keys, revoke_key
 from app.services.url_service import LinkExpiredError, URLService
@@ -196,6 +199,52 @@ def admin_review(
     if not review(db, code, request.decision, str(key.id)):
         raise HTTPException(404, "Verdict not found")
     return Response(status_code=204)
+
+
+@router.get(
+    "/urls/{code}/status",
+    summary="Link lifecycle without redirecting or recording a click",
+)
+def url_status(
+    code: str = Path(pattern=r"^[A-Za-z0-9_-]{1,32}$"),
+    key: APIKey = Depends(require_read),
+    db: Session = Depends(get_db),
+):
+    row = db.query(URL).filter_by(short_code=code).first()
+    if row is None:
+        raise HTTPException(404, "Not found")
+    verdict = db.query(URLVerdict).filter_by(short_code=code).first()
+    state = "active"
+    if row.deleted_at is not None:
+        state = "deleted"
+    elif row.expires_at and row.expires_at.replace(tzinfo=timezone.utc) <= datetime.now(
+        timezone.utc
+    ):
+        state = "expired"
+    elif verdict and (
+        verdict.review_decision == "block"
+        or (verdict.verdict == "malicious" and verdict.review_decision != "allow")
+    ):
+        state = "blocked"
+    return {
+        "short_code": code,
+        "status": state,
+        "expires_at": row.expires_at,
+        "verdict": verdict.verdict if verdict else "pending",
+    }
+
+
+@router.get(
+    "/admin/activity/{code}",
+    summary="Per-code clicks and actual 429s in completed minute buckets",
+)
+def activity(
+    code: str = Path(pattern=r"^[A-Za-z0-9_-]{1,32}$"),
+    window_minutes: int = Query(60, ge=1, le=60),
+    key: APIKey = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    return signals(db, code, window_minutes)
 
 
 @router.get(

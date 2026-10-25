@@ -1,9 +1,9 @@
 from typing import Any
 
-from pydantic import BaseModel
 from mcp_server.models.anomaly import AnomalyResult
 from mcp_server.models.commit import CommitSummary
 from mcp_server.models.metrics import CacheStats
+from pydantic import BaseModel
 
 
 class SlackFlagReport(BaseModel):

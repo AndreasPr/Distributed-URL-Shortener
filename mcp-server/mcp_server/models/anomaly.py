@@ -10,7 +10,6 @@ class AnomalyMetrics(BaseModel):
     velocity_threshold: float
     rate_limit_triggers: int
     suspected_bot_pattern: bool
-    cache_hit_ratio: float | None = None
 
 
 class AnomalyResult(BaseModel):

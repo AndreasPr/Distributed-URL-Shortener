@@ -10,7 +10,7 @@ Local-first distributed URL shortener showcasing an event-driven architecture wi
 - ⚡ **Fast Redirects** — Redis-cached lookups for instant URL resolution
 - 🔄 **Analytics Pipeline** — Clicks are queued for Kafka or Redis Streams and persisted idempotently by the worker
 
-Note: this repository also includes an MCP server that runs an abuse-flagging workflow for the URL shortener. See [mcp-server/README.md](mcp-server/README.md) for details on what it does and how to run it locally.
+The [MCP server](docs/mcp.md) provides on-demand stdio tools for links, analytics and abuse review through the authenticated API. It is read-only by default; GitHub context and Slack reporting are optional and disabled by default.
 
 **Tech Stack:**
 - **Backend:** Python, FastAPI, SQLAlchemy, PostgreSQL, Redis

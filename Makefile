@@ -41,6 +41,10 @@ frontend-check:
 	cd frontend && ./node_modules/.bin/tsc --noEmit --incremental false
 
 mcp-test:
+	$(PYTHON) -m black --check mcp-server/mcp_server
+	$(PYTHON) -m isort --check-only mcp-server/mcp_server
+	$(PYTHON) -m flake8 mcp-server/mcp_server
+	$(PYTHON) -m mypy mcp-server/mcp_server
 	cd mcp-server && $(PYTHON) -m pytest
 
 demo:
