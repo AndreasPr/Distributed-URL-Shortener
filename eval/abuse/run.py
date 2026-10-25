@@ -15,7 +15,7 @@ from typing import Literal
 
 from app.abuse.classifier import Classifier
 from app.core.config import settings
-from app.llm.base import Classification, LLMError, T
+from app.llm.base import Classification, HTTPError, LLMError, T
 from app.llm.limits import Limits
 from app.llm.providers import FakeProvider, GeminiProvider, OllamaProvider, Provider
 from eval.abuse.loader import Example, fingerprint, load, select, split
@@ -59,7 +59,11 @@ class TrackedProvider:
                     self.instance = OllamaProvider(limits=self.limits)
             result = self.instance.classify_json(system_prompt, user_content, schema)
         except LLMError as exc:
-            key = type(exc).__name__
+            key = (
+                f"HTTP_{exc.status_code}"
+                if isinstance(exc, HTTPError)
+                else type(exc).__name__
+            )
             self.errors[key] = self.errors.get(key, 0) + 1
             raise
         if result.metadata.input_tokens is not None:
@@ -175,6 +179,7 @@ def evaluate(
                 for name in ("tldextract", "pydantic", "requests")
             },
             "daily_budget": settings.LLM_DAILY_BUDGET,
+            "gemini_min_interval_seconds": settings.GEMINI_MIN_INTERVAL_SECONDS,
             "timeout_seconds": settings.LLM_TIMEOUT_SECONDS,
             "max_retries": settings.LLM_MAX_RETRIES,
             "backoff_seconds": settings.LLM_BACKOFF_SECONDS,

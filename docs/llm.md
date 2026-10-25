@@ -143,3 +143,37 @@ Run `make check`, or `.venv/bin/python -m pytest tests/test_llm.py` for this lay
 All LLM HTTP requests are intercepted by test fakes; no live model calls, credentials
 or local model installation are needed. This verifies contracts, not model quality
 or current live API availability.
+
+## Gemini evaluation pacing and diagnosis
+
+`GEMINI_MIN_INTERVAL_SECONDS=5` spaces Gemini attempt starts by at least five
+seconds within a shared Limits instance (process-wide for default providers).
+Retries and schema repairs also wait. This targets approximately 12 RPM for a
+15-RPM allowance; other processes/projects' traffic is not coordinated. Budget
+reservations include attempts, and restart still resets the local daily budget.
+Pacing waits add to total classification latency, independently of HTTP timeout.
+No quota is inferred from a model name: inspect the project's actual allowance.
+
+HTTP failures retain only a numeric status, never the response body or headers.
+Evaluation `llm_errors` reports `HTTP_429`, `HTTP_503`, etc., including the final
+status after retry exhaustion. Counts are failed classifications, not every
+transient failed attempt; `llm_attempts` includes retries and repair. Old reports
+remain unchanged. A 429 does not distinguish daily from per-minute exhaustion;
+check AI Studio before retrying. Backoff is bounded and does not implement Google's
+Retry-After instructions; stop repeated runs when quota is exhausted.
+
+For the user-selected free-tier model, export settings in the terminal (host
+scripts do not load .env):
+
+```bash
+export GEMINI_MODEL=gemini-3.1-flash-lite
+export GEMINI_MIN_INTERVAL_SECONDS=5
+export LLM_CONCURRENCY=1
+export LLM_DAILY_BUDGET=50
+export LLM_TIMEOUT_SECONDS=120
+```
+
+Confirm at least 50 requests remain in the project's daily quota before using
+that cap. Keep the frozen dev-selected configuration and write the next evaluation
+to a new `--output-dir`; do not overwrite failed runs or retune on test results.
+Changing model is an operational comparison, not evidence of improved accuracy.

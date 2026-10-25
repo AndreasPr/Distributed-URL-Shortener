@@ -1,6 +1,7 @@
 """Thread-safe, process-wide limits shared by all default provider instances."""
 
 import threading
+import time
 from datetime import datetime, timezone
 
 from app.core.config import settings
@@ -14,9 +15,21 @@ class Limits:
             raise ValueError("Invalid LLM limits")
         self.slots = threading.BoundedSemaphore(concurrency)
         self.lock = threading.Lock()
+        self.pacing_lock = threading.Lock()
+        self.last_attempt: float | None = None
         self.budget = daily_budget
         self.used = 0
         self.day = datetime.now(timezone.utc).date()
+
+    def pace(self, interval: float) -> None:
+        """Serialize Gemini attempt starts, including retries and repairs."""
+        with self.pacing_lock:
+            if self.last_attempt is not None:
+                remaining = self.last_attempt + interval - time.monotonic()
+                while remaining > 0:
+                    time.sleep(remaining)
+                    remaining = self.last_attempt + interval - time.monotonic()
+            self.last_attempt = time.monotonic()
 
     def reserve(self) -> None:
         with self.lock:
