@@ -12,6 +12,14 @@ class LLMError(Exception):
     pass
 
 
+class HTTPError(LLMError):
+    """Only the numeric status is retained; never retain upstream bodies."""
+
+    def __init__(self, status_code: int):
+        self.status_code = status_code
+        super().__init__(f"LLM HTTP {status_code}")
+
+
 class NotConfigured(LLMError):
     pass
 

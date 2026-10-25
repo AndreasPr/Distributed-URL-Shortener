@@ -19,6 +19,7 @@ class Settings:
         raise ValueError("Invalid abuse cache/input limits")
     LLM_PROVIDER = os.getenv("LLM_PROVIDER", "fake")
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_MIN_INTERVAL_SECONDS = float(os.getenv("GEMINI_MIN_INTERVAL_SECONDS", "5"))
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "")
     OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "")
@@ -39,7 +40,11 @@ class Settings:
         or LLM_MAX_OUTPUT_TOKENS < 1
     ):
         raise ValueError("Invalid LLM limits")
-    for duration in (LLM_TIMEOUT_SECONDS, LLM_BACKOFF_SECONDS):
+    for duration in (
+        LLM_TIMEOUT_SECONDS,
+        LLM_BACKOFF_SECONDS,
+        GEMINI_MIN_INTERVAL_SECONDS,
+    ):
         if not math.isfinite(duration) or duration <= 0:
             raise ValueError("LLM durations must be finite and positive")
     OTEL_EXPORTER_OTLP_ENDPOINT = os.getenv(

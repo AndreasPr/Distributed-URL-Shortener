@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.llm import get_provider
 from app.llm.base import (
     BudgetExceeded,
+    HTTPError,
     InvalidOutput,
     LLMError,
     LLMTimeout,
@@ -51,6 +52,7 @@ def no_network(monkeypatch):
     monkeypatch.setattr(settings, "OLLAMA_MODEL", "fixture-local")
     monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "placeholder-test-only")
     monkeypatch.setattr(settings, "ANTHROPIC_MODEL", "fixture-model")
+    monkeypatch.setattr(settings, "GEMINI_MIN_INTERVAL_SECONDS", 0)
     monkeypatch.setattr(settings, "LLM_MAX_RETRIES", 2)
     monkeypatch.setattr(settings, "LLM_BACKOFF_SECONDS", 0.001)
 
@@ -196,8 +198,10 @@ def test_transport_errors_sanitized_no_retry(monkeypatch, failure):
 )
 def test_bounded_failures(monkeypatch, status, attempts):
     calls = http(monkeypatch, [(status, {"error": "secret"})] * attempts)
-    with pytest.raises(LLMError):
+    with pytest.raises(HTTPError) as exc:
         OllamaProvider(limits=Limits(1, 10)).classify_json("s", "u", Verdict)
+    assert exc.value.status_code == status
+    assert "secret" not in str(exc.value)
     assert len(calls) == attempts
 
 
@@ -352,3 +356,42 @@ def test_budget_reservations_atomic():
 
     with ThreadPoolExecutor(max_workers=20) as pool:
         assert sum(pool.map(reserve, range(100))) == 7
+
+
+def test_gemini_paces_retries_repairs_and_shared_instances(monkeypatch):
+    clock = [100.0]
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(
+        time, "sleep", lambda seconds: clock.__setitem__(0, clock[0] + seconds)
+    )
+    monkeypatch.setattr(settings, "GEMINI_MIN_INTERVAL_SECONDS", 5)
+    limits = Limits(1, 10)
+    starts = []
+    replies = iter([429, "broken", '{"safe":true}', '{"safe":true}'])
+
+    def generate(self, system, user, schema):
+        from app.llm.providers import Retryable
+
+        starts.append(time.monotonic())
+        value = next(replies)
+        if isinstance(value, int):
+            raise Retryable(value)
+        return value, None, None
+
+    monkeypatch.setattr(GeminiProvider, "_generate", generate)
+    for _ in range(2):
+        assert GeminiProvider(limits=limits).classify_json("s", "u", Verdict).value.safe
+    assert len(starts) == 4
+    assert all(b - a >= 5 for a, b in zip(starts, starts[1:]))
+    assert limits.used == 4
+
+
+def test_evaluation_retains_only_safe_http_status(monkeypatch):
+    from eval.abuse.run import TrackedProvider
+
+    http(monkeypatch, [(429, {"error": "private-prompt-and-key"})] * 3)
+    tracker = TrackedProvider("gemini")
+    with pytest.raises(HTTPError):
+        tracker.classify_json("private-prompt", "private-url", Verdict)
+    assert tracker.errors == {"HTTP_429": 1}
+    assert "private" not in json.dumps(tracker.snapshot())

@@ -21,18 +21,18 @@ test:
 	$(PYTHON) -m pytest --cov=app --cov-report=term-missing --cov-report=xml
 
 lint:
-	$(PYTHON) -m black --check app/
-	$(PYTHON) -m isort --check-only app/
-	$(PYTHON) -m flake8 app/
+	$(PYTHON) -m black --check app/ eval/
+	$(PYTHON) -m isort --check-only app/ eval/
+	$(PYTHON) -m flake8 app/ eval/
 
 typecheck:
-	$(PYTHON) -m mypy app/
+	$(PYTHON) -m mypy app/ eval/
 
 check: lint typecheck test prometheus-check
 
 fmt:
-	$(PYTHON) -m isort app/
-	$(PYTHON) -m black app/
+	$(PYTHON) -m isort app/ eval/
+	$(PYTHON) -m black app/ eval/
 
 frontend-check:
 	cd frontend && npm ci --no-audit --no-fund
@@ -59,3 +59,13 @@ audit:
 .PHONY: prometheus-check
 prometheus-check:
 	sh scripts/check-prometheus.sh
+
+# Deliberate provider choice; .env is not sourced. Default is entirely offline.
+EVAL_PROVIDER ?= $(if $(LLM_PROVIDER),$(LLM_PROVIDER),fake)
+EVAL_LIMIT ?= 0
+EVAL_SEED ?= 42
+.PHONY: eval
+eval:
+	$(PYTHON) -m eval.abuse.run --variant heuristics --provider $(EVAL_PROVIDER) --limit $(EVAL_LIMIT) --seed $(EVAL_SEED)
+	$(PYTHON) -m eval.abuse.run --variant combined --provider $(EVAL_PROVIDER) --limit $(EVAL_LIMIT) --seed $(EVAL_SEED)
+	$(PYTHON) -m eval.abuse.report --provider $(EVAL_PROVIDER)

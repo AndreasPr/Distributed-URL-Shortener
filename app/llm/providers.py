@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.llm.base import (
     BudgetExceeded,
     Classification,
+    HTTPError,
     InvalidOutput,
     LLMError,
     LLMTimeout,
@@ -96,11 +97,13 @@ class Provider:
                 raise
             llm_requests_total.labels(self.name).inc()
             try:
+                if self.name == "gemini":
+                    self.limits.pace(settings.GEMINI_MIN_INTERVAL_SECONDS)
                 return self._generate(system, user, schema)
-            except Retryable:
+            except Retryable as exc:
                 llm_errors_total.labels(self.name, "upstream").inc()
                 if attempt == settings.LLM_MAX_RETRIES:
-                    raise LLMError("LLM retry limit exhausted") from None
+                    raise HTTPError(exc.status_code) from None
                 delay = settings.LLM_BACKOFF_SECONDS * 2**attempt
                 time.sleep(random.uniform(delay / 2, delay))
             except LLMError:
@@ -114,7 +117,7 @@ class Provider:
         raise NotImplementedError
 
 
-class Retryable(LLMError):
+class Retryable(HTTPError):
     pass
 
 
@@ -140,9 +143,9 @@ class HTTPProvider(Provider):
                     stream=True,
                 ) as response:
                     if response.status_code == 429 or 500 <= response.status_code < 600:
-                        raise Retryable("Retryable LLM response")
+                        raise Retryable(response.status_code)
                     if response.status_code != 200:
-                        raise LLMError("LLM request rejected")
+                        raise HTTPError(response.status_code)
                     body = bytearray()
                     for chunk in response.iter_content(chunk_size=4096):
                         if time.monotonic() - started > settings.LLM_TIMEOUT_SECONDS:

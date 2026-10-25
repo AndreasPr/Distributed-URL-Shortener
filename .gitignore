@@ -31,3 +31,8 @@ next-env.d.ts
 
 # Backups when replacing a broken local interpreter
 .venv-*/
+
+# Evaluation: manually acquired public data and private derived datasets/results
+/eval/abuse/data/raw/
+/eval/abuse/data/local/
+/eval/abuse/results/
