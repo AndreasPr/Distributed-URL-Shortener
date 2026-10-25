@@ -111,3 +111,13 @@ See [security.md](security.md) for scopes, headers, proxy trust and deployment s
   401/403 for auth failure, and existing write-limiter 429/503 semantics.
 - POST /shorten retains its response shape/status; creation now atomically records
   an outbox entry. No broker or model request is made on the creation thread.
+
+## Step 4.4: MCP support
+
+- Added GET /urls/{code}/status (read/admin scope): 200 lifecycle/verdict metadata,
+  404 unknown code, 422 invalid code; no redirect or click side effects.
+- Added GET /admin/activity/{code} (admin scope): 200 bounded per-code completed-minute
+  click/rejection signals with explicit source statuses, 422 invalid code/window.
+  Partial source failures have null values and `failed` status in the 200 body.
+- Both endpoints use existing 401 missing/invalid key and 403 insufficient-scope
+  behavior. Existing endpoint status codes are unchanged.

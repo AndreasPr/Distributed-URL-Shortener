@@ -59,11 +59,11 @@ Normal pytest now collects and runs both suites successfully. **There is no capt
 | `make check` | lint + typecheck + test; nonzero on any failure |
 | `make fmt` | Applies isort and Black to app/ |
 | `make frontend-check` | npm ci, Next core-web-vitals ESLint with zero warnings, tsc --noEmit |
-| `make mcp-test` | Separate MCP suite, with the same locked Python environment |
+| `make mcp-test` | MCP Black/isort/Flake8/mypy checks and protocol tests, with the same locked Python environment |
 | `make demo` | Prints `demo seeding is added in step 8.3`; no seed data yet |
 | `make lock` | Regenerates the three hashed, exact dependency locks |
 
-The backend lint/type scope is app/, matching the previous CI scope; MCP and test code execute in their respective test suites. Full Flake8 replaces the previous selected-error-only invocation. E203/W503 are the only style exceptions, for Black compatibility. Missing third-party typing metadata is suppressed only for named Kafka/OpenTelemetry modules in pyproject.toml, not globally. Application typing errors fail CI; no blanket application ignores were added.
+The backend lint/type scope is app/, matching the previous CI scope; MCP code has its own lint/type gate in make mcp-test; test code executes in its respective suites. Full Flake8 replaces the previous selected-error-only invocation. E203/W503 are the only style exceptions, for Black compatibility. Missing third-party typing metadata is suppressed only for named Kafka/OpenTelemetry modules in pyproject.toml, not globally. Application typing errors fail CI; no blanket application ignores were added.
 
 Tests use in-memory SQLite and mocks. They do not establish PostgreSQL/Kafka end-to-end delivery or production readiness. Compose configuration cases require Docker CLI + Compose (no daemon) and explicitly skip if unavailable. Generated coverage, caches, Node artifacts, databases, and environment files must stay untracked.
 
@@ -88,7 +88,7 @@ Local verification used Node 23.9.0, which produced an engine warning for eslint
 Readable direct requirements live in:
 
 - requirements.in: backend runtime packages, pinned to inspected versions (SQLAlchemy retains 2.0.51).
-- mcp-server/requirements.in: MCP packages plus backend imports.
+- mcp-server/requirements.in: MCP packages plus the retained shared backend dependency superset; MCP runtime uses HTTP only.
 - requirements-dev.in: both sets plus pytest/coverage, Black, isort, Flake8, mypy, pre-commit, and uv.
 
 Corresponding `.txt` files are **uv-generated lock files** with exact transitive versions and hashes. Do not edit them manually. The dev lock is resolved first; runtime and MCP locks are constrained to that shared resolution, preventing mixed versions in the combined development environment. Locks are universal for Python 3.11; platform-specific requirements retain markers. mcp-server/pyproject.toml mirrors its direct pins for metadata; installs for this project should use the hashed locks. Pytest is a development dependency, not a runtime dependency. Obsolete Codecov CLI and optional IPython are not needed by the gate; CI's Codecov Action remains independent.

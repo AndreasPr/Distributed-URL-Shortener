@@ -1,4 +1,4 @@
-# MCP imports the backend; resolve both together.
+# Legacy shared dependency superset; MCP runtime itself uses HTTP only.
 -r ../requirements.in
 fastapi==0.136.1
 httpx==0.28.1

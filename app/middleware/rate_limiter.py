@@ -11,6 +11,7 @@ from starlette.routing import Match
 
 from app.cache import redis_client as cache
 from app.core.config import settings
+from app.services.activity_signals import record_rejection
 
 TOKEN_BUCKET_LUA = """
 local now_parts = redis.call('TIME')
@@ -142,9 +143,15 @@ async def rate_limit_middleware(request: Request, call_next):
         else:
             headers = result.headers()
             if not result.allowed:
+                code = request.url.path.lstrip("/")
+                await run_in_threadpool(record_rejection, code)
                 return JSONResponse(
                     {"detail": "Rate limit exceeded"}, status_code=429, headers=headers
                 )
     response = await call_next(request)
+    if response.status_code == 429:
+        write_code = request.path_params.get("code")
+        if write_code:
+            await run_in_threadpool(record_rejection, write_code)
     response.headers.update(getattr(request.state, "rate_limit_headers", headers))
     return response

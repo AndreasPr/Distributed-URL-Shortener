@@ -22,5 +22,4 @@ class RateLimitSignals(BaseModel):
 class CacheStats(BaseModel):
     redis_available: bool
     dbsize: int | None = None
-    cache_hit_ratio: float | None = None
     short_code: str | None = None

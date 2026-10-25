@@ -1,0 +1,51 @@
+{
+  "analytics": {
+    "short_code": "fixture",
+    "total_clicks": 1,
+    "timestamps": [
+      "2027-01-15 07:59:30.000000"
+    ]
+  },
+  "flagged": [
+    {
+      "short_code": "fixture",
+      "long_url": "https://example.com/",
+      "verdict": "suspicious",
+      "score": 0.5,
+      "reasons": [
+        "credential_path"
+      ],
+      "source": "heuristic",
+      "model": null,
+      "created_at": "2026-01-01T00:00:00"
+    }
+  ],
+  "status": {
+    "short_code": "fixture",
+    "status": "active",
+    "expires_at": null,
+    "verdict": "suspicious"
+  },
+  "signals": {
+    "short_code": "fixture",
+    "window_minutes": 60,
+    "window_start": "2027-01-15T07:00:00Z",
+    "window_end": "2027-01-15T08:00:00Z",
+    "click_count": 1,
+    "click_velocity": 0.0002777777777777778,
+    "rolling_average_velocity": 0.0,
+    "rate_limit_rejections": 2,
+    "sources_status": {
+      "analytics": "ok",
+      "rate_limits": "ok"
+    },
+    "coverage": "best_effort_since_deployment; completed_minutes; async_clicks"
+  },
+  "create": {
+    "short_code": "new-fixture"
+  },
+  "review": {
+    "status_code": 204,
+    "body": null
+  }
+}
