@@ -116,3 +116,20 @@ def isolated_cache(monkeypatch):
 def auth_key(db_session):
     from app.services.api_keys import create_key
     return create_key(db_session, "test client", ["read", "write"])
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--run-integration",
+        action="store_true",
+        default=False,
+        help="Start disposable Docker services for integration tests",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    if not config.getoption("--run-integration"):
+        skip = pytest.mark.skip(reason="Use make test-integration (Docker required)")
+        for item in items:
+            if "integration" in item.keywords:
+                item.add_marker(skip)

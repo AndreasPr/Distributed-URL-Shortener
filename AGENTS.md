@@ -17,13 +17,14 @@ Use CPython 3.11.14 from `.python-version` (also used by Docker and CI). Follow 
 
 - `make up`, `make down`, `make logs`: local Compose stack. Copy `.env.example` only when `.env` is absent and replace placeholders locally; preserve existing volume credentials.
 - `make check`: Black check, isort check, full Flake8, blocking mypy, backend tests with coverage, and Prometheus rule validation/unit tests (native promtool or Docker required).
-- `make fmt`: apply Black and isort to app/ and eval/.
+- `make fmt`: apply Black and isort to app/, eval/, and tests/integration/.
 - `make eval EVAL_PROVIDER=fake`: offline synthetic abuse evaluation; writes docs/eval-results.md.
-- `make test`, `make lint`, `make typecheck`: individual backend checks.
+- `make test`: fast unit tests only (SQLite/mocks); `make lint`, `make typecheck`: individual backend checks.
+- `make test-integration`: unit + Testcontainers PostgreSQL/Redis tests and the combined coverage floor; Docker required. `make test-integration-slow` also runs optional Kafka. See [docs/testing.md](docs/testing.md).
 - `make frontend-check`: npm ci, noninteractive core-web-vitals ESLint, tsc --noEmit. Use Node 22.13+ (CI uses Node 22).
 - `make mcp-test`: the separate MCP pytest suite.
 - `make lock`: regenerate exact hashed locks after editing readable `.in` files. Keep runtime/MCP versions constrained to the dev resolution; synchronize `.venv` afterward.
 - `.venv/bin/pre-commit run --all-files`: matching local checks plus pinned Gitleaks; never expose unredacted secret findings.
 - `make demo`: prints the step 8.3 seeding placeholder only.
 
-Run `make check`, `make frontend-check`, and `make mcp-test` before finishing applicable changes and report actual outcomes. Gate scope and known limitations are documented in the developer guide. Tests use SQLite/mocks; do not claim live-service validation from these alone. MCP notification tools still require explicit authorization. Kubernetes is optional and not covered by these gates.
+Run `make check`, `make frontend-check`, and `make mcp-test` before finishing applicable changes and report actual outcomes. Gate scope and known limitations are documented in the developer guide. Unit tests use SQLite/mocks; only the integration targets validate real disposable services. MCP notification tools still require explicit authorization. Kubernetes is optional and not covered by these gates.

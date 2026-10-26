@@ -11,3 +11,4 @@ types-requests==2.33.0.20260518
 pre-commit==4.2.0
 uv==0.9.9
 pip-audit==2.10.1
+testcontainers[postgres,redis,kafka]==4.14.2
