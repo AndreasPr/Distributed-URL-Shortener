@@ -18,12 +18,19 @@ logs:
 # Normal pytest capture is enabled. Recreate .venv with the pinned interpreter
 # instead of using the broken Anaconda readline build documented in developer.md.
 test:
-	$(PYTHON) -m pytest --cov=app --cov-report=term-missing --cov-report=xml
+	$(PYTHON) -m pytest -m "not integration and not docker" --cov=app --cov-fail-under=0 --cov-report=term-missing --cov-report=xml
+
+.PHONY: test-integration test-integration-slow
+test-integration:
+	$(PYTHON) -m pytest --run-integration -m "not slow and not docker" --cov=app --cov-report=term-missing --cov-report=xml --cov-report=json:coverage.json
+
+test-integration-slow:
+	$(PYTHON) -m pytest --run-integration -m "not docker" --cov=app --cov-report=term-missing --cov-report=xml --cov-report=json:coverage.json
 
 lint:
-	$(PYTHON) -m black --check app/ eval/
-	$(PYTHON) -m isort --check-only app/ eval/
-	$(PYTHON) -m flake8 app/ eval/
+	$(PYTHON) -m black --check app/ eval/ tests/integration/
+	$(PYTHON) -m isort --check-only app/ eval/ tests/integration/
+	$(PYTHON) -m flake8 app/ eval/ tests/integration/
 
 typecheck:
 	$(PYTHON) -m mypy app/ eval/
@@ -31,8 +38,8 @@ typecheck:
 check: lint typecheck test prometheus-check
 
 fmt:
-	$(PYTHON) -m isort app/ eval/
-	$(PYTHON) -m black app/ eval/
+	$(PYTHON) -m isort app/ eval/ tests/integration/
+	$(PYTHON) -m black app/ eval/ tests/integration/
 
 frontend-check:
 	cd frontend && npm ci --no-audit --no-fund

@@ -30,11 +30,13 @@ jobs:
         run: make check
       - name: MCP tests
         run: make mcp-test
+      - name: PostgreSQL and Redis integration coverage gate
+        run: make test-integration
       - name: Upload coverage reports
         uses: codecov/codecov-action@v3
         with:
           files: ./coverage.xml
-          flags: unittests
+          flags: backend-combined
           name: codecov-umbrella
           fail_ci_if_error: false
 

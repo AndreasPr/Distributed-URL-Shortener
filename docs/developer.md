@@ -291,3 +291,10 @@ latency/freshness compliance.
 and updates `docs/eval-results.md`. See [evaluation instructions](../eval/abuse/README.md)
 for dev-only tuning, manual public data preparation, and explicitly selected local
 model runs. `make check` includes the fake regression and lints/types eval/ too.
+
+## Real-service integration tests
+
+Run `make test` for fast units and `make test-integration` for the combined
+unit + disposable PostgreSQL/Redis coverage gate (Docker required).
+`make test-integration-slow` adds optional Kafka. See [testing.md](testing.md)
+for isolation, measured coverage, and Docker Desktop troubleshooting.
