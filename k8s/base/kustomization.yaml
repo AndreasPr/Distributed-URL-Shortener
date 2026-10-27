@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: url-shortener
+resources:
+- 0-namespace.yaml
+- 1-configmap.yaml
+- 3-persistent-volumes.yaml
+- 4-db-migrate-job.yaml
+- 7-network-policies.yaml
+- abuse-worker/deployment.yaml
+- abuse-worker/network-policy.yaml
+- api/deployment.yaml
+- disruption-budgets.yaml
+- grafana/deployment.yaml
+- jaeger.yaml
+- postgres/statefulset.yaml
+- prometheus/deployment.yaml
+- prometheus/rules-configmap.yaml
+- redis/statefulset.yaml
+- worker/deployment.yaml

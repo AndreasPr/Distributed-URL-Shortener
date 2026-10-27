@@ -46,31 +46,10 @@ Stop the Compose API first if port 8000 is occupied. Redis defaults to localhost
 
 ## Kubernetes
 
-The Kubernetes path is optional and has unresolved baseline deployment issues. Confirm `kubectl config current-context` points to the intended local cluster. Storage provisioning, ingress controller, metrics API, and accessible images are prerequisites.
-
-The old committed Secret is removed. [k8s/secrets.example.yaml](../k8s/secrets.example.yaml) documents only required key names and placeholders; applying it would store literal placeholders. Kubernetes does not substitute shell variables in YAML.
-
-Create a Secret without putting its contents into shell arguments or command output:
-
-```sh
-kubectl apply -f k8s/0-namespace.yaml
-cp k8s/.env.example k8s/.env
-# Edit ignored k8s/.env locally; replace every placeholder.
-chmod 600 k8s/.env
-kubectl create secret generic url-shortener-secrets \
-  -n url-shortener --from-env-file=k8s/.env
-```
-
-Required keys: `DB_USER`, `DB_PASSWORD`, `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`. DB_USER is now consumed from the Secret instead of the ConfigMap. Redis authentication is not configured by these manifests; an unused REDIS_PASSWORD field would not enable it. SENTRY_DSN was also unused and is omitted. For an existing Secret, update it deliberately through a protected local manifest or your local cluster tooling; `create` intentionally does not overwrite it. Any real `k8s/2-secrets.yaml` is ignored and must never be committed.
-
-```sh
-docker build -t url-shortener:latest .
-bash k8s/deploy.sh
-kubectl get pods -n url-shortener
-kubectl port-forward svc/api 8000:8000 -n url-shortener
-```
-
-The deploy script requires the Secret to exist; it never applies placeholder credentials. Docker Desktop can share local images; other clusters need an explicit image load. Use `kubectl port-forward svc/grafana 3001:3000 -n url-shortener` and the locally chosen Secret credentials for Grafana.
+Follow [the Kustomize deployment guide](kubernetes.md) for explicit cluster context,
+ignored Secret setup, SHA images, migration gates, and rollback. Local uses Kafka
+KRaft; CI uses Redis Streams. Frontend runs outside Kubernetes. Do not recursively
+apply k8s/ or use the old flat manifest paths.
 
 ## Verification and image versions
 

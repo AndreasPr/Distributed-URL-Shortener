@@ -81,7 +81,7 @@ this new worker's queue; inspect its target and metrics explicitly.
 
 `k8s/deploy.sh` includes the new hardened abuse worker and its NetworkPolicies.
 Run the migration Job with the rebuilt image first, then deploy updated API and
-workers. `k8s/abuse-worker/deployment.yaml` defaults to Fake. Its headless metrics
+workers. `k8s/base/abuse-worker/deployment.yaml` defaults to Fake. Its headless metrics
 Service is scraped per pod. Default-deny plus explicit policies allow only DNS,
 PostgreSQL, Redis, Kafka and inbound Prometheus scrapes. Public model endpoints
 and arbitrary destination pages remain unreachable. Remote model setup would

@@ -99,7 +99,7 @@ Alertmanager or notification destination is configured in this step.
 
 After editing canonical rules/dashboard, run
 `.venv/bin/python scripts/sync-monitoring.py`. Tests require the committed
-Kubernetes ConfigMaps to match. Apply `k8s/prometheus/rules-configmap.yaml` before
+Kubernetes ConfigMaps to match. Apply `k8s/base/prometheus/rules-configmap.yaml` before
 the Prometheus Deployment. Restart Prometheus after rule/config changes; mounted
 ConfigMap updates alone do not guarantee rule reload. Grafana reloads its file
 provider automatically. `make prometheus-check` validates and unit-tests rules;

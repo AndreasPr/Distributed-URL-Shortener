@@ -1,7 +1,3 @@
-#!/bin/bash
-# Compatibility wrapper for the full local Kubernetes deployment.
-
-set -e
-
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-exec "$SCRIPT_DIR/deploy.sh"
+#!/usr/bin/env bash
+set -euo pipefail
+exec "$(dirname "$0")/deploy.sh" "$@"

@@ -37,3 +37,6 @@ next-env.d.ts
 /eval/abuse/data/raw/
 /eval/abuse/data/local/
 /eval/abuse/results/
+
+# Temporary two-phase Kubernetes deployment overlays
+k8s/overlays/.deploy-*/

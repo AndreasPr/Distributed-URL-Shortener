@@ -390,7 +390,7 @@ def test_schema_and_new_services():
     assert "kafka" not in compose["abuse-worker-redis"]["depends_on"]
     assert compose["abuse-worker-redis"]["environment"]["EVENT_BUS"] == "redis_streams"
     workloads = list(
-        yaml.safe_load_all((root / "k8s/abuse-worker/deployment.yaml").read_text())
+        yaml.safe_load_all((root / "k8s/base/abuse-worker/deployment.yaml").read_text())
     )
     deployment = next(w for w in workloads if w["kind"] == "Deployment")
     container = deployment["spec"]["template"]["spec"]["containers"][0]

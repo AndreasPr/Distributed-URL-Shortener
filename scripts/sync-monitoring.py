@@ -24,10 +24,10 @@ config = {
     "metadata": {"name": "prometheus-rules", "namespace": "url-shortener"},
     "data": {"slo.yml": rules},
 }
-(ROOT / "k8s/prometheus/rules-configmap.yaml").write_text(
+(ROOT / "k8s/base/prometheus/rules-configmap.yaml").write_text(
     yaml.dump(config, Dumper=MonitoringDumper, sort_keys=False)
 )
-p = ROOT / "k8s/grafana/deployment.yaml"
+p = ROOT / "k8s/base/grafana/deployment.yaml"
 s = p.read_text()
 start = s.index("  url-shortener-dashboard.json: |")
 end = s.index("\n---", start)
