@@ -40,3 +40,7 @@ docker-compose.yml
 
 .venv-*
 eval
+
+artifacts
+reports
+image.tar

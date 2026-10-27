@@ -1,74 +1,92 @@
-# CI/CD guide
+# CI and releases
 
-This consolidates the former implementation, setup, quick-reference, and CI/CD guides. Workflow files, not historical success claims, define current behavior. All local development uses free tools and requires no cloud credentials. See [developer setup](developer.md), [deployment](DEPLOYMENT.md), and [baseline findings](baseline.md).
+The workflows run on GitHub-hosted Ubuntu runners using free tooling for this public
+repository. No cloud credentials or personal access token are required.
 
-## What runs
+## Workflows
 
-| Workflow / job | Trigger | Work performed |
+| Workflow | Trigger | Gates |
 | --- | --- | --- |
-| [CI / lint-and-test](../.github/workflows/ci.yml) | Push and PR targeting master, main, develop | Python 3.11.14 from .python-version; hashed development lock; make check (full Flake8 and blocking mypy); make mcp-test; Codecov upload |
-| [CI / frontend-check](../.github/workflows/ci.yml) | Same push/PR triggers as backend CI | Node 22; make frontend-check (npm ci, core-web-vitals ESLint, TypeScript) |
-| [CD / build-and-push](../.github/workflows/cd.yml) | Push to master/main, `v*` tags, completed CI on master/main | Build metadata, Docker Buildx, GHCR login, multi-stage backend image build and push, registry cache |
+| `ci.yml` | PR, push to master/main, reusable call | lint/types, unit coverage, PostgreSQL/Redis integration coverage, MCP, frontend, gitleaks, pip-audit, npm audit report, promtool |
+| `docker.yml` | PR, version tag | Buildx build/load, Trivy; tags additionally require reusable CI before image build and publication |
+| `k8s-smoke.yml` | PR | kind deployment with the existing CI overlay, HTTP smoke, 30-second k6 test |
+| `codeql.yml` | PR, Monday 06:23 UTC | Python and JavaScript/TypeScript analysis |
 
-CD publishes images; it does not deploy Kubernetes or verify runtime health. Its direct push trigger is independent of CI, and its `workflow_run` trigger does not check for a successful conclusion. Mypy, tests, lint, and frontend checks are blocking; Codecov upload remains nonblocking and there is no enforced coverage minimum. Branch protection and required reviews are repository settings, not established by these YAML files.
+All workflow tokens default to `contents: read`. Only the release publication job
+gets `packages: write`; CodeQL analysis gets `security-events: write`. External
+actions are pinned to full commit SHAs with version comments. Dependabot checks
+Actions weekly. Concurrency cancels superseded runs. No `pull_request_target` or
+unsafe `workflow_run` publisher is used. Python's hashed development lock and npm's
+lock are cached; Buildx uses the GitHub Actions cache.
 
-## Setup and daily development
+## Local equivalents and coverage
 
-1. Install root development dependencies and MCP requirements using [AGENTS.md](../AGENTS.md).
-2. Copy the safe environment example and configure local credentials using [deployment instructions](DEPLOYMENT.md). Never commit local environment files.
-3. Create a scoped feature branch; run the checks below; stage explicit source paths and use a conventional commit message.
-4. Push the feature branch and open a PR targeting a configured branch. A push to an arbitrary feature branch alone does not trigger this CI workflow.
-5. Inspect each workflow result before merging. Image publication is distinct from deployment.
-
-From the repository root:
-
-```sh
+```bash
 make check
+make test-integration
 make frontend-check
+npm --prefix frontend run build
 make mcp-test
+actionlint
+RUN_K6=true bash scripts/kind_smoke.sh
 ```
 
-The gate uses normal pytest capture with a clean pinned Python build; recreate the environment as described in [developer setup](developer.md) instead of disabling capture. Coverage reports remain ignored locally. Pre-commit hooks provide the same local backend checks and redacted Gitleaks scanning; they do not replace CI.
+Docker is needed for Testcontainers, promtool fallback and kind. Install kind,
+kubectl, kubeconform and k6 for the last command. `make test` stays fast/unit-only;
+`make test-integration` runs unit plus real PostgreSQL/Redis tests and enforces the
+measured **93.6% combined floor**. Optional slow Kafka tests are not in this gate.
+Raise the floor after measuring new coverage; never lower it to conceal failures.
+No unused database credentials are injected: Testcontainers supplies ephemeral URLs.
 
-## Publishing and versioning
+Unit/integration coverage, dependency scans, and kind/load diagnostics are uploaded
+for seven days, including available reports after failure. Generated `artifacts/`
+and `reports/` remain ignored. Codecov is off by default; set repository variable
+`CODECOV_ENABLED=true` for an optional non-blocking upload. Local coverage remains
+the authoritative gate regardless of Codecov availability.
 
-The existing CD workflow references the repository Actions secret `GHCR_TOKEN` for registry authentication. No token value belongs in this repository; this cleanup neither adds credentials nor changes that workflow. Local builds and tests do not require this integration. If publication is unavailable, use local images. No `KUBE_CONFIG` or cloud deployment credentials are needed or supported by the current jobs.
+## Security gates
 
-`REGISTRY` is `ghcr.io`; `IMAGE_NAME` derives from the repository and is normalized to lowercase. Tags come from branch refs, semantic versions, a generated `main-YYYYMMDD-shortsha` version (or the pushed tag), and `sha-*`. For a release, after reviewing the commit, use `git tag vX.Y.Z` and `git push origin vX.Y.Z` with an actual chosen version. Inspect the metadata step for the exact generated tags; do not assume a tag publishes a deployment.
+Gitleaks scans the full Git history with redacted output. pip-audit scans backend
+and MCP runtime locks and fails on findings. npm audit produces an advisory JSON
+artifact; npm install, lint, type checks, tests and production build still block.
+Trivy scans the actual built image and fails on **fixable HIGH/CRITICAL** findings.
+`.trivyignore` currently has no exceptions. Any future exception must name the exact
+CVE/package, evidence, owner, tracking issue and expiry; broad suppression is not
+acceptable. See [the verification record](ci-verification.md) for current failures.
 
-The Dockerfile has builder/runtime stages, OCI version/date/revision labels, and corresponding build arguments. CI caches Python packages and Docker registry layers. `.dockerignore` excludes credentials, databases, tests, docs, frontend artifacts, and the independent MCP server. Historical build-time and image-size estimates have been removed because they were not measurements of the current build.
+## Kubernetes and performance
 
-## Inspecting and troubleshooting
+`helm/kind-action` creates the cluster. The runner accepts this explicitly owned
+cluster with `KIND_EXISTING=true`, validates both overlays, builds/loads the checkout
+SHA image, generates ephemeral credentials, and delegates deployment to `apply -k`.
+The CI overlay uses Redis Streams and single replicas without ingress or HPA.
+Frontend production build is checked separately; it runs outside this cluster.
+The migration is initially suspended, then starts after PostgreSQL/Redis readiness,
+so its deadline measures migration execution rather than cold dependency startup.
 
-Use GitHub's Actions tab, select a run, then expand the failing step. Optional read-only CLI commands:
+The HTTP smoke checks health, shorten, 307, eventual analytics, metrics, missing-key
+401 and write-bucket 429 with Retry-After. It intentionally exhausts its API key.
+k6 gets a separate temporary key and drives five redirects/second for 30 seconds:
+p95 below 500ms, error rate below 1%, all response checks true, zero dropped iterations.
+This portable load gate is not a proof of the 100ms cache-hit SLO. Redirects are not
+followed to external sites, and expected auth/throttling failures are tested separately.
+Failed runs save pod logs/events/status; the workflow always deletes its kind cluster.
 
-```sh
-gh workflow list
-gh run list
-gh run view RUN_ID --log
-```
+## Release procedure
 
-- Test/lint failure: reproduce the exact command locally; do not infer success from another job. Current suites use SQLite/mocks; live service containers and their unused credential variables are no longer part of this unit-test job.
-- Build failure: inspect dependency installation, Docker context, and image metadata steps. Reproduce with `docker build -t url-shortener:local .`.
-- Registry failure: inspect the login/push step and repository package permissions without printing tokens. Check GitHub Packages for the emitted version after a successful push.
-- Cache behavior: retain the existing build stages and registry cache; compare measured runs instead of claiming fixed build times.
+1. Open a PR and inspect every required check and report. Configure branch protection
+   to require CI, Docker scan, Kubernetes smoke and both CodeQL analyses. Workflow files
+   alone cannot configure repository branch protection.
+2. Resolve blocking security findings before release. Review and merge the PR.
+3. On the intended merged commit, create and push an unused version tag:
+   `git tag v1.2.3` followed by `git push origin v1.2.3` (choose the real version).
+4. The tag runs all reusable CI jobs. Only on success does it build/scan the image;
+   only after both succeed can the publication job load the scanned image artifact
+   and push `ghcr.io/andreaspr/distributed-url-shortener:v1.2.3` and `sha-<commit>`.
+5. Check the Actions run and package digest. No mutable latest tag or automatic
+   persistent deployment is created. Follow [Kubernetes instructions](kubernetes.md)
+   for deployment/rollback. Existing GHCR packages must grant this repository Actions
+   access; configure package permissions rather than adding a personal token.
 
-## Optional local Kubernetes deployment and rollback
-
-Follow [deployment setup](DEPLOYMENT.md#kubernetes) to create the local Secret and prepare images/storage. From the repository root, run `KUBE_CONTEXT=<intended-context> bash k8s/deploy.sh local` only against the intended local context. An available registry image is not automatically used by manifests referencing a local image tag.
-
-```sh
-kubectl get pods -n url-shortener
-kubectl rollout status deployment/api -n url-shortener
-kubectl logs deployment/api -n url-shortener
-kubectl rollout history deployment/api -n url-shortener
-```
-
-When a previously working rollout must be restored, `kubectl rollout undo deployment/api -n url-shortener` restores the Deployment revision; verify readiness afterward. It does not roll back database migrations or data. Kubernetes has known baseline failures; a script completing does not prove the application is healthy.
-
-### SLO rule gate
-
-`make check` now runs `make prometheus-check` after backend checks. CI needs a
-native promtool or a working Docker daemon to run the pinned Prometheus image.
-Rule syntax errors, synthetic alert-test failures, and an unavailable tool all
-fail the gate. See [SLO verification](slo-verification.md).
+GitHub-hosted orchestration, CodeQL uploads, optional Codecov and GHCR publication
+require a real GitHub run; local checks do not establish their success.

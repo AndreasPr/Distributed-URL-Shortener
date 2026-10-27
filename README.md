@@ -1,5 +1,10 @@
 # Distributed URL Shortener
 
+[![CI](https://github.com/AndreasPr/Distributed-URL-Shortener/actions/workflows/ci.yml/badge.svg)](https://github.com/AndreasPr/Distributed-URL-Shortener/actions/workflows/ci.yml)
+[![Docker](https://github.com/AndreasPr/Distributed-URL-Shortener/actions/workflows/docker.yml/badge.svg)](https://github.com/AndreasPr/Distributed-URL-Shortener/actions/workflows/docker.yml)
+[![Kubernetes smoke](https://github.com/AndreasPr/Distributed-URL-Shortener/actions/workflows/k8s-smoke.yml/badge.svg)](https://github.com/AndreasPr/Distributed-URL-Shortener/actions/workflows/k8s-smoke.yml)
+[![CodeQL](https://github.com/AndreasPr/Distributed-URL-Shortener/actions/workflows/codeql.yml/badge.svg)](https://github.com/AndreasPr/Distributed-URL-Shortener/actions/workflows/codeql.yml)
+
 Local-first distributed URL shortener showcasing an event-driven architecture with caching, persistent storage, analytics streaming, and a modern full-stack web interface.
 
 **Core Demo Features:**
@@ -476,69 +481,22 @@ project launchers use --no-proxy-headers. See [security details](docs/security.m
 GitHub Actions CI/CD
 -------------------
 
-Automated testing and Docker image building with every push to GitHub.
+Pull requests run backend lint/types, unit and PostgreSQL/Redis integration tests,
+frontend checks/build, MCP tests, secret/dependency scans, Prometheus validation,
+Docker build/Trivy, CodeQL, and a disposable kind deployment with HTTP and k6 gates.
+The combined coverage floor is 93.6%. npm audit and optional Codecov are advisory.
 
-### Workflow
+Only version tags (`vMAJOR.MINOR.PATCH`) can publish to GHCR. The tag runs the
+reusable CI workflow first; a successful image scan is also required. Publishing
+uses the built-in `GITHUB_TOKEN`, with package write permission only in that job.
+No personal token is needed. Main-branch pushes and PRs never publish images.
+The exact scanned image receives version and `sha-<commit>` tags; no `latest` tag.
+Publishing does not deploy to a persistent cluster.
 
-```
-Developer Push
-	↓
-GitHub Actions (CI)
-	├─ Lint (Black, Flake8, isort)
-	├─ Type checking (mypy)
-	└─ Unit tests (pytest with coverage)
-	↓
-GitHub Actions (CD)
-	├─ Build multi-stage Docker image
-	├─ Push to GitHub Container Registry (GHCR)
-	└─ Image ready for deployment
-```
-
-### Setup
-
-1. Create [Personal Access Token](https://github.com/settings/tokens):
-   - Permissions: `write:packages`, `read:packages`, `repo`
-
-2. Add GitHub Secret (Settings → Secrets and variables → Actions):
-   - `GHCR_TOKEN` — Personal Access Token from step 1
-
-### Automatic Build & Push
-
-Just push to `master` or `main`:
-
-```bash
-git add .
-git commit -m "feat: improve cache hit ratio"
-git push origin master
-```
-
-GitHub Actions will automatically:
-1. Run tests and linting
-2. Build Docker image
-3. Push to GitHub Container Registry (`ghcr.io/owner/repo:main-YYYYMMDD-hash`)
-4. Image available for deployment
-
-### Release with Semantic Versioning
-
-Tag your commits for releases:
-
-```bash
-git tag v1.2.3
-git push origin v1.2.3
-```
-
-This triggers the CD pipeline with semantic versioning:
-- Image tagged as `ghcr.io/owner/repo:v1.2.3`
-- Also tagged as `v1`, `latest`, and `sha-{hash}`
-- All previous versions remain in GHCR for reference
-
-### Deploy to Kubernetes
-
-Use [the local Kubernetes instructions](docs/kubernetes.md). The kind smoke workflow
-builds and loads the checkout's SHA image without registry credentials. Publishing
-an image in CD does not deploy it to a local cluster.
-
-See [docs/ci-cd.md](docs/ci-cd.md) for detailed setup, troubleshooting, and advanced configuration.
+See [CI configuration and release instructions](docs/ci-cd.md),
+[local verification and current audit failures](docs/ci-verification.md), and
+[Kubernetes deployment](docs/kubernetes.md). Passing functional tests does not
+bypass dependency findings: blocking audit failures must be resolved before release.
 
 
 Configuration

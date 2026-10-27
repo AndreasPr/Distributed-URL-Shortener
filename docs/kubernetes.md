@@ -76,7 +76,8 @@ Both overlays use stable API versions. The script requires explicit
 KUBE_CONTEXT, uses `set -euo pipefail`, and applies a temporary sibling Kustomize
 overlay with application replicas zero. It waits for stateful dependencies and
 `alembic upgrade head` to finish before applying final application replicas. A
-migration has a 180-second deadline. Every failed wait stops deployment and emits
+migration is initially suspended until dependency rollouts succeed, then starts its
+180-second deadline. Every failed wait stops deployment and emits
 pod/event/job diagnostics. Completed/failed migration Jobs are recreated; an active
 Job causes refusal. Deployments must be serialized; this local script is not a
 distributed deployment lock and deliberately introduces downtime during migration.
@@ -135,7 +136,8 @@ BASE_URL=http://localhost:8000 METRICS_URL=http://localhost:18002/metrics \
 
 The script checks healthy dependencies, creates an example.com link, verifies its
 307 Location without following it, waits for exactly one analytics row, and checks
-metrics. It never prints the key. Revoke the smoke key afterward with `keys revoke
+metrics, an unauthenticated 401, and a write-rate 429 with Retry-After. The last check
+exhausts the test key’s write bucket; use a dedicated key. It never prints the key. Revoke the smoke key afterward with `keys revoke
 <ID>`. Metrics are on the separate internal 8002 Service, never in Ingress.
 Jaeger UI is http://localhost:16686; its bounded in-memory traces are ephemeral.
 Application liveness/startup use `/livez`; readiness uses dependency-aware `/health`.
@@ -162,3 +164,10 @@ Do the same for worker/abuse-worker if their compatible image must be restored.
 Keep previous SHA images available. Rollout undo does **not** revert ConfigMaps,
 PVCs, Secrets or Alembic revisions. Restore compatible overlay configuration and
 plan database rollback separately; never automatically downgrade a populated DB.
+
+For the CI performance gate, run `RUN_K6=true bash scripts/kind_smoke.sh` with k6
+installed. It uses a separate key and measures 30 seconds of redirects at 5/sec
+(p95 <500ms, errors <1%, all checks passing). Logs and the k6 summary remain in
+ignored `artifacts/k8s/`. `.github/workflows/k8s-smoke.yml` creates kind with
+helm/kind-action and passes `KIND_EXISTING=true KIND_NAME=shortener-ci`; only use
+that option for an explicitly owned disposable cluster. The workflow cleans it up.

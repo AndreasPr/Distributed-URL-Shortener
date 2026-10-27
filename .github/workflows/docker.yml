@@ -1,0 +1,89 @@
+name: Docker
+on:
+  pull_request:
+  push:
+    tags: ['v*.*.*']
+permissions:
+  contents: read
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  release-ci:
+    if: startsWith(github.ref, 'refs/tags/')
+    uses: ./.github/workflows/ci.yml
+  image:
+    needs: release-ci
+    if: ${{ !cancelled() && (github.event_name == 'pull_request' || needs.release-ci.result == 'success') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          load: true
+          push: false
+          tags: url-shortener:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VCS_REF=${{ github.sha }}
+      - name: Scan the built image (fixable HIGH/CRITICAL)
+        env:
+          IMAGE: url-shortener:${{ github.sha }}
+        run: |
+          mkdir -p reports
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD:/repo" aquasec/trivy:0.67.2 image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --ignorefile /repo/.trivyignore --exit-code 1 --format json --output /repo/reports/trivy.json "$IMAGE"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: trivy
+          path: reports/trivy.json
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Save exactly the scanned image for release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          IMAGE: url-shortener:${{ github.sha }}
+        run: docker save "$IMAGE" -o image.tar
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: success() && startsWith(github.ref, 'refs/tags/')
+        with:
+          name: scanned-image
+          path: image.tar
+          retention-days: 7
+          if-no-files-found: warn
+  publish:
+    needs: [release-ci, image]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: scanned-image
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push scanned image, never rebuild after the scan
+        env:
+          REPOSITORY: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Expected vMAJOR.MINOR.PATCH'; exit 1; }
+          repository="ghcr.io/${REPOSITORY,,}"
+          docker load -i image.tar
+          docker tag "url-shortener:$SHA" "$repository:$VERSION"
+          docker tag "url-shortener:$SHA" "$repository:sha-$SHA"
+          docker push "$repository:$VERSION"
+          docker push "$repository:sha-$SHA"
