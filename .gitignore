@@ -40,3 +40,9 @@ next-env.d.ts
 
 # Temporary two-phase Kubernetes deployment overlays
 k8s/overlays/.deploy-*/
+
+# Local CI reports and load-test output
+artifacts/
+reports/
+frontend/npm-audit.json
+image.tar

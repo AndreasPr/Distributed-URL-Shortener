@@ -1,0 +1,51 @@
+name: Kubernetes smoke
+on:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: k8s-smoke-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  kind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1
+        with:
+          version: v0.33.0
+          node_image: kindest/node:v1.37.0
+          cluster_name: shortener-ci
+          wait: 120s
+          kubectl_version: v1.37.0
+      - uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4
+        with:
+          version: v1.37.0
+      - name: Install pinned validation/load tools
+        run: |
+          curl -fsSLo /tmp/kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz
+          tar -xzf /tmp/kubeconform.tar.gz -C /tmp kubeconform
+          sudo mv /tmp/kubeconform /usr/local/bin/kubeconform
+          curl -fsSLo /tmp/k6.tar.gz https://github.com/grafana/k6/releases/download/v2.0.0/k6-v2.0.0-linux-amd64.tar.gz
+          tar -xzf /tmp/k6.tar.gz -C /tmp
+          sudo mv /tmp/k6-v2.0.0-linux-amd64/k6 /usr/local/bin/k6
+      - name: Deploy CI overlay, smoke, and 30-second load gate
+        env:
+          KIND_EXISTING: 'true'
+          KIND_NAME: shortener-ci
+          RUN_K6: 'true'
+          RESULTS_DIR: artifacts/k8s
+        run: bash scripts/kind_smoke.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: k8s-smoke
+          path: artifacts/k8s
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Cleanup action-created cluster
+        if: always()
+        run: kind delete cluster --name shortener-ci

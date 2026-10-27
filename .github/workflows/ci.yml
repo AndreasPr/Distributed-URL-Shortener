@@ -1,52 +1,160 @@
-name: CI - Tests & Code Quality
-
+name: CI
 on:
-  push:
-    branches: [master, main, develop]
   pull_request:
-    branches: [master, main, develop]
-
+  push:
+    branches: [master, main]
+  workflow_call:
 permissions:
   contents: read
-
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  lint-and-test:
+  lint-types:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up pinned Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          python-version-file: .python-version
-          cache: pip
-          cache-dependency-path: requirements-dev.txt
-      - name: Install locked dependencies
-        run: |
-          python -m venv .venv
-          .venv/bin/python -m pip install --require-hashes -r requirements-dev.txt
-      # Tests use in-memory SQLite and mocked external sources; no cloud
-      # credentials or live PostgreSQL/Redis/Kafka services are required.
-      - name: Blocking backend quality gate
-        run: make check
-      - name: MCP tests
-        run: make mcp-test
-      - name: PostgreSQL and Redis integration coverage gate
-        run: make test-integration
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
+          persist-credentials: false
+      - uses: ./.github/actions/python-env
+      - run: |
+          make lint typecheck
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          files: ./coverage.xml
-          flags: backend-combined
-          name: codecov-umbrella
+          persist-credentials: false
+      - uses: ./.github/actions/python-env
+      - run: |
+          make test
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: unit-coverage
+          path: coverage.*
+          retention-days: 7
+          if-no-files-found: warn
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/python-env
+      - run: |
+          make test-integration
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: integration-coverage
+          path: coverage.*
+          retention-days: 7
+          if-no-files-found: warn
+      - uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
+        if: ${{ vars.CODECOV_ENABLED == 'true' }}
+        continue-on-error: true
+        with:
+          files: coverage.xml
           fail_ci_if_error: false
-
-  frontend-check:
+  mcp:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          node-version: '22'
+          persist-credentials: false
+      - uses: ./.github/actions/python-env
+      - run: |
+          make mcp-test
+  pip-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/python-env
+      - run: |
+          mkdir -p reports
+          .venv/bin/python -m pip_audit --disable-pip --no-deps -r requirements.txt -r mcp-server/requirements.txt --format json --output reports/pip-audit.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: pip-audit
+          path: reports/pip-audit.json
+          retention-days: 7
+          if-no-files-found: warn
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22.23.4'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: make frontend-check
+      - run: npm run build
+        working-directory: frontend
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+  npm-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22.23.4'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: frontend
+      - name: Advisory frontend audit (non-blocking)
+        continue-on-error: true
+        working-directory: frontend
+        run: npm audit --json > npm-audit.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: npm-audit
+          path: frontend/npm-audit.json
+          retention-days: 7
+          if-no-files-found: warn
+  gitleaks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Scan Git history (redacted)
+        run: |
+          mkdir -p reports
+          docker run --rm -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/repo -v "$PWD:/repo" -w /repo ghcr.io/gitleaks/gitleaks:v8.30.1 git --redact --config .gitleaks.toml --report-format json --report-path reports/gitleaks.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: gitleaks
+          path: reports/gitleaks.json
+          retention-days: 7
+          if-no-files-found: warn
+  promtool:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - run: make prometheus-check

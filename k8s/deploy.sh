@@ -37,10 +37,17 @@ replicas:
   count: 0
 - name: abuse-worker
   count: 0
+patches:
+- target:
+    kind: Job
+    name: db-migrate
+  patch: |-
+    - op: add
+      path: /spec/suspend
+      value: true
 EOF
 if [[ "$OVERLAY" == local ]]; then
   cat >> "$STAGE/kustomization.yaml" <<'EOF'
-patches:
 - target:
     kind: HorizontalPodAutoscaler
     name: api-hpa
@@ -63,6 +70,8 @@ if [[ "${ACTIVE:-0}" != 0 ]]; then echo 'Migration already active; refusing conc
 if [[ "$OVERLAY" == local ]]; then
   "${K[@]}" -n "$NS" rollout status statefulset/kafka --timeout="$WAIT_TIMEOUT"
 fi
+# Start the bounded migration only after cold dependency startup completes.
+"${K[@]}" -n "$NS" patch job db-migrate --type=merge -p '{"spec":{"suspend":false}}'
 "${K[@]}" -n "$NS" wait --for=condition=complete job/db-migrate --timeout="$WAIT_TIMEOUT"
 "${K[@]}" apply -k "$ROOT/k8s/overlays/$OVERLAY"
 for name in api worker abuse-worker jaeger prometheus grafana; do

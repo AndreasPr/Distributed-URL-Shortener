@@ -141,3 +141,13 @@ exit 0
     assert "apply -k " in calls
     assert "apply -k " + str(ROOT / "k8s/overlays/ci") not in calls
     assert "describe pods" in calls
+
+
+def test_migration_deadline_starts_after_dependencies():
+    script = (ROOT / "k8s/deploy.sh").read_text()
+    assert "path: /spec/suspend\n      value: true" in script
+    assert (
+        script.index("rollout status statefulset/redis")
+        < script.index("patch job db-migrate")
+        < script.index("wait --for=condition=complete job/db-migrate")
+    )

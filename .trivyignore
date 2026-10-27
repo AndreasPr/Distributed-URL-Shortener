@@ -1,0 +1,4 @@
+# No accepted vulnerability exceptions.
+# Any future entry must include the exact CVE, affected package/version,
+# rationale, owner, tracking issue and expiry date in docs/ci-cd.md.
+# Never add blanket suppressions or exceptions just to make a release pass.
