@@ -1,0 +1,301 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: url-shortener
+spec:
+  type: ClusterIP
+  selector:
+    app: api
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: url-shortener
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '8002'
+        prometheus.io/path: /metrics
+    spec:
+      initContainers:
+      - name: wait-postgres
+        image: busybox:1.38.0
+        command:
+        - sh
+        - -c
+        - until nc -z postgres.url-shortener.svc.cluster.local 5432; do sleep 2; done
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 25m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      - name: wait-redis
+        image: busybox:1.38.0
+        command:
+        - sh
+        - -c
+        - until nc -z redis.url-shortener.svc.cluster.local 6379; do sleep 2; done
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 25m
+            memory: 32Mi
+          limits:
+            cpu: 100m
+            memory: 64Mi
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      containers:
+      - name: api
+        command:
+        - uvicorn
+        - app.main:app
+        - --no-proxy-headers
+        - --host
+        - 0.0.0.0
+        - --port
+        - '8000'
+        image: url-shortener:source
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+        - containerPort: 8002
+          name: metrics
+        env:
+        - name: METRICS_PORT
+          value: '8002'
+        - name: WRITE_RATE_CAPACITY
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: WRITE_RATE_CAPACITY
+        - name: WRITE_RATE_REFILL
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: WRITE_RATE_REFILL
+        - name: REDIRECT_RATE_CAPACITY
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: REDIRECT_RATE_CAPACITY
+        - name: REDIRECT_RATE_REFILL
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: REDIRECT_RATE_REFILL
+        - name: TRUSTED_PROXIES
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: TRUSTED_PROXIES
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: url-shortener-secrets
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: url-shortener-secrets
+              key: DB_PASSWORD
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: DB_NAME
+        - name: DB_URL
+          value: postgresql://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: REDIS_PORT
+        - name: REDIS_URL
+          value: redis://$(REDIS_HOST):$(REDIS_PORT)
+        - name: EVENT_BUS
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_BUS
+        - name: EVENT_TOPIC
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_TOPIC
+        - name: EVENT_DLQ_TOPIC
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_DLQ_TOPIC
+        - name: EVENT_CONSUMER_GROUP
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_CONSUMER_GROUP
+        - name: EVENT_BATCH_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_BATCH_SIZE
+        - name: EVENT_FLUSH_INTERVAL
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_FLUSH_INTERVAL
+        - name: EVENT_QUEUE_SIZE
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: EVENT_QUEUE_SIZE
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: KAFKA_BOOTSTRAP_SERVERS
+        - name: API_HOST
+          value: 0.0.0.0
+        - name: API_PORT
+          value: '8000'
+        - name: LOG_LEVEL
+          value: INFO
+        - name: ENVIRONMENT
+          value: production
+        - name: CORS_ORIGINS
+          valueFrom:
+            configMapKeyRef:
+              name: url-shortener-config
+              key: CORS_ORIGINS
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: http://jaeger:4318
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 250m
+          limits:
+            memory: 512Mi
+            cpu: 500m
+        livenessProbe:
+          httpGet:
+            path: /livez
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 2
+          failureThreshold: 2
+        startupProbe:
+          httpGet:
+            path: /livez
+            port: 8000
+          initialDelaySeconds: 0
+          periodSeconds: 1
+          timeoutSeconds: 2
+          failureThreshold: 30
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 64Mi
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: api
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-metrics
+  namespace: url-shortener
+spec:
+  type: ClusterIP
+  selector:
+    app: api
+  ports:
+  - name: metrics
+    port: 8002
+    targetPort: metrics
+  clusterIP: None
+  publishNotReadyAddresses: true

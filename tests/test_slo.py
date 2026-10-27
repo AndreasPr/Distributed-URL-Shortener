@@ -80,9 +80,9 @@ def test_worker_exports_current_dlq_size(db_session):
 
 
 def test_provisioned_configmaps_match_canonical_sources():
-    rulemap = yaml.safe_load((ROOT / "k8s/prometheus/rules-configmap.yaml").read_text())
+    rulemap = yaml.safe_load((ROOT / "k8s/base/prometheus/rules-configmap.yaml").read_text())
     assert rulemap["data"]["slo.yml"] == (ROOT / "prometheus/rules/slo.yml").read_text()
-    docs = list(yaml.safe_load_all((ROOT / "k8s/grafana/deployment.yaml").read_text()))
+    docs = list(yaml.safe_load_all((ROOT / "k8s/base/grafana/deployment.yaml").read_text()))
     dashboard = next(
         d for d in docs if d["metadata"]["name"] == "grafana-dashboard-json"
     )
@@ -95,7 +95,7 @@ def test_provisioned_configmaps_match_canonical_sources():
     config = next(
         d
         for d in yaml.safe_load_all(
-            (ROOT / "k8s/prometheus/deployment.yaml").read_text()
+            (ROOT / "k8s/base/prometheus/deployment.yaml").read_text()
         )
         if d["kind"] == "ConfigMap"
     )
@@ -135,7 +135,7 @@ def test_headless_metrics_services_include_unready_replicas():
         ("api/deployment.yaml", "api-metrics"),
         ("worker/deployment.yaml", "worker"),
     ]:
-        documents = yaml.safe_load_all((ROOT / "k8s" / file).read_text())
+        documents = yaml.safe_load_all((ROOT / "k8s/base" / file).read_text())
         service = next(
             d
             for d in documents
@@ -151,7 +151,7 @@ def test_grafana_upgrade_preserves_existing_datasource_identity():
         (ROOT / "grafana/provisioning/datasources/prometheus.yml").read_text()
     )
     manifests = list(
-        yaml.safe_load_all((ROOT / "k8s/grafana/deployment.yaml").read_text())
+        yaml.safe_load_all((ROOT / "k8s/base/grafana/deployment.yaml").read_text())
     )
     config = next(
         m for m in manifests if m["metadata"]["name"] == "grafana-datasources"

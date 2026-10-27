@@ -96,7 +96,7 @@ def test_profile_selects_matching_brokers(compose_config, profile):
 def test_kubernetes_metrics_use_internal_port_and_network_policy():
     import yaml
 
-    documents = list(yaml.safe_load_all((ROOT / "k8s/api/deployment.yaml").read_text()))
+    documents = list(yaml.safe_load_all((ROOT / "k8s/base/api/deployment.yaml").read_text()))
     deployment = next(item for item in documents if item["kind"] == "Deployment")
     container = deployment["spec"]["template"]["spec"]["containers"][0]
     assert "--no-proxy-headers" in container["command"]
@@ -110,14 +110,14 @@ def test_kubernetes_metrics_use_internal_port_and_network_policy():
     )
     assert service["spec"]["type"] == "ClusterIP"
     assert [port["targetPort"] for port in service["spec"]["ports"]] == [8000]
-    policies = list(yaml.safe_load_all((ROOT / "k8s/7-network-policies.yaml").read_text()))
+    policies = list(yaml.safe_load_all((ROOT / "k8s/base/7-network-policies.yaml").read_text()))
     policy = next(item for item in policies if item["metadata"]["name"] == "api-metrics")
     rules = policy["spec"]["ingress"]
     assert rules[0] == {
         "from": [{"podSelector": {"matchLabels": {"app": "prometheus"}}}],
         "ports": [{"protocol": "TCP", "port": 8002}],
     }
-    ingress = yaml.safe_load((ROOT / "k8s/5-ingress.yaml").read_text())
+    ingress = yaml.safe_load((ROOT / "k8s/overlays/local/ingress.yaml").read_text())
     backends = [
         path["backend"]["service"]["name"]
         for rule in ingress["spec"]["rules"]

@@ -55,7 +55,7 @@ gh run view RUN_ID --log
 
 ## Optional local Kubernetes deployment and rollback
 
-Follow [deployment setup](DEPLOYMENT.md#kubernetes) to create the local Secret and prepare images/storage. From the repository root, run `bash k8s/deploy.sh` only against the intended local context. An available registry image is not automatically used by manifests referencing a local image tag.
+Follow [deployment setup](DEPLOYMENT.md#kubernetes) to create the local Secret and prepare images/storage. From the repository root, run `KUBE_CONTEXT=<intended-context> bash k8s/deploy.sh local` only against the intended local context. An available registry image is not automatically used by manifests referencing a local image tag.
 
 ```sh
 kubectl get pods -n url-shortener

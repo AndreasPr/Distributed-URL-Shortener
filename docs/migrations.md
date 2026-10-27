@@ -39,7 +39,7 @@ image. The standalone Docker image default command upgrades then execs uvicorn,
 and does not start the API if migration fails. Overriding its command bypasses
 that default; run migrations explicitly when starting a worker.
 
-Kubernetes uses `k8s/4-db-migrate-job.yaml`. Wait for this Job to complete before
+Kubernetes uses `k8s/base/4-db-migrate-job.yaml`. Wait for this Job to complete before
 rolling out API/worker. API replicas override the image command to serve only;
 they do not race migrations. After an earlier Job has finished, delete that
 completed Job and recreate it with the new image for the next migration; do not

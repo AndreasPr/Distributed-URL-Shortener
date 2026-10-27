@@ -1,0 +1,606 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: url-shortener
+data:
+  prometheus.yaml: |
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      access: proxy
+      url: http://prometheus.url-shortener.svc.cluster.local:9090
+      isDefault: true
+      editable: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: url-shortener
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+    - name: 'Default'
+      orgId: 1
+      folder: ''
+      type: file
+      disableDeletion: false
+      updateIntervalSeconds: 10
+      allowUiUpdates: true
+      options:
+        path: /var/lib/grafana/dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-json
+  namespace: url-shortener
+data:
+  url-shortener-dashboard.json: |
+    {
+      "uid": "url-shortener",
+      "title": "URL Shortener - SLOs and Operations",
+      "tags": [
+        "url-shortener",
+        "production"
+      ],
+      "timezone": "browser",
+      "schemaVersion": 30,
+      "version": 3,
+      "refresh": "10s",
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "panels": [
+        {
+          "id": 90,
+          "type": "text",
+          "title": "Coverage and measurement limitations",
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 24,
+            "h": 4
+          },
+          "options": {
+            "mode": "markdown",
+            "content": "Availability uses observed requests only; a 30-day query does not guarantee 30 days of complete history. Check Prometheus Targets and telemetry alerts. **Latency cohort and analytics freshness SLOs are defined but not yet measurable.** DLQ size is retained history (Kafka offset upper bound), not unresolved failures. See docs/slo.md and docs/runbook.md."
+          }
+        },
+        {
+          "id": 1,
+          "title": "Request Throughput (req/sec)",
+          "type": "graph",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 4
+          },
+          "targets": [
+            {
+              "expr": "rate(http_requests_total[1m])",
+              "legendFormat": "{{method}} {{path}}",
+              "refId": "A"
+            }
+          ],
+          "yaxes": [
+            {
+              "label": "Requests/sec",
+              "format": "reqps"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "P95 Latency (ms)",
+          "type": "graph",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 4
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) * 1000",
+              "legendFormat": "P95 Latency",
+              "refId": "A"
+            }
+          ],
+          "yaxes": [
+            {
+              "label": "Milliseconds",
+              "format": "ms"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "Cache Hit Ratio",
+          "type": "gauge",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 12
+          },
+          "targets": [
+            {
+              "expr": "cache_hits_total / (cache_hits_total + cache_misses_total) * 100",
+              "legendFormat": "Hit Ratio %",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "custom": {},
+              "max": 100,
+              "min": 0
+            }
+          },
+          "options": {
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true,
+            "orientation": "auto"
+          }
+        },
+        {
+          "id": 4,
+          "title": "Redirect Requests (per minute)",
+          "type": "graph",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 12
+          },
+          "targets": [
+            {
+              "expr": "increase(redirect_requests_total[1m])",
+              "legendFormat": "Redirects",
+              "refId": "A"
+            }
+          ],
+          "yaxes": [
+            {
+              "label": "Redirects/min",
+              "format": "short"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "title": "Error Rate (5xx)",
+          "type": "graph",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 20
+          },
+          "targets": [
+            {
+              "expr": "rate(http_requests_total{status=~\"5..\"}[1m])",
+              "legendFormat": "{{status}}",
+              "refId": "A"
+            }
+          ],
+          "yaxes": [
+            {
+              "label": "Errors/sec",
+              "format": "short"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "title": "Kafka Events Processed (per minute)",
+          "type": "graph",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 20
+          },
+          "targets": [
+            {
+              "expr": "increase(analytics_events_processed_total[1m])",
+              "legendFormat": "Events processed",
+              "refId": "A"
+            }
+          ],
+          "yaxes": [
+            {
+              "label": "Events/min",
+              "format": "short"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "title": "URL Shorten Latency (ms)",
+          "type": "graph",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 28
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, rate(shorten_request_duration_seconds_bucket[5m])) * 1000",
+              "legendFormat": "P95",
+              "refId": "A"
+            },
+            {
+              "expr": "histogram_quantile(0.99, rate(shorten_request_duration_seconds_bucket[5m])) * 1000",
+              "legendFormat": "P99",
+              "refId": "B"
+            }
+          ],
+          "yaxes": [
+            {
+              "label": "Milliseconds",
+              "format": "ms"
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "title": "Cache Operations (per minute)",
+          "type": "graph",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 28
+          },
+          "targets": [
+            {
+              "expr": "increase(cache_hits_total[1m])",
+              "legendFormat": "Cache Hits",
+              "refId": "A"
+            },
+            {
+              "expr": "increase(cache_misses_total[1m])",
+              "legendFormat": "Cache Misses",
+              "refId": "B"
+            }
+          ],
+          "yaxes": [
+            {
+              "label": "Operations/min",
+              "format": "short"
+            }
+          ]
+        },
+        {
+          "id": 100,
+          "title": "Redirect availability (observed 30d, target 99.9%)",
+          "type": "stat",
+          "gridPos": {
+            "x": 0,
+            "y": 36,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "redirect:slo_availability:30d * 100",
+              "refId": "A",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "noValue": "No data",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "green",
+                    "value": 99.9
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            }
+          },
+          "description": "Observed data only. Read docs/slo.md for coverage, retention, and metric limitations."
+        },
+        {
+          "id": 101,
+          "title": "Redirect error budget remaining (30d; negative = exhausted)",
+          "type": "stat",
+          "gridPos": {
+            "x": 12,
+            "y": 36,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "redirect:slo_error_budget_remaining:30d * 100",
+              "refId": "A",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "noValue": "No data",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "orange",
+                    "value": 10
+                  },
+                  {
+                    "color": "green",
+                    "value": 50
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            }
+          },
+          "description": "Observed data only. Read docs/slo.md for coverage, retention, and metric limitations."
+        },
+        {
+          "id": 102,
+          "title": "Analytics backlog (events / Kafka offsets)",
+          "type": "stat",
+          "gridPos": {
+            "x": 0,
+            "y": 42,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "analytics:backlog",
+              "refId": "A",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "No data"
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            }
+          },
+          "description": "Observed data only. Read docs/slo.md for coverage, retention, and metric limitations."
+        },
+        {
+          "id": 103,
+          "title": "DLQ retained entries (Kafka offset upper bound)",
+          "type": "stat",
+          "gridPos": {
+            "x": 12,
+            "y": 42,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "analytics:dlq_retained_size",
+              "refId": "A",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "No data"
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            }
+          },
+          "description": "Observed data only. Read docs/slo.md for coverage, retention, and metric limitations."
+        },
+        {
+          "id": 104,
+          "title": "Redis circuit (0 closed, 1 open, 2 half-open)",
+          "type": "stat",
+          "gridPos": {
+            "x": 0,
+            "y": 48,
+            "w": 12,
+            "h": 6
+          },
+          "targets": [
+            {
+              "expr": "max(circuit_breaker_state{job=\"url-shortener-api\"})",
+              "refId": "A",
+              "instant": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "noValue": "No data"
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            }
+          },
+          "description": "Observed data only. Read docs/slo.md for coverage, retention, and metric limitations."
+        }
+      ]
+    }
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: url-shortener
+spec:
+  type: ClusterIP
+  selector:
+    app: grafana
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: url-shortener
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:13.2.4
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: GF_SECURITY_ADMIN_USER
+          valueFrom:
+            secretKeyRef:
+              name: url-shortener-secrets
+              key: GRAFANA_ADMIN_USER
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: url-shortener-secrets
+              key: GRAFANA_ADMIN_PASSWORD
+        - name: GF_INSTALL_PLUGINS
+          value: ''
+        - name: GF_ANALYTICS_REPORTING_ENABLED
+          value: 'false'
+        - name: GF_ANALYTICS_CHECK_FOR_UPDATES
+          value: 'false'
+        - name: GF_PATHS_LOGS
+          value: /tmp
+        volumeMounts:
+        - name: datasources
+          mountPath: /etc/grafana/provisioning/datasources
+        - name: dashboards-config
+          mountPath: /etc/grafana/provisioning/dashboards
+        - name: dashboard-json
+          mountPath: /var/lib/grafana/dashboards
+        - name: storage
+          mountPath: /var/lib/grafana
+        - name: tmp
+          mountPath: /tmp
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 250m
+          limits:
+            memory: 512Mi
+            cpu: 500m
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+      volumes:
+      - name: datasources
+        configMap:
+          name: grafana-datasources
+      - name: dashboards-config
+        configMap:
+          name: grafana-dashboards
+      - name: dashboard-json
+        configMap:
+          name: grafana-dashboard-json
+      - name: storage
+        persistentVolumeClaim:
+          claimName: grafana-pvc
+      - name: tmp
+        emptyDir:
+          sizeLimit: 64Mi
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 472
+        runAsGroup: 472
+        fsGroup: 472
+        seccompProfile:
+          type: RuntimeDefault

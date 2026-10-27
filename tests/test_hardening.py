@@ -133,7 +133,7 @@ def test_all_kubernetes_containers_have_security_and_resources():
                 ] in {"kafka", "zookeeper"}
                 for bound in ("requests", "limits"):
                     assert {"cpu", "memory"} <= c["resources"][bound].keys()
-    assert len(workloads) == 11
+    assert len(workloads) == 10
     assert "abuse-worker" in workloads
 
 
@@ -141,7 +141,7 @@ def test_network_policy_default_deny_and_exact_dependency_ports():
     root = Path(__file__).resolve().parents[1]
     policies = {
         p["metadata"]["name"]: p["spec"]
-        for p in yaml.safe_load_all((root / "k8s/7-network-policies.yaml").read_text())
+        for p in yaml.safe_load_all((root / "k8s/base/7-network-policies.yaml").read_text())
     }
     assert policies["default-deny"] == {
         "podSelector": {},
@@ -154,7 +154,7 @@ def test_network_policy_default_deny_and_exact_dependency_ports():
         assert {
             (r["to"][0]["podSelector"]["matchLabels"]["app"], r["ports"][0]["port"])
             for r in rules
-        } == {("postgres", 5432), ("redis", 6379), ("kafka", 9092)}
+        } == {("postgres", 5432), ("redis", 6379), ("kafka", 9092), ("jaeger", 4318)}
 
 
 def test_slow_request_body_returns_408(monkeypatch):
@@ -197,7 +197,7 @@ def test_kafka_constructor_uses_supported_bounded_timeouts(monkeypatch):
 
 def test_cors_setting_is_configmap_data_not_object_metadata():
     root = Path(__file__).resolve().parents[1]
-    config = yaml.safe_load((root / "k8s/1-configmap.yaml").read_text())
+    config = yaml.safe_load((root / "k8s/base/1-configmap.yaml").read_text())
     assert "CORS_ORIGINS" not in config["metadata"]
     assert config["data"]["CORS_ORIGINS"].startswith("https://")
 
