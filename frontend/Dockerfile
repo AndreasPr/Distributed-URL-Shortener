@@ -1,4 +1,4 @@
-FROM node:22.23.4-alpine AS build
+FROM node:26.12.1-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --no-audit --no-fund
@@ -7,7 +7,7 @@ ARG NEXT_PUBLIC_API_URL=http://localhost:8000
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL} NEXT_TELEMETRY_DISABLED=1
 RUN mkdir -p public && npm run build && npm prune --omit=dev --no-audit --no-fund
 
-FROM node:22.23.4-alpine AS runtime
+FROM node:26.12.1-alpine AS runtime
 WORKDIR /app
 COPY --from=build --chown=node:node /app/.next .next
 COPY --from=build /app/node_modules ./node_modules
