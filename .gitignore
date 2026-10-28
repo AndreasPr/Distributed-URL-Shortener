@@ -46,3 +46,13 @@ artifacts/
 reports/
 frontend/npm-audit.json
 image.tar
+
+# Terraform design: provider lock is committed; all state/plans/local inputs are private.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+crash.log
+crash.*.log

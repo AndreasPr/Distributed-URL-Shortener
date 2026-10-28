@@ -23,6 +23,10 @@ The [MCP server](docs/mcp.md) provides on-demand stdio tools for links, analytic
 - **Infrastructure:** Docker, Docker Compose, Kubernetes, Prometheus, Grafana
 - **Observability:** OpenTelemetry, Prometheus metrics, structured logging
 
+The [AWS Terraform design](docs/aws-design.md) is a validation-only portfolio artifact:
+**not deployed**, no cloud credentials required for checks, and AWS resources would
+incur charges if someone separately authorized deployment. The free local stack is unchanged.
+
 ## Quality checks
 
 Use [the developer guide](docs/developer.md) to install pinned Python and locked dependencies. Run `make check`, `make frontend-check`, and `make mcp-test`; all three are blocking CI checks.
