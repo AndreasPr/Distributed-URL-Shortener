@@ -7,14 +7,18 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /build
 
 # Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
 	gcc \
+	libc6-dev \
+	libpq-dev \
 	postgresql-client \
 	&& rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install dependencies
+# Compile the PostgreSQL driver against patched system libpq; binary wheels
+# bundle their own PCRE/OpenSSL libraries outside apt security updates.
+# Runtime sources remain verified against the requirements hashes.
 COPY requirements.txt ./
-RUN python -m venv /opt/venv && /opt/venv/bin/pip install --no-cache-dir --require-hashes -r requirements.txt
+RUN python -m venv /opt/venv && /opt/venv/bin/pip install --no-cache-dir --no-binary=psycopg2-binary --require-hashes -r requirements.txt
 
 # Runtime stage
 FROM python:3.11.14-slim
@@ -36,14 +40,22 @@ ENV VERSION=${VERSION}
 WORKDIR /app
 
 # Install only runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
 	postgresql-client \
 	&& rm -rf /var/lib/apt/lists/*
 
 # Copy Python dependencies from builder
 COPY --from=builder /opt/venv /opt/venv
 
-COPY . ./
+# Packaging tools are build-only; remove their bundled vulnerable libraries from
+# both the base interpreter and application environment before shipping.
+RUN /opt/venv/bin/python -m pip uninstall -y setuptools wheel pip \
+    && /usr/local/bin/python -m pip uninstall -y setuptools wheel pip
+
+# Allowlist runtime files: local worktrees and tooling must never enter the image.
+COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini ./
 
 # Use the isolated runtime environment for application commands
 ENV PATH=/opt/venv/bin:$PATH

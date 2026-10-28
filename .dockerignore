@@ -44,3 +44,7 @@ eval
 artifacts
 reports
 image.tar
+
+.kilo
+.agents
+.codex
