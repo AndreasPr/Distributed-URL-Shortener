@@ -80,3 +80,24 @@ eval:
 	$(PYTHON) -m eval.abuse.run --variant heuristics --provider $(EVAL_PROVIDER) --limit $(EVAL_LIMIT) --seed $(EVAL_SEED)
 	$(PYTHON) -m eval.abuse.run --variant combined --provider $(EVAL_PROVIDER) --limit $(EVAL_LIMIT) --seed $(EVAL_SEED)
 	$(PYTHON) -m eval.abuse.report --provider $(EVAL_PROVIDER)
+
+# Validation-only AWS design: no credentials, plan, apply, or destroy targets.
+TERRAFORM ?= terraform
+TFLINT ?= tflint
+CHECKOV ?= checkov
+TF_ROOT := infra/terraform
+TF_ENV := $(TF_ROOT)/envs/dev
+.PHONY: tf-fmt tf-validate tf-lint tf-sec
+tf-fmt:
+	$(TERRAFORM) fmt -check -recursive $(TF_ROOT)
+
+tf-validate:
+	$(TERRAFORM) -chdir=$(TF_ENV) init -backend=false -input=false -lockfile=readonly
+	$(TERRAFORM) -chdir=$(TF_ENV) validate -no-color
+
+tf-lint:
+	$(TFLINT) --init --config "$(CURDIR)/$(TF_ROOT)/.tflint.hcl"
+	$(TFLINT) --recursive --chdir $(TF_ROOT) --config "$(CURDIR)/$(TF_ROOT)/.tflint.hcl"
+
+tf-sec:
+	$(CHECKOV) -d $(TF_ENV) --framework terraform --download-external-modules false --skip-download --compact

@@ -24,6 +24,7 @@ Use CPython 3.11.14 from `.python-version` (also used by Docker and CI). Follow 
 - `make frontend-check`: npm ci, noninteractive core-web-vitals ESLint, tsc --noEmit. Use Node 22.13+ (CI uses Node 22).
 - `make mcp-test`: the separate MCP pytest suite.
 - `bash scripts/kind_smoke.sh`: disposable kind Kubernetes validation, SHA image build/load, gated deploy, HTTP smoke and cleanup (Docker, kind, kubectl, kubeconform required). See [docs/kubernetes.md](docs/kubernetes.md).
+- `make tf-fmt`, `make tf-validate`, `make tf-lint`, `make tf-sec`: validation-only AWS design checks; no cloud credentials, plan or apply. Tool setup and costs are documented in `infra/terraform/envs/dev/README.md`.
 - `make lock`: regenerate exact hashed locks after editing readable `.in` files. Keep runtime/MCP versions constrained to the dev resolution; synchronize `.venv` afterward.
 - `.venv/bin/pre-commit run --all-files`: matching local checks plus pinned Gitleaks; never expose unredacted secret findings.
 - `make demo`: prints the step 8.3 seeding placeholder only.

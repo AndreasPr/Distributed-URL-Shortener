@@ -48,3 +48,8 @@ image.tar
 .kilo
 .agents
 .codex
+infra
+**/.terraform
+**/*.tfstate*
+**/*.tfplan
+**/*.tfvars*

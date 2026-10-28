@@ -11,6 +11,7 @@ repository. No cloud credentials or personal access token are required.
 | `docker.yml` | PR, version tag | Buildx build/load, Trivy; tags additionally require reusable CI before image build and publication |
 | `k8s-smoke.yml` | PR | kind deployment with the existing CI overlay, HTTP smoke, 30-second k6 test |
 | `codeql.yml` | PR, Monday 06:23 UTC | Python and JavaScript/TypeScript analysis |
+| `terraform-checks.yml` | PR/main push touching infra or its tooling | fmt, backend-disabled init/validate, TFLint, Checkov; no cloud credentials or plan/apply |
 
 All workflow tokens default to `contents: read`. Only the release publication job
 gets `packages: write`; CodeQL analysis gets `security-events: write`. External
