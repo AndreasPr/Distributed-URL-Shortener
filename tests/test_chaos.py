@@ -85,3 +85,16 @@ def test_missing_key_writes_failure_without_fault(tmp_path, monkeypatch):
     assert result["passed"] is False
     assert result["samples"] == []
     assert result["failure_type"] == "ValueError"
+
+
+def test_drop_counter_uses_internal_metrics_endpoint(monkeypatch):
+    monkeypatch.setenv("METRICS_BASE_URL", "http://127.0.0.1:18002")
+    calls = []
+
+    def request(path, **kwargs):
+        calls.append((path, kwargs))
+        return 200, "events_dropped_total 3.0\n"
+
+    monkeypatch.setattr(chaos, "http", request)
+    assert chaos.drops() == 3
+    assert calls == [("/metrics", {"base_url": "http://127.0.0.1:18002"})]

@@ -7,7 +7,7 @@ resources:
 - hpa.yaml
 images:
 - name: url-shortener
-  newTag: 0c6b86053e7bb97d858dd3b779bbcf23d05db6a5
+  newTag: 9d639b73f980731d1073b90ced0276dda46b31d8
 patches:
 - target:
     kind: ConfigMap

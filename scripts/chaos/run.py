@@ -19,14 +19,14 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
-def http(path, method="GET", body=None):
+def http(path, method="GET", body=None, base_url=None):
     headers = {"X-API-Key": os.environ["API_KEY"]}
     data = None
     if body is not None:
         headers["Content-Type"] = "application/json"
         data = json.dumps(body).encode()
     req = Request(
-        os.environ.get("BASE_URL", "http://127.0.0.1:8000") + path,
+        (base_url or os.environ.get("BASE_URL", "http://127.0.0.1:8000")) + path,
         data=data,
         headers=headers,
         method=method,
@@ -48,7 +48,7 @@ def analytics(code):
 
 
 def drops():
-    status, body = http("/metrics")
+    status, body = http("/metrics", base_url=os.environ.get("METRICS_BASE_URL"))
     if status != 200:
         raise RuntimeError(f"Metrics HTTP {status}")
     values = [
@@ -219,6 +219,7 @@ def main(experiment):
         code = json.loads(body)["short_code"]
         if analytics(code) != 0:
             raise RuntimeError("Fresh link already has clicks; isolate this run")
+        result["stage"] = "read API drop counter (metrics endpoint)"
         baseline_drops = drops()
         result["short_code"] = code
 

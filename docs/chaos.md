@@ -107,9 +107,11 @@ Use a dedicated kind cluster with one API replica, reachable via a stable port-f
 
 ```bash
 kubectl --context kind-url-shortener -n url-shortener port-forward service/api 18000:8000
+# In a second terminal, leave the internal metrics forward running:
+kubectl --context kind-url-shortener -n url-shortener port-forward service/api-metrics 18002:8002
 # In another terminal with API_KEY set:
 CHAOS_BACKEND=kind KUBE_CONTEXT=kind-url-shortener BASE_URL=http://127.0.0.1:18000 \
-  EVENT_BUS=redis_streams bash scripts/chaos/worker_down.sh
+  METRICS_BASE_URL=http://127.0.0.1:18002 EVENT_BUS=redis_streams bash scripts/chaos/worker_down.sh
 ```
 
 The controller requires an explicit kind-* context, captures the original worker replica count,
@@ -133,15 +135,34 @@ a PostgreSQL latency experiment must not imply a database circuit breaker exists
 
 ## Observed results (filled from actual JSON)
 
+Error values are percentages; p95 values are milliseconds. Clicks means successful HTTP 307
+responses. All runs below occurred on 2026-10-28; filenames include UTC timestamps.
+The Compose Redis and worker results precede the publisher retry fix; the later broker runs
+verify that fix. The kind worker result was recorded afterward. Original failure artifacts remain unchanged.
+
 | Experiment | Backend/bus | Before error/p95 | During error/p95 | After error/p95 | Clicks/delivered/drops | PASS/FAIL |
 |---|---|---|---|---|---|---|
-| redis_down | TBD | TBD | TBD | TBD | TBD | TBD |
-| worker_down | TBD | TBD | TBD | TBD | TBD | TBD |
-| broker_down | TBD | TBD | TBD | TBD | TBD | TBD |
-| worker_down | kind / TBD | TBD | TBD | TBD | TBD | TBD |
+| redis_down | Compose / Redis Streams | 0% / 34.63 ms | 0% / 38.26 ms | 0% / 39.37 ms | 121 / 80 / 41 | PASS |
+| worker_down | Compose / Redis Streams | 0% / 44.95 ms | 0% / 33.72 ms | 0% / 35.92 ms | 125 / 125 / 0 | PASS |
+| broker_down (before fix) | Compose / Redis Streams | 0% / 33.90 ms | 0% / 123.92 ms | 0% / 29.89 ms | 121 / 103 / 19 | FAIL |
+| broker_down (before fix) | Compose / Redis Streams | 0% / 40.97 ms | 0% / 123.68 ms | 0% / 34.52 ms | 121 / 103 / 19 | FAIL |
+| broker_down (disposable verification) | Compose / Redis Streams | 0% / 37.71 ms | 0% / 124.00 ms | 0% / 36.16 ms | 122 / 122 / 0 | PASS |
+| broker_down (after fix) | Compose / Redis Streams | 0% / 30.78 ms | 0% / 136.26 ms | 0% / 36.64 ms | 121 / 121 / 0 | PASS |
+| worker_down | kind / Redis Streams | 0% / 44.79 ms | 0% / 48.33 ms | 0% / 34.15 ms | 124 / 124 / 0 | PASS |
 
-Record commit, hardware, Docker resources, service versions, UTC time and JSON filename.
-No live disruption result is claimed by the syntax/unit checks in chaos-verification.md.
+The failed broker runs have 103 delivered + 19 reported dropped = 122 against 121 clicks:
+redirect availability passed, but strict event accounting failed. The latest normal-stack
+broker run reconciles 121 delivered + 0 dropped = 121 clicks, with stable final counts and
+recovered health. Redis downtime's 41 drops were allowed by that experiment's availability
+contract; they do not represent lossless analytics.
+
+Source JSON files are local, git-ignored artifacts. Exact commit, hardware, Docker resource
+allocation and service versions are not recorded in these JSON files and remain TBD;
+do not infer them from timestamps. The separate disposable verification configuration is
+recorded in broker-retry-verification.md. Kafka remains unverified; kind worker recovery with Redis Streams passed.
+The kind result comes from `chaos/results/20261028T183122894415Z-worker_down.json`: final analytics
+counts remained at 124 for the last five observations, with zero drops and recovered health.
+The syntax/unit results in chaos-verification.md are separate from these live observations.
 
 ### Broker retry follow-up
 
