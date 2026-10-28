@@ -105,3 +105,10 @@ tf-sec:
 .PHONY: perf
 perf:
 	$(PYTHON) scripts/run_perf.py
+
+# Existing local stack; explicitly disrupts and restores services sequentially.
+.PHONY: chaos
+chaos:
+	bash scripts/chaos/redis_down.sh
+	bash scripts/chaos/worker_down.sh
+	bash scripts/chaos/broker_down.sh

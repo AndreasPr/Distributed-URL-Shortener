@@ -54,3 +54,4 @@ infra
 **/*.tfplan
 **/*.tfvars*
 perf
+chaos
