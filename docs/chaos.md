@@ -86,13 +86,16 @@ for redis_streams, waits 20 seconds, then unpauses. Redis Streams shares cache i
 so its pause also exercises slow-cache fallback.
 
 Publishing is bounded, in-memory, best-effort (`app/events/publisher.py`): queued events may publish
-on recovery; failures and queue overflow increment events_dropped_total and are not durably retried.
+on recovery; publish failures are retried in the background with the same event ID, up to
+EVENT_PUBLISH_ATTEMPTS (default 60), separated by EVENT_RETRY_BACKOFF (default 0.25s).
+The analytics unique constraint deduplicates repeated broker submissions. Exhaustion, shutdown
+and queue overflow increment events_dropped_total; retries are not durable across API restarts.
 Durably accepted events are consumed with database deduplication. Pass requires common criteria,
 stable counts, delivered <= successful redirects, and **delivered + drop delta == successful**.
 Unexplained missing events, duplicate rows, metric resets, or accounting mismatches fail.
 
 The drop metric is process-global: use one API instance, no competing traffic, no API restarts,
-and a direct API metrics endpoint. Kafka acknowledgment timeouts can be ambiguous: a broker may
+and a direct API metrics endpoint. Redis and Kafka acknowledgment timeouts can be ambiguous even after retry exhaustion: a broker may
 accept an event whose publisher reports failure. In that case delivered+drop can exceed requests;
 the experiment deliberately fails reconciliation and requires investigation, rather than claiming
 loss or duplication without evidence. No exact-once guarantee is made for the publisher.
@@ -128,7 +131,7 @@ The scripts do not auto-start an unhealthy stack or change rate limits. Run sequ
 The optional db_slow/Toxiproxy experiment is deferred. The current cache breaker is for Redis;
 a PostgreSQL latency experiment must not imply a database circuit breaker exists.
 
-## Observed results (fill from actual JSON)
+## Observed results (filled from actual JSON)
 
 | Experiment | Backend/bus | Before error/p95 | During error/p95 | After error/p95 | Clicks/delivered/drops | PASS/FAIL |
 |---|---|---|---|---|---|---|
@@ -139,3 +142,11 @@ a PostgreSQL latency experiment must not imply a database circuit breaker exists
 
 Record commit, hardware, Docker resources, service versions, UTC time and JSON filename.
 No live disruption result is claimed by the syntax/unit checks in chaos-verification.md.
+
+### Broker retry follow-up
+
+The original Redis pause FAIL results are retained. After the bounded publisher retry fix,
+a separate disposable perf Compose stack passed the unchanged experiment: 122/122 redirects,
+122 analytics rows, zero drops; during-outage p95 124.00ms, max 329.10ms. See
+[broker-retry-verification.md](broker-retry-verification.md) for configuration and full evidence.
+Rebuild the normal API image before repeating; this result does not replace historical failures.

@@ -98,7 +98,8 @@ events_failed_total = Counter(
 )
 dlq_events_total = Counter("dlq_events_total", "Confirmed dead-letter publications")
 events_dropped_total = Counter(
-    "events_dropped_total", "Click events dropped before broker acceptance"
+    "events_dropped_total",
+    "Click events abandoned locally; broker acceptance may be unknown",
 )
 consumer_lag = Gauge(
     "consumer_lag",
