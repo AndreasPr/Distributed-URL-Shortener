@@ -66,6 +66,7 @@ class Settings:
     EVENT_CONSUMER_GROUP = os.getenv("EVENT_CONSUMER_GROUP", "analytics-group")
     EVENT_BATCH_SIZE = int(os.getenv("EVENT_BATCH_SIZE", "100"))
     EVENT_FLUSH_INTERVAL = float(os.getenv("EVENT_FLUSH_INTERVAL", "5"))
+    EVENT_PUBLISH_ATTEMPTS = int(os.getenv("EVENT_PUBLISH_ATTEMPTS", "60"))
     EVENT_QUEUE_SIZE = int(os.getenv("EVENT_QUEUE_SIZE", "1000"))
     EVENT_RETRY_BACKOFF = float(os.getenv("EVENT_RETRY_BACKOFF", "0.25"))
     EVENT_CLAIM_IDLE_MS = int(os.getenv("EVENT_CLAIM_IDLE_MS", "60000"))
@@ -77,6 +78,7 @@ class Settings:
             EVENT_BATCH_SIZE,
             EVENT_FLUSH_INTERVAL,
             EVENT_QUEUE_SIZE,
+            EVENT_PUBLISH_ATTEMPTS,
             EVENT_RETRY_BACKOFF,
             EVENT_CLAIM_IDLE_MS,
         )

@@ -1,4 +1,4 @@
-"""Delivery contracts: durable effects precede acknowledgements, redirects never wait."""
+"""Durable effects precede acknowledgements; redirects never wait."""
 
 import base64
 import json
@@ -173,8 +173,8 @@ def test_idle_timer_and_shutdown_flush(db_session, bus, shutdown):
 
 
 def test_slow_broker_and_full_queue_do_not_block_redirects(db_session, monkeypatch):
-    import app.main as main
     import app.events.publisher as module
+    import app.main as main
     from app.db.database import get_db
 
     entered, release = Event(), Event()
@@ -215,6 +215,7 @@ def test_slow_broker_and_full_queue_do_not_block_redirects(db_session, monkeypat
 
 def test_kafka_raw_poll_and_explicit_offsets(monkeypatch):
     from kafka.structs import TopicPartition
+
     import app.events.kafka as module
     import app.kafka.consumer as consumer_module
 
@@ -313,6 +314,7 @@ def test_adapter_selection_without_connecting(monkeypatch, backend, classname):
 @pytest.mark.docker
 def test_postgres_duplicate_after_ack_failure(postgres):
     from sqlalchemy.orm import Session
+
     from app.models.url import Base
 
     Base.metadata.create_all(postgres)
@@ -339,6 +341,7 @@ def real_redis(monkeypatch):
     import os
     import subprocess
     from uuid import uuid4
+
     from redis import Redis
     from redis.exceptions import ConnectionError as RedisConnectionError
 
@@ -430,8 +433,10 @@ def test_real_kafka_delivery_commit_and_dlq(db_session, monkeypatch):
     import socket
     import subprocess
     from uuid import uuid4
+
     from kafka import KafkaAdminClient
     from kafka.errors import KafkaError
+
     from app.events.kafka import KafkaEventBus
 
     if os.environ.get("RUN_DOCKER_TESTS") != "1":
@@ -447,7 +452,9 @@ def test_real_kafka_delivery_commit_and_dlq(db_session, monkeypatch):
         "KAFKA_CONTROLLER_QUORUM_VOTERS": "1@localhost:29093",
         "KAFKA_LISTENERS": "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093",
         "KAFKA_ADVERTISED_LISTENERS": f"PLAINTEXT://127.0.0.1:{port}",
-        "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP": "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT",
+        "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP": (
+            "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+        ),
         "KAFKA_CONTROLLER_LISTENER_NAMES": "CONTROLLER",
         "KAFKA_INTER_BROKER_LISTENER_NAME": "PLAINTEXT",
         "KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR": "1",
@@ -544,3 +551,47 @@ def test_idle_timer_flushes_even_when_later_polls_fail(db_session, bus):
         thread.join(1)
         pytest.fail("Broker outage stranded an idle batch")
     assert len(bus.acked) == 1
+
+
+def test_publish_retries_ambiguous_ack_with_same_id():
+    """Broker accepts, response is lost; retry retains the deduplication key."""
+
+    received = []
+    done = Event()
+    bus = Mock()
+
+    def accept_then_timeout(topic, event):
+        received.append(event.model_copy(deep=True))
+        if len(received) == 1:
+            raise TimeoutError("ack lost after acceptance")
+        done.set()
+
+    bus.publish.side_effect = accept_then_timeout
+    before = events_dropped_total._value.get()
+    publisher = BackgroundPublisher(lambda: bus, attempts=2, retry_delay=0)
+    publisher.start()
+    try:
+        publisher.enqueue("abc123")
+        assert done.wait(2)
+        publisher.queue.join()
+    finally:
+        publisher.close()
+    assert len(received) == 2
+    assert received[0].event_id == received[1].event_id
+    assert events_dropped_total._value.get() == before
+
+
+def test_publish_retry_exhaustion_is_bounded():
+    bus = Mock()
+    bus.publish.side_effect = TimeoutError("unavailable")
+    before = events_dropped_total._value.get()
+    publisher = BackgroundPublisher(lambda: bus, attempts=3, retry_delay=0)
+    publisher.start()
+    try:
+        publisher.enqueue("abc123")
+        publisher.queue.join()
+    finally:
+        publisher.close()
+    assert bus.publish.call_count == 3
+    assert events_dropped_total._value.get() == before + 1
+    assert len({call.args[1].event_id for call in bus.publish.call_args_list}) == 1

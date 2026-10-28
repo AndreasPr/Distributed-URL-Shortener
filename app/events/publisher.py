@@ -24,7 +24,13 @@ class BackgroundPublisher:
         self,
         factory: Callable[[], EventBus] = create_event_bus,
         capacity: int = settings.EVENT_QUEUE_SIZE,
+        attempts: int = settings.EVENT_PUBLISH_ATTEMPTS,
+        retry_delay: float = settings.EVENT_RETRY_BACKOFF,
     ) -> None:
+        if attempts < 1 or retry_delay < 0:
+            raise ValueError("Publish attempts must be positive; delay nonnegative")
+        self.attempts = attempts
+        self.retry_delay = retry_delay
         self.factory = factory
         self.queue: Queue[ClickEvent] = Queue(maxsize=capacity)
         self.stop = StopEvent()
@@ -78,10 +84,20 @@ class BackgroundPublisher:
                 ):
                     try:
                         event.trace_context = inject_context()
-                        if bus is None:
-                            bus = self.factory()
-                        bus.publish(settings.EVENT_TOPIC, event)
-                        logger.info("Click event published")
+                        for attempt in range(self.attempts):
+                            try:
+                                if bus is None:
+                                    bus = self.factory()
+                                # Preserve event_id across ambiguous acknowledgments.
+                                # The analytics unique constraint deduplicates retries.
+                                bus.publish(settings.EVENT_TOPIC, event)
+                                logger.info("Click event published")
+                                break
+                            except Exception:
+                                if attempt + 1 == self.attempts or self.stop.wait(
+                                    self.retry_delay
+                                ):
+                                    raise
                     except Exception:
                         trace.get_current_span().set_status(trace.StatusCode.ERROR)
                         self.dropped()

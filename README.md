@@ -859,3 +859,6 @@ real-world phishing accuracy. Public feeds are never downloaded automatically.
 
 Local performance testing: `make perf` uses a disposable stack and writes ignored artifacts.
 See [performance methodology and capacity assumptions](docs/performance.md).
+
+Local resilience experiments: [chaos methodology](docs/chaos.md), including opt-in `make chaos`
+against an already running test stack. These commands intentionally stop/pause services.

@@ -29,7 +29,8 @@ is needed: the partial unique index on analytics.event_id already exists.
 FastAPI startup starts one daemon publisher thread per API process. Redirects
 only construct the event and use `put_nowait` on a bounded queue (default 1,000).
 The background thread does broker construction, send and acceptance confirmation.
-Queue-full and failed publications are dropped and counted; warning logs are
+Publication now retries with the same UUID (see ADR 0022) before exhaustion.
+Queue-full and exhausted publications are abandoned locally and counted; warning logs are
 rate-limited to one per 30 seconds. No retries or broker flush run on redirects.
 Shutdown gives the publisher two seconds, drops queued leftovers, and cannot
 force-kill an in-flight Python call. The queue is not an outbox: abrupt process
