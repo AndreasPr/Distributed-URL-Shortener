@@ -94,45 +94,169 @@ provide metrics/alerts; Jaeger receives OTLP traces. Detailed schemas live in Sw
 
 ```mermaid
 sequenceDiagram
+    autonumber
     participant C as Client
-    participant A as API
-    participant R as Redis limiter
+    participant A as Shorten API
+    participant R as Redis Rate Limiter
     participant D as PostgreSQL
-    participant W as Abuse worker
-    C->>A: POST /shorten with API key, URL, optional alias/expiry
-    A->>A: Validate key/scope and URL
-    A->>R: Atomic per-key route token bucket
-    A->>D: Insert unique code and abuse outbox in transaction
-    Note over A,D: Random-code collision retries are bounded; taken alias returns 409
-    D-->>A: Commit
-    A-->>C: Short code
-    W->>D: Read pending outbox (relay follows asynchronously)
+    participant P as Outbox Publisher
+    participant B as Event Bus
+
+    C->>A: POST /shorten (API key, URL, optional alias/expiry)
+
+    Note over C,A: Authentication and Input Validation
+    A->>A: Authenticate API key and verify scope
+    A->>A: Validate and normalize URL, alias, and expiry
+
+    alt Invalid API key or insufficient scope
+        A-->>C: 401 Unauthorized or 403 Forbidden
+    else Invalid request
+        A-->>C: 400 Bad Request
+    else Valid request
+        Note over A,R: Distributed Rate Limiting
+        A->>R: Atomic per-key and route token bucket
+
+        alt Rate limit exceeded
+            R-->>A: Request denied
+            A-->>C: 429 Too Many Requests
+        else Rate limit allowed
+            R-->>A: Request allowed
+
+            Note over A,D: Atomic URL Creation and Outbox Insertion
+            A->>D: Begin transaction
+            A->>D: Insert URL with unique short code
+            Note over A,D: Bounded random-code collision retries
+
+            alt Custom alias already taken
+                D-->>A: Unique constraint violation
+                A->>D: Rollback transaction
+                A-->>C: 409 Conflict
+            else Random-code collisions exhausted
+                A->>D: Rollback transaction
+                A-->>C: 503 Service Unavailable
+            else Short code successfully reserved
+                A->>D: Insert url.created outbox record
+                A->>D: Commit transaction
+                D-->>A: Commit confirmed
+                A-->>C: 201 Created (short URL, code, expiry)
+            end
+        end
+    end
+
+    Note over P,B: Asynchronous Transactional Outbox Relay
+    P->>D: Read pending outbox records
+    D-->>P: Return unpublished URL creation events
+
+    loop For each pending event
+        P->>B: Publish url.created with stable event ID
+
+        alt Publication confirmed
+            B-->>P: Acknowledge publication
+            P->>D: Mark outbox record as published
+        else Publication failed
+            B--xP: Publish error or timeout
+            P->>P: Schedule retry with backoff
+        end
+    end
+
+    Note over B,P: Abuse Worker consumes events asynchronously
 ```
 
 ### Redirect: hit and miss
 
 ```mermaid
 sequenceDiagram
+    autonumber
     participant C as Client
-    participant A as API
+    participant A as Redirect API
     participant R as Redis
     participant D as PostgreSQL
-    participant Q as Background click queue
-    C->>A: GET /code
-    A->>R: Public IP token bucket; fail open on Redis error
-    A->>A: Per-code in-process single-flight
-    A->>R: Read cached destination
-    alt Positive cache hit
-        A->>D: Check deletion and expiry lifecycle
-    else Miss or Redis unavailable
-        A->>R: Short lock; contenders briefly wait/re-read
-        A->>D: Read destination/lifecycle; fallback if Redis fails
-        A->>R: Cache with jittered expiry-capped TTL (or short negative entry)
+    participant Q as Background Click Queue
+
+    Note over C,A: Public URL Redirection
+    C->>A: GET /{code}
+    A->>A: Validate short code format
+
+    alt Invalid short code
+        A-->>C: 404 Not Found
+    else Valid short code
+        Note over A,R: Distributed IP-Based Rate Limiting
+        A->>R: Atomic public IP token bucket
+
+        alt Rate limit exceeded
+            R-->>A: Request denied
+            A-->>C: 429 Too Many Requests
+        else Allowed or Redis unavailable
+            Note over A,R: Fail open on Redis infrastructure errors
+            A->>A: Apply per-code in-process single-flight
+            A->>R: Lookup cached destination
+
+            alt Positive cache hit
+                R-->>A: Cached destination
+                A->>D: Check current lifecycle and abuse state
+                Note over A,D: Cached destination is not authorization
+
+            else Cache miss or Redis unavailable
+                opt Redis available
+                    A->>R: Attempt short-lived per-code lock
+                    alt Lock held by another request
+                        A->>A: Wait briefly with bounded timeout
+                        A->>R: Re-read cached destination
+                    else Lock acquired
+                        R-->>A: Lock acquired
+                    end
+                end
+
+                opt No usable destination after re-read
+                    A->>D: Load destination, lifecycle, and abuse state
+                    D-->>A: URL record and current status
+
+                    opt Redis available
+                        alt Active URL with valid destination
+                            A->>R: Cache destination with jittered expiry-capped TTL
+                        else Missing or deleted URL
+                            A->>R: Cache short negative entry
+                        end
+                    end
+                end
+
+                opt Lock acquired
+                    A->>R: Release lock using ownership token
+                end
+            end
+
+            Note over A,D: Authoritative Status Evaluation
+
+            alt Database unavailable
+                D--xA: Database error or timeout
+                A-->>C: 503 Service Unavailable
+            else URL missing or deleted
+                A-->>C: 404 Not Found
+            else URL expired
+                A-->>C: 410 Gone
+            else URL blocked by abuse policy
+                A-->>C: 451 Unavailable For Legal Reasons
+            else URL pending review and restricted
+                A-->>C: 403 Forbidden
+            else URL active and allowed
+                Note over A,Q: Asynchronous Click Analytics
+                A->>Q: Submit click event to bounded background queue
+
+                alt Queue accepts event
+                    Q-->>A: Accepted locally
+                else Queue full or unavailable
+                    Q--xA: Event dropped or rejected
+                    Note over A,Q: Analytics failure does not block redirect
+                end
+
+                A-->>C: 307 Temporary Redirect with Location header
+            end
+        end
     end
-    A->>D: Check abuse/review state for successful destination
-    Note over A,D: Missing/deleted 404; expired 410; blocked 451; DB failure can be 5xx
-    A->>Q: Enqueue click without waiting on broker
-    A-->>C: 307 Location
+
+    Note over A,D: PostgreSQL is authoritative for lifecycle and abuse decisions
+    Note over A,R: Redis failures must not bypass authoritative status checks
+    Note over A,Q: Background queue submission is non-blocking, not durable delivery
 ```
 
 Negative entries return missing without a positive-hit lifecycle lookup. The API rechecks expiry;
@@ -143,25 +267,87 @@ can fall back to another DB read. This is bounded coordination, not an absolute 
 
 ```mermaid
 sequenceDiagram
-    participant P as Background publisher
-    participant B as Kafka or Redis Streams
-    participant W as Analytics worker
+    autonumber
+    participant P as Background Publisher
+    participant B as Kafka / Redis Streams
+    participant W as Analytics Worker
     participant D as PostgreSQL
-    participant L as Dead-letter topic/stream
-    P->>B: Publish UUID event; bounded retries retain ID
-    B->>W: Group delivery / possible redelivery
-    alt Valid event
-        W->>D: Insert ON CONFLICT DO NOTHING on event ID
-        Note over W,D: Flush by size or independent timer; SIGTERM attempts flush
-        D-->>W: Commit
-    else Poison payload or unsupported schema
-        W->>W: Three processing attempts with backoff
-        W->>D: Commit healthy work in batch
-        W->>L: Publish dead letter with safe error type
-        L-->>W: Confirm publication
+    participant L as Dead-Letter Queue (DLQ)
+
+    Note over P,B: Reliable Event Publishing
+    P->>P: Generate event with stable UUID
+    P->>B: Publish analytics event
+
+    alt Publication successful
+        B-->>P: Confirm publication
+    else Transient publication failure
+        B--xP: Timeout or broker error
+        P->>P: Retry with bounded backoff and same UUID
+        P->>B: Republish event
+        Note over P,B: Publisher must retain failed events durably
     end
-    W->>B: Ack / commit offsets after DB and any DLQ publication
-    Note over W,B: DB infrastructure errors retain batch without ack; retry after backoff
+
+    Note over B,W: At-Least-Once Event Consumption
+    B->>W: Deliver event via consumer group
+    W->>W: Validate payload and schema version
+
+    alt Valid event
+        Note over W,D: Idempotent Batch Processing
+        W->>W: Add event to pending batch
+
+        Note over W,D: Flush by batch size or independent timer
+
+        W->>D: BEGIN TRANSACTION
+        W->>D: INSERT events ON CONFLICT (event_id) DO NOTHING
+        W->>D: COMMIT
+
+        alt Database commit successful
+            D-->>W: Commit confirmed
+            W->>B: Ack message / commit eligible offsets
+        else Database infrastructure failure
+            D--xW: Transaction failed or timed out
+            W->>W: Retain batch and retry with backoff
+            Note over W,B: Do not acknowledge uncommitted events
+        end
+
+    else Poison payload or unsupported schema
+        Note over W,L: Controlled Failure Handling
+
+        loop Up to 3 processing attempts
+            W->>W: Retry validation/processing with backoff
+        end
+
+        W->>D: Commit any independent healthy batch
+        D-->>W: Confirm healthy batch commit
+
+        W->>L: Publish original event ID and safe error type
+
+        alt DLQ publication successful
+            L-->>W: Confirm durable publication
+            W->>B: Ack poison event / commit eligible offsets
+        else DLQ publication failed
+            L--xW: Publication error
+            W->>W: Retry DLQ publication with backoff
+            Note over W,B: Do not acknowledge poison event
+        end
+    end
+
+    Note over W,B: Graceful Shutdown and Recovery
+    opt SIGTERM received
+        W->>W: Stop accepting new deliveries
+        W->>D: Attempt final pending batch flush
+
+        alt Final commit successful
+            D-->>W: Commit confirmed
+            W->>B: Ack committed events / commit eligible offsets
+        else Flush failed or shutdown deadline reached
+            D--xW: Flush incomplete
+            Note over W,B: Leave uncommitted events unacknowledged
+        end
+    end
+
+    Note over B,D: Redelivery is safe through event ID deduplication
+    Note over W,B: Kafka commits contiguous processed offsets per partition
 ```
 
 The request-side queue is bounded and not durable across API crashes. Publish attempts default
@@ -174,32 +360,63 @@ not erase retained DLQ history. See [event ADR](adr/0003-event-bus.md).
 
 ```mermaid
 sequenceDiagram
-    participant W as Abuse worker
+    autonumber
+    participant P as Outbox Publisher
     participant D as PostgreSQL
-    participant B as Event bus
-    participant R as Redis verdict cache
-    participant L as LLM provider
-    W->>D: Read durable creation outbox
-    W->>B: Publish url.created with stable ID
-    W->>D: Remove outbox after confirmed publication
-    B->>W: Consume URL-created event
-    W->>D: Load URL
-    W->>W: Compute URL-only heuristic features (no fetch)
-    alt Clear low/high risk
-        W->>W: Decide with heuristics
-    else Gray zone
-        W->>R: Contextual registered-domain verdict cache lookup
-        alt Usable cached verdict
-            R-->>W: Reuse matching context
-        else No usable cached verdict
-            W->>L: Bounded sanitized domain/path as untrusted data
-            L-->>W: Schema-validated verdict or controlled failure
-            W->>R: Cache eligible assessment
+    participant B as Event Bus
+    participant W as Abuse Worker
+    participant R as Redis Cache
+    participant L as LLM Provider
+
+    Note over P,D: Transactional Outbox Publishing
+    P->>D: Read pending URL creation outbox records
+    D-->>P: Return unpublished records
+    P->>B: Publish url.created with stable event ID
+    B-->>P: Confirm publication
+    P->>D: Mark outbox record as published
+
+    Note over B,W: Asynchronous Abuse Detection
+    B->>W: Deliver url.created event
+    W->>D: Load URL and existing verdict
+    D-->>W: URL metadata and verdict state
+
+    alt Already processed
+        W->>B: Ack duplicate event
+    else Not processed
+        W->>W: Compute URL-only heuristic features
+
+        alt Clear low or high risk
+            W->>W: Determine heuristic verdict
+        else Gray zone
+            W->>R: Lookup contextual domain verdict
+
+            alt Valid cached verdict
+                R-->>W: Return matching assessment
+                W->>W: Reuse cached assessment
+            else Cache miss or stale context
+                W->>L: Send bounded sanitized URL context
+                alt Valid model response
+                    L-->>W: Structured risk assessment
+                    W->>W: Validate schema and policy
+                    opt Cache-eligible assessment
+                        W->>R: Cache contextual assessment
+                    end
+                else Invalid response or provider failure
+                    L-->>W: Invalid output or error
+                    W->>W: Apply suspicious fallback verdict
+                end
+            end
         end
+
+        W->>D: Persist verdict idempotently
+        D-->>W: Confirm durable commit
+
+        opt URL is blocked
+            W->>R: Invalidate cached redirect entry
+        end
+
+        W->>B: Ack event after durable handling
     end
-    W->>D: Persist verdict; invalid model output becomes suspicious
-    W->>R: Evict blocked link cache
-    W->>B: Ack after durable handling
 ```
 
 Domain caching is context-sensitive, not a blanket allowlist for every path. Suspicious URLs
