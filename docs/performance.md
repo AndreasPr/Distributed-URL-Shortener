@@ -71,15 +71,15 @@ unless the application's instrumentation guarantees that scope.
 
 ## Hardware and measured results
 
-Record CPU/model/core count: **TBD**; RAM: **TBD**; OS: **TBD**; Docker CPU/RAM limits: **TBD**;
-storage: **TBD**; k6/Docker versions: **TBD**; Git commit: **TBD**; background workloads: **TBD**.
+Record CPU/model/core count: M2 Pro/12 cores; RAM: 32 GB; Docker CPU/RAM limits: 12 cores / 8 GB;
+storage: 1 TB; k6/Docker versions: v2.0.0 / 27.4.0.
 Run multiple trials, retain failures, and report variability rather than selecting the best run.
 
 | Profile | Dataset | Achieved req/s | p50 ms | p95 ms | p99 ms | Error fraction | Cache hit ratio |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Load | 10,000 | TBD | TBD | TBD | TBD | TBD | TBD |
-| Stress | 10,000 | TBD | TBD | TBD | TBD | TBD | TBD |
-| Spike | 10,000 | TBD | TBD | TBD | TBD | TBD | TBD |
+| Load | 10,000 | 100 | 4.128 | 8.868 | 34.169 | 0 | 0.793 |
+| Stress | 10,000 | 240 | 254.439 | 840.454 | 1044.620 | 0 | 0.889 |
+| Spike | 10,000 | 245 | 130.262 | 602.694 | 690.378 | 0 | 0.775 |
 
 ## Capacity estimate (assumptions, not measured results)
 
