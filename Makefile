@@ -101,3 +101,7 @@ tf-lint:
 
 tf-sec:
 	$(CHECKOV) -d $(TF_ENV) --framework terraform --download-external-modules false --skip-download --compact
+
+.PHONY: perf
+perf:
+	$(PYTHON) scripts/run_perf.py

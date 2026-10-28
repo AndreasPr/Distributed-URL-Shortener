@@ -56,3 +56,7 @@ image.tar
 *.tfvars.json
 crash.log
 crash.*.log
+
+# Local performance measurements; retain only the illustrative schema sample.
+perf/results/*
+!perf/results/sample.json
