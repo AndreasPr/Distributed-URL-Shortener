@@ -40,3 +40,15 @@ or persisting keys in localStorage. Read APIs are now protected as well as write
 See [security model](../security.md) and [verification](../auth-verification.md).
 References: [Uvicorn proxy settings](https://uvicorn.dev/settings/),
 [Kubernetes NetworkPolicy boundaries](https://kubernetes.io/docs/concepts/services-networking/network-policies/).
+
+## Context
+
+Previously unprotected management/read routes and an unregistered limiter did not enforce access or shared request budgets.
+
+## Decision
+
+Use hashed scoped API keys and Redis atomic token buckets keyed by route template and principal. Trust forwarded addresses only through configured proxy networks; fail writes closed and redirects open on Redis failure.
+
+## Consequences
+
+Clients must provision and protect keys. Redis availability gates writes, while fail-open public redirects prioritize availability over limiting during outages. Ownership metadata is not full tenant isolation.

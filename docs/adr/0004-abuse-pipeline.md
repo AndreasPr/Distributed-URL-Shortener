@@ -101,3 +101,7 @@ Outbox batches hold locks during broker publication; this occurs only in workers
 Retained broker history/DLQ storage requires operational retention. Reassessment,
 review history beyond the latest decision, reputation feeds, automated backfills,
 and domain ownership verification are outside this step.
+
+## Consequences
+
+Creation is decoupled from inference and durable outbox relay tolerates publish failure. New links may redirect before classification; conservative fallbacks increase review demand and no verdict guarantees safety.

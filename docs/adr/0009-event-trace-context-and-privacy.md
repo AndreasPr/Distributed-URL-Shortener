@@ -30,3 +30,15 @@ sacrificed for privacy; failure status/type and trace topology remain useful.
 Tests use in-memory span export plus the real publisher thread and SQLAlchemy
 instrumentation. They cover the future abuse-worker's shared privacy configuration,
 not an implementation of that worker. Operational caveats live in observability.md.
+
+## Context
+
+Request traces were disconnected from background publication and worker writes, while automatic instrumentation could expose sensitive attributes.
+
+## Decision
+
+Propagate W3C traceparent through events and attach producer/consumer spans; export allowlisted attributes and structured redacted logs with trace IDs.
+
+## Consequences
+
+Discarding payloads and stack details reduces debugging detail to protect privacy. Trace topology remains useful; later abuse-worker implementation reuses this shared policy.

@@ -70,3 +70,11 @@ fields and shows validation/conflict messages. No browser end-to-end test was ru
 See tests/test_url_features.py for validation/API/cache tests and PostgreSQL
 alias-race/delete-lock/downgrade tests. Earlier mocked service tests now supply
 lifecycle metadata and assert that cache hits still consult PostgreSQL.
+
+## Context
+
+Aliases, expiry and soft deletion must remain correct when Redis caches destinations. URL input also needs an explicit boundary before storage and later classification.
+
+## Consequences
+
+Positive cache hits still consult durable lifecycle state. Cache eviction alone is insufficient for authorization; database failure can prevent redirects. Validation does not replace abuse review or future fetch-time DNS checks.

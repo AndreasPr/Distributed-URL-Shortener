@@ -28,3 +28,7 @@ fail for ambiguous exhaustion, concurrent traffic or restarts. No historical FAI
 Tests simulate acceptance followed by a lost acknowledgment, checking that retries keep the UUID
 and do not increment drops after success; another test verifies bounded exhaustion. Existing
 analytics duplicate-delivery and blocked-broker redirect tests remain in the gate.
+
+## Context
+
+A socket timeout does not establish that the broker rejected a click. The preserved pause experiments above exposed the difference between local abandonment and confirmed non-delivery.

@@ -119,3 +119,7 @@ owner-safe release, timeouts, TTL bounds/deadlines, circuit transitions and one
 probe, and health metrics. The real Redis Docker test performs Lua operations,
 then stops only its disposable container and checks redirects/404s/health.
 The complete results and limits are in [cache verification](../cache-verification.md).
+
+## Consequences
+
+Coordination and a circuit breaker bound Redis failure costs but do not remove PostgreSQL from positive-hit lifecycle checks. Lease expiry can permit duplicate loads; shared Redis failure also affects Streams deployments.
