@@ -32,3 +32,7 @@ Ollama origin restrictions and no-cloud instructions favor local operation over
 arbitrary remote endpoints. A fake with explicit fixture JSON avoids pretending
 to infer meaningful classifications for arbitrary schemas. Model quality, durable
 budgets and end-to-end classification workflows are future work.
+
+## Context
+
+Abuse classification needs replaceable local/free-tier inference and deterministic offline tests without binding business logic to one provider.

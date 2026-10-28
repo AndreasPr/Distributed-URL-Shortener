@@ -26,3 +26,15 @@ are qualified by metadata coverage. Count logical calls separately from retries.
 CI runs a fixed-seed combined/fake regression with config-file floors, no HTTP or
 Redis. Make eval writes the requested aggregate documentation table; raw reports
 remain local. No source data or provider secrets are present in generated reports.
+
+## Context
+
+Abuse behavior needs reproducible regression evidence and explicit separation between synthetic fixtures, public-data evaluation and model failures.
+
+## Decision
+
+Use deterministic host-group dev/test splits, committed synthetic fixtures, injected FakeProvider and recorded metrics; tune on dev only and retain degraded live-provider runs as such.
+
+## Consequences
+
+Regression floors detect code changes but do not establish real-world phishing accuracy. Related campaigns may leak across host groups, and provider availability/token metadata limit interpretation.

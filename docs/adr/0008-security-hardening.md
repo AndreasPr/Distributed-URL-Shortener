@@ -43,3 +43,15 @@ was regenerated with Node 22.23.4/npm 10.9.9, keeping declared dependency ranges
 unchanged. Frontend build contexts exclude local environment files and artifacts.
 The dependency audit reports existing vulnerabilities; framework/OTel upgrades
 remain follow-up work, with findings retained in the verification record.
+
+## Context
+
+The local application needs bounded input/output waits and deployment privileges without introducing paid security services.
+
+## Decision
+
+Apply body/read limits, explicit CORS, safe errors and outbound timeouts; use non-root images, Kubernetes security contexts/network policies and dependency checks as detailed above.
+
+## Consequences
+
+Bounds can reject slow requests and workloads requiring writes to read-only filesystems need explicit volumes. These controls reduce exposure but do not establish production readiness; historical version details above describe that implementation step.

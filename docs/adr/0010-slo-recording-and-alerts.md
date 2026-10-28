@@ -42,3 +42,15 @@ UIDs; deleting the datasource or volume would unnecessarily break references or
 lose data. The tradeoff is that changing the default datasource changes these
 panels' selection. A regression test covers Compose/Kubernetes configuration and
 dashboard selection, with fresh-installation and existing-volume runtime checks.
+
+## Context
+
+Operational dashboards need defined denominators and alert windows instead of treating missing samples or unrelated metrics as compliance.
+
+## Decision
+
+Implement route-based availability recording and multi-window burn alerts; document unimplemented cache-cohort latency and complete freshness SLIs, with provisioned dashboards and rule tests.
+
+## Consequences
+
+Availability can be evaluated only with sufficient retained telemetry. The other objectives remain targets, not demonstrated compliance; local alert visibility is not notification delivery.

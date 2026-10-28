@@ -101,3 +101,11 @@ Run make check and:
 ```sh
 RUN_DOCKER_TESTS=1 .venv/bin/python -m pytest tests/test_code_generation.py tests/test_migrations.py -v
 ```
+
+## Context
+
+The former ID-derived codes exposed ordering and tied generation to persistence. Multiple API replicas need collision-safe creation without application-level coordination.
+
+## Consequences
+
+Random codes require database uniqueness and bounded collision retries. They reduce sequential enumeration but remain public identifiers, not authorization secrets.

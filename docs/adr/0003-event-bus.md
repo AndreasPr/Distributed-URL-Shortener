@@ -124,3 +124,7 @@ claim timeout. A replay error stops the command without acknowledging that item.
 References: [Kafka manual commit contract](https://kafka-python.readthedocs.io/en/2.2.17/apidoc/KafkaConsumer.html),
 [Redis XAUTOCLAIM](https://redis.io/docs/latest/commands/xautoclaim/),
 [Redis Streams](https://redis.io/docs/latest/develop/data-types/streams/).
+
+## Consequences
+
+Two adapters increase test and operational surface. Analytics effects are idempotent after delivery, while the request-side publisher remains a bounded in-memory queue. See ADR 0022 for its later retry policy.

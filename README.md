@@ -176,7 +176,7 @@ Retain failed runs and disclose environment, sample size and provider errors. A 
 | MCP clients | [Setup, tools and demo prompts](docs/mcp.md) |
 | Observability | [Traces and logs](docs/observability.md), [Grafana](docs/GRAFANA.md), [SLOs](docs/slo.md), [runbook](docs/runbook.md) |
 | Delivery | [CI/CD](docs/ci-cd.md), [Kubernetes](docs/kubernetes.md), [AWS architecture](docs/aws-design.md), [Terraform setup/costs](infra/terraform/envs/dev/README.md) |
-| Evidence and decisions | [Baseline](docs/baseline.md), [ADRs](docs/adr/), [performance](docs/performance.md), [chaos](docs/chaos.md) |
+| Evidence and decisions | [Engineering design](docs/design.md), [Baseline](docs/baseline.md), [ADRs](docs/adr/), [performance](docs/performance.md), [chaos](docs/chaos.md) |
 
 ## License
 
