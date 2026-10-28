@@ -494,7 +494,7 @@ The exact scanned image receives version and `sha-<commit>` tags; no `latest` ta
 Publishing does not deploy to a persistent cluster.
 
 See [CI configuration and release instructions](docs/ci-cd.md),
-[local verification and current audit failures](docs/ci-verification.md), and
+[security remediation verification](docs/ci-security-verification.md), and
 [Kubernetes deployment](docs/kubernetes.md). Passing functional tests does not
 bypass dependency findings: blocking audit failures must be resolved before release.
 

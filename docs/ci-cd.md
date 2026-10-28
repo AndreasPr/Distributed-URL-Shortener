@@ -17,7 +17,8 @@ gets `packages: write`; CodeQL analysis gets `security-events: write`. External
 actions are pinned to full commit SHAs with version comments. Dependabot checks
 Actions weekly. Concurrency cancels superseded runs. No `pull_request_target` or
 unsafe `workflow_run` publisher is used. Python's hashed development lock and npm's
-lock are cached; Buildx uses the GitHub Actions cache.
+lock are cached; image builds deliberately bypass layer cache and pull the base
+image so OS security updates are applied.
 
 ## Local equivalents and coverage
 
@@ -52,7 +53,8 @@ artifact; npm install, lint, type checks, tests and production build still block
 Trivy scans the actual built image and fails on **fixable HIGH/CRITICAL** findings.
 `.trivyignore` currently has no exceptions. Any future exception must name the exact
 CVE/package, evidence, owner, tracking issue and expiry; broad suppression is not
-acceptable. See [the verification record](ci-verification.md) for current failures.
+acceptable. See [the original verification record](ci-verification.md) and
+[security remediation verification](ci-security-verification.md) for dated results.
 
 ## Kubernetes and performance
 

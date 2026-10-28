@@ -30,6 +30,9 @@ def test_release_only_publishes_after_ci_and_scanning():
         s for s in steps if s.get("uses", "").startswith("docker/build-push-action")
     )
     assert build["with"]["push"] is False and build["with"]["load"] is True
+    # Cached apt layers must not keep already-fixed OS vulnerabilities in releases.
+    assert build["with"]["pull"] is True
+    assert build["with"]["no-cache"] is True
     scanner = next(s for s in steps if "--scanners vuln" in s.get("run", ""))
     assert "--ignore-unfixed" in scanner["run"] and "--exit-code 1" in scanner["run"]
     assert "--severity HIGH,CRITICAL" in scanner["run"]
@@ -70,3 +73,18 @@ def test_ci_checks_are_independent_and_actions_are_immutable():
         doc = yaml.safe_load(text)
         assert doc["permissions"] == {"contents": "read"}
         assert doc["concurrency"]["cancel-in-progress"] is True
+
+
+def test_runtime_image_uses_allowlisted_sources_and_removes_build_tools():
+    dockerfile = (ROOT / "Dockerfile").read_text()
+    assert "COPY . ./" not in dockerfile
+    for source in ["app", "alembic", "alembic.ini"]:
+        assert f"COPY {source} " in dockerfile
+    assert "/opt/venv/bin/python -m pip uninstall -y setuptools wheel pip" in dockerfile
+    assert (
+        "/usr/local/bin/python -m pip uninstall -y setuptools wheel pip" in dockerfile
+    )
+    assert "apt-get upgrade -y" in dockerfile
+    assert "--no-binary=psycopg2-binary" in dockerfile
+    assert "libpq-dev" in dockerfile
+    assert ".kilo" in (ROOT / ".dockerignore").read_text().splitlines()

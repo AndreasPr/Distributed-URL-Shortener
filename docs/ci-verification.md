@@ -1,5 +1,8 @@
 # CI restructuring verification — 2026-10-27
 
+Historical baseline: these were the initial CI results. See
+[security remediation verification](ci-security-verification.md) for subsequent fixes.
+
 Branch: `step-5-2-ci`. Local macOS ARM/Docker Desktop results, not a claim that
 GitHub-hosted workflows or a registry release have already succeeded.
 
