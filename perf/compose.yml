@@ -1,0 +1,58 @@
+# Separate project/volumes/ports: high limits must never affect the normal stack.
+x-env: &env
+  DB_URL: postgresql://perf:local-performance-only@postgres:5432/perf
+  REDIS_URL: redis://redis:6379/0
+  EVENT_BUS: redis_streams
+  LLM_PROVIDER: fake
+  WRITE_RATE_CAPACITY: 20000
+  WRITE_RATE_REFILL: 2000
+  REDIRECT_RATE_CAPACITY: 100000
+  REDIRECT_RATE_REFILL: 10000
+services:
+  postgres:
+    image: postgres:16.13-alpine
+    environment:
+      POSTGRES_USER: perf
+      POSTGRES_PASSWORD: local-performance-only
+      POSTGRES_DB: perf
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U perf -d perf']
+      interval: 2s
+      retries: 30
+  redis:
+    image: redis:7.4.2-alpine
+  migrate:
+    build: ..
+    environment: *env
+    command: alembic upgrade head
+    healthcheck: {disable: true}
+    depends_on:
+      postgres: {condition: service_healthy}
+  api:
+    build: ..
+    environment: *env
+    command: uvicorn app.main:app --no-proxy-headers --host 0.0.0.0 --port 8000
+    ports: ['127.0.0.1:18000:8000']
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_started}
+  worker:
+    build: ..
+    environment: *env
+    command: python -m app.workers.analytics_worker
+    healthcheck: {disable: true}
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_started}
+  abuse-worker:
+    build: ..
+    environment: *env
+    command: python -m app.workers.abuse_worker
+    healthcheck: {disable: true}
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_started}
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    ports: ['127.0.0.1:19090:9090']
+    volumes: ['./prometheus.yml:/etc/prometheus/prometheus.yml:ro']
