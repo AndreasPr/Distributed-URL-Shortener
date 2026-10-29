@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { apiClient, HealthResponse, URLEntry } from '../../lib/api'
+import { apiClient, DEMO_MODE, HealthResponse, URLEntry } from '../../lib/api'
 import { Card } from '../../components/ui/card'
 import URLTable from '../../components/URLTable'
 
@@ -59,7 +59,7 @@ export default function DashboardPage() {
             <p className="text-2xl font-bold text-slate-900">
               {loading ? '...' : health?.status || 'Unknown'}
             </p>
-            <p className="text-xs text-slate-500 mt-2">Real-time monitoring</p>
+            <p className="text-xs text-slate-500 mt-2">{DEMO_MODE ? 'Bundled sample status' : 'Status at page load'}</p>
           </Card>
 
           <Card className="p-6">
@@ -105,11 +105,11 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 bg-white rounded border border-slate-200">
               <h3 className="text-sm font-medium text-slate-600">Avg Response Time</h3>
-              <p className="text-xl font-semibold text-slate-900 mt-2">~45ms</p>
+              <p className="text-xl font-semibold text-slate-900 mt-2">Not measured here</p>
             </div>
             <div className="p-4 bg-white rounded border border-slate-200">
               <h3 className="text-sm font-medium text-slate-600">API Uptime</h3>
-              <p className="text-xl font-semibold text-slate-900 mt-2">99.9%</p>
+              <p className="text-xl font-semibold text-slate-900 mt-2">See local monitoring</p>
             </div>
           </div>
         </Card>

@@ -5,12 +5,12 @@ export default function Navbar() {
   return (
     <nav className="bg-white shadow">
       <div className="max-w-6xl mx-auto px-4">
-        <div className="flex items-center justify-between h-14">
+        <div className="flex flex-wrap items-center justify-between min-h-14 gap-3 py-3">
           <div className="flex items-center">
             <Link href="/" className="font-bold text-slate-800">URL Shortener</Link>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-wrap items-center gap-4">
             <Link href="/dashboard" className="text-slate-600">Dashboard</Link>
             <Link href="/analytics" className="text-slate-600">Analytics</Link>
             <Link href="/flagged" className="text-slate-600">Flagged</Link>

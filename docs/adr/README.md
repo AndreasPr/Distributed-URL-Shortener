@@ -45,3 +45,5 @@ Existing records missing explicit sections now include Context/Decision/Conseque
 summaries; original detailed reasoning and evidence are retained.
 
 Current overview: [engineering design](../design.md).
+
+| [0027-browser-only-demo.md](0027-browser-only-demo.md) | 0027: Browser-only hosted demo behind the API client interface |

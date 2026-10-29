@@ -1,5 +1,8 @@
 // API client for URL Shortener service
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import { DemoAPIClient } from './demo-api'
+
+export const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
+const API_BASE_URL = DEMO_MODE ? '' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
 
 // Abort includes response-body consumption, not just receipt of HTTP headers.
 function timedFetch(url: string, options: RequestInit = {}): Promise<Response> {
@@ -138,4 +141,5 @@ export class APIClient {
   }
 }
 
-export const apiClient = new APIClient()
+export type URLClient = Pick<APIClient, 'setApiKey' | 'shorten' | 'getAnalytics' | 'deleteUrl' | 'listFlagged' | 'reviewFlagged' | 'getHealth' | 'listUrls'>
+export const apiClient: URLClient = DEMO_MODE ? new DemoAPIClient() : new APIClient()

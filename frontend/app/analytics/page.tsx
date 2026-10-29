@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { apiClient, Analytics, URLEntry } from '../../lib/api'
+import { apiClient, DEMO_MODE, Analytics, URLEntry } from '../../lib/api'
 import AnalyticsChart from '../../components/AnalyticsChart'
 import { Card } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
@@ -80,7 +80,8 @@ export default function AnalyticsPage() {
           <form onSubmit={handleFetchAnalytics} className="flex gap-2">
             <Input
               type="text"
-              placeholder="Enter short code (e.g., abc123)"
+              aria-label="Short code"
+              placeholder={DEMO_MODE ? "Try sample01" : "Enter short code (e.g., abc123)"}
               value={shortCode}
               onChange={(e) => setShortCode(e.target.value)}
               className="flex-1"
@@ -122,7 +123,7 @@ export default function AnalyticsPage() {
               <h3 className="text-sm font-medium text-slate-600 mb-2">
                 Status
               </h3>
-              <p className="text-2xl font-bold text-green-600">Active</p>
+              <p className="text-2xl font-bold text-green-600">{DEMO_MODE ? 'Sample history' : 'History available'}</p>
             </Card>
           </div>
         )}
@@ -152,7 +153,7 @@ export default function AnalyticsPage() {
           <h3 className="text-sm font-medium text-blue-900 mb-2">💡 Tip</h3>
           <p className="text-sm text-blue-800">
             Enter a short code above to see detailed analytics including click
-            patterns and user agent information.
+            patterns from recorded click timestamps.
           </p>
         </Card>
       </section>

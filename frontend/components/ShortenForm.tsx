@@ -1,11 +1,12 @@
 "use client"
 
 import React, { useState } from 'react'
-import { apiClient } from '../lib/api'
+import { apiClient, DEMO_MODE } from '../lib/api'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 
 export default function ShortenForm() {
+  const [copied, setCopied] = useState(false)
   const [url, setUrl] = useState('')
   const [alias, setAlias] = useState('')
   const [expiry, setExpiry] = useState('')
@@ -18,6 +19,7 @@ export default function ShortenForm() {
     setLoading(true)
     setError(null)
     setShort(null)
+    setCopied(false)
     try {
       const result = await apiClient.shorten(url, alias || undefined, expiry ? new Date(expiry).toISOString() : undefined)
       setShort(result.short_code)
@@ -31,9 +33,9 @@ export default function ShortenForm() {
   return (
     <form onSubmit={submit} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">Long URL</label>
+        <label htmlFor="long-url" className="block text-sm font-medium text-slate-700 mb-2">Long URL</label>
         <Input
-          type="url"
+          id="long-url" type="url"
           maxLength={2048}
           value={url}
           onChange={(e) => setUrl(e.target.value)}
@@ -65,9 +67,13 @@ export default function ShortenForm() {
 
       {short && (
         <div className="p-4 bg-green-50 border border-green-200 rounded">
-          <div className="text-sm font-medium text-green-900 mb-2">Success!</div>
+          <div className="text-sm font-medium text-green-900 mb-2">{DEMO_MODE ? "Created in this tab only. This is not a working redirect link." : "Success!"}</div>
           <div className="text-sm text-green-800 mb-2">Short code:</div>
           <div className="text-lg font-mono font-semibold text-green-900 break-all">{short}</div>
+          <button type="button" className="border rounded px-3 py-2 mt-3" onClick={async () => {
+            try { await navigator.clipboard.writeText(short); setCopied(true) }
+            catch { setError('Copy unavailable; select the code to copy it manually.') }
+          }}>{copied ? 'Copied!' : 'Copy code'}</button>
         </div>
       )}
     </form>

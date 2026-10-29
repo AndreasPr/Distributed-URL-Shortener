@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
-import { apiClient, FlaggedURL } from '../../lib/api'
+import { apiClient, DEMO_MODE, FlaggedURL } from '../../lib/api'
 import { Card } from '../../components/ui/card'
 
 export default function FlaggedPage() {
@@ -32,7 +32,7 @@ export default function FlaggedPage() {
   return (
     <main className="p-8 max-w-6xl mx-auto">
       <h1 className="text-3xl font-bold mb-4">Flagged URLs</h1>
-      <p className="mb-4">Use an admin API key to review flagged links. Destinations are shown as text to avoid accidental visits.</p>
+      <p className="mb-4">{DEMO_MODE ? 'Sample review queue; decisions stay in this tab until reload.' : 'Use an admin API key to review flagged links.'} Destinations are shown as text to avoid accidental visits.</p>
       <button disabled={busy} onClick={() => void load()} className="border rounded px-3 py-2 mb-4">Refresh</button>
       {error && <p role="alert" className="text-red-700 mb-4">{error}</p>}
       {busy && <p role="status">Loading…</p>}
