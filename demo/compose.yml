@@ -1,0 +1,45 @@
+# Overlay the real local stack; Compose >=2.24.4 is required for !override.
+services:
+  api-redis:
+    ports: !override ['127.0.0.1:18080:8000']
+    environment:
+      CORS_ORIGINS: http://localhost:13000
+      WRITE_RATE_CAPACITY: '5'
+      WRITE_RATE_REFILL: '1'
+      EVENT_FLUSH_INTERVAL: '1'
+      DEMO_MODE: '1'
+    volumes:
+      - ./scripts/demo_seed.py:/app/demo_seed.py:ro
+  worker-redis:
+    environment:
+      EVENT_FLUSH_INTERVAL: '1'
+  abuse-worker-redis:
+    environment:
+      LLM_PROVIDER: fake
+      GEMINI_API_KEY: ''
+      ANTHROPIC_API_KEY: ''
+      ABUSE_GRAY_LOW: '0.15'
+      ABUSE_GRAY_HIGH: '0.65'
+  postgres:
+    ports: !override []
+  redis:
+    ports: !override []
+  prometheus:
+    ports: !override ['127.0.0.1:19091:9090']
+  grafana:
+    ports: !override ['127.0.0.1:13001:3000']
+    environment:
+      GF_INSTALL_PLUGINS: ''
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: 'false'
+  jaeger:
+    ports: !override ['127.0.0.1:16687:16686']
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:18080
+    ports: ['127.0.0.1:13000:3000']
+    depends_on:
+      api-redis:
+        condition: service_healthy

@@ -55,3 +55,6 @@ infra
 **/*.tfvars*
 perf
 chaos
+
+# Disposable demo credentials and state
+.demo/

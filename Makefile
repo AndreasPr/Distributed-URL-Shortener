@@ -54,8 +54,14 @@ mcp-test:
 	$(PYTHON) -m mypy mcp-server/mcp_server
 	cd mcp-server && $(PYTHON) -m pytest
 
+# Host bootstrap uses stdlib only: a fresh clone does not need a local .venv.
+DEMO_PYTHON ?= python3
+.PHONY: demo demo-down
 demo:
-	@echo 'demo seeding is added in step 8.3'
+	$(DEMO_PYTHON) scripts/demo.py up
+
+demo-down:
+	$(DEMO_PYTHON) scripts/demo.py down
 
 # Generate a shared resolution first, then constrain deployment locks to it.
 lock:

@@ -116,6 +116,14 @@ npm run dev
 
 Redirects, health and liveness are public. Link creation/deletion require write scope; listing and analytics require read scope; flagged-link review is admin-only. Public redirects and writes are rate-limited. Metrics are exposed locally and restricted to internal access in Kubernetes. See [security](docs/security.md) and [deployment troubleshooting](docs/DEPLOYMENT.md).
 
+## Record a local demo
+
+`make demo` starts an isolated Redis Streams/FakeProvider stack, including the frontend,
+runs migrations, seeds 30 links with click history and six flagged fixtures, and prints
+fresh private keys once. Requires Docker Compose >=2.24.4 and Python 3; no host Node/.venv
+or cloud credentials. Demo ports differ from the ordinary stack above. Follow the
+[three-minute script](docs/demo-script.md); `make demo-down` removes demo data and credentials.
+
 ## Development and verification commands
 
 Run these from the repository root after following the [developer setup](docs/developer.md). Specialized checks have additional local tool prerequisites documented in their guides.
