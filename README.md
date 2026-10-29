@@ -61,7 +61,8 @@ test -f .env || cp .env.example .env
 
 Edit `.env`: replace `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `GRAFANA_ADMIN_USER`, and `GRAFANA_ADMIN_PASSWORD` placeholders. Use URL-safe database credentials; do not replace credentials for existing volumes. Keep `LLM_PROVIDER=fake` for a credential-free demo. Never commit `.env` or keys.
 
-Choose **one** mode; both bind the same host ports. Compose runs Alembic migrations before starting the API/workers.
+Choose **one** mode; both bind the same host ports. Existing stacks can block startup
+(for example PostgreSQL port 5433); use free ports or stop only your intended old stack. Compose runs Alembic migrations before starting the API/workers.
 
 ### Lightweight: Redis Streams
 
@@ -79,7 +80,8 @@ docker compose --profile kafka exec api \
   python -m app.cli keys create --name browser --scopes read write
 ```
 
-Wait for the API to start before creating the key. The CLI prints its full value **once**; keep it private. Use it in Swagger's authorization dialog or the frontend's in-memory key field. Keys for admin review require the `admin` scope; create a separate operator key with the same CLI when needed.
+Wait for `/health` to return HTTP 200 before creating the key. A successful `make up`
+only starts containers; Grafana may need additional startup time before its UI responds. The CLI prints its full value **once**; keep it private. Use it in Swagger's authorization dialog or the frontend's in-memory key field. Keys for admin review require the `admin` scope; create a separate operator key with the same CLI when needed.
 
 To inspect logs or stop a mode, for example:
 
@@ -140,6 +142,9 @@ Run these from the repository root after following the [developer setup](docs/de
 The [CI guide](docs/ci-cd.md) describes blocking checks, image scanning/publishing, CodeQL and the kind smoke workflow. The [Kubernetes guide](docs/kubernetes.md) covers overlays, migrations, probes and manual deployment. The CI overlay uses Redis Streams; the local overlay uses Kafka.
 
 ## Results and evidence
+
+See the [CV claim evidence](docs/claims.md), [final audit](docs/final-audit.md), and
+[known limitations](docs/known-limitations.md), including outstanding frontend security findings.
 
 - [Performance](docs/performance.md): workload method, hardware fields, capacity arithmetic and benchmark table. Capacity estimates are assumptions, not measured limits; unfilled measurements remain TBD.
 - [Chaos](docs/chaos.md): recorded Compose and kind worker experiments, including failed broker accounting before the retry fix and successful runs afterward. Kafka chaos remains unverified.
