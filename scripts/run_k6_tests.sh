@@ -2,17 +2,19 @@
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:8000}"
+: "${API_KEY:?Set API_KEY to a read/write test key; use make perf for an isolated stack}"
+export BASE_URL API_KEY
 
 if ! command -v k6 &> /dev/null; then
     echo "k6 is not installed. Install it with: brew install k6"
     exit 1
 fi
 
-if ! curl -fsS "$BASE_URL/health/redis" >/dev/null 2>&1; then
+if ! curl -fsS "$BASE_URL/health" >/dev/null 2>&1; then
     echo "API is not responding at $BASE_URL"
     echo "Make sure the API, Redis, Kafka, and Postgres are running:"
-    echo "  docker compose up -d postgres redis kafka zookeeper"
-    echo "  .venv/bin/uvicorn app.main:app --reload"
+    echo "  make up PROFILE=redis-streams  # or PROFILE=kafka"
+    echo "For isolated high-limit seeding and saved reports, use make perf."
     exit 1
 fi
 
@@ -36,7 +38,7 @@ case "$test_type" in
         run_test "Normal Load Test" "scripts/load_test.js"
         ;;
     stress)
-        run_test "Stress Test (24 minutes)" "scripts/stress_test.js"
+        run_test "Stress Test (8 minutes)" "scripts/stress_test.js"
         ;;
     spike)
         run_test "Spike Test" "scripts/spike_test.js"
@@ -44,7 +46,7 @@ case "$test_type" in
     all)
         run_test "Normal Load Test" "scripts/load_test.js"
         run_test "Spike Test" "scripts/spike_test.js"
-        run_test "Stress Test (24 minutes)" "scripts/stress_test.js"
+        run_test "Stress Test (8 minutes)" "scripts/stress_test.js"
         ;;
     *)
         echo "Usage: $0 [load|stress|spike|all]"
