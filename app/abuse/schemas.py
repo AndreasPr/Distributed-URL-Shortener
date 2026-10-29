@@ -4,6 +4,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 Verdict = Literal["clean", "suspicious", "malicious"]
 Reason = Literal[
+    "homoglyph",
+    "random_label",
+    "base64_query",
     "ip_literal",
     "punycode",
     "mixed_script",
