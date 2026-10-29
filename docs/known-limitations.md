@@ -66,11 +66,12 @@ See [claims](claims.md) and the [final audit](final-audit.md) for evidence bound
 
 - README ports must be free; an existing stack blocked the exact fresh-clone start. `make up`
   is detached startup, not an all-services-readiness guarantee. Grafana needed 8 seconds in a
-  separate readiness check. Frontend runs separately from Compose/kind.
+  separate readiness check. Frontend runs separately from ordinary Compose/kind; the isolated demo includes it.
 - Legacy external-stack k6 helper now requires a key and the current /health endpoint, but
   high-volume seeding can hit normal rate limits; use `make perf` for the isolated test stack.
-- `make demo` is still the step 8.3 placeholder. Demo video and repository license are not
-  supplied. These are intentional visible gaps, not completed features.
+- `make demo` includes synthetic historical clicks and review fixtures. They are not live
+  classifier accuracy or throughput measurements. Six startup clicks exercise the real worker.
+  Demo video and repository license remain unsupplied.
 - CI evidence is tied to specific prior commits. The final audit branch must be pushed and its
   checks reviewed separately. CodeQL was not executed locally; a prior successful public run
   is linked in the audit. Optional Codecov is not a local validation requirement.

@@ -61,3 +61,6 @@ crash.*.log
 perf/results/*
 !perf/results/sample.json
 chaos/results/*
+
+# Disposable demo credentials and state
+.demo/

@@ -38,6 +38,8 @@ they are deliberately not renumbered to preserve existing links.
 
 | [0025-abuse-recall-and-reused-holdout.md](0025-abuse-recall-and-reused-holdout.md) | 0025: Transparent abuse features, dev-only policy and reused-holdout evidence |
 
+| [0026-isolated-repeatable-demo.md](0026-isolated-repeatable-demo.md) | 0026: Isolated deterministic demo with private one-time keys |
+
 The retrospective 0024 record fills the previously implicit 307-versus-301 decision.
 Existing records missing explicit sections now include Context/Decision/Consequences
 summaries; original detailed reasoning and evidence are retained.

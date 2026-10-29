@@ -27,6 +27,6 @@ Use CPython 3.11.14 from `.python-version` (also used by Docker and CI). Follow 
 - `make tf-fmt`, `make tf-validate`, `make tf-lint`, `make tf-sec`: validation-only AWS design checks; no cloud credentials, plan or apply. Tool setup and costs are documented in `infra/terraform/envs/dev/README.md`.
 - `make lock`: regenerate exact hashed locks after editing readable `.in` files. Keep runtime/MCP versions constrained to the dev resolution; synchronize `.venv` afterward.
 - `.venv/bin/pre-commit run --all-files`: matching local checks plus pinned Gitleaks; never expose unredacted secret findings.
-- `make demo`: prints the step 8.3 seeding placeholder only.
+- `make demo`: isolated local Compose demo with deterministic fixtures, frontend and one-time keys; needs Docker Compose >=2.24.4 and host Python 3.9+, not a .venv. `make demo-down` removes its containers, volumes and private state. See docs/demo-script.md.
 
 Run `make check`, `make frontend-check`, and `make mcp-test` before finishing applicable changes and report actual outcomes. Gate scope and known limitations are documented in the developer guide. Unit tests use SQLite/mocks; only the integration targets validate real disposable services. MCP notification tools still require explicit authorization. Kubernetes has its own explicit kind smoke gate; the ordinary backend/MCP checks do not deploy a cluster.
