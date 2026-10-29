@@ -2,7 +2,7 @@
 
 ## Prepare before recording
 
-Requirements: Docker Desktop running, Compose >=2.24.4, Git, Make and Python 3.
+Requirements: Docker Desktop running, Compose >=2.24.4, Git, Make and Python 3.9+.
 No host virtualenv, Node, API credentials or cloud account is needed. The first build needs
 internet access to image/package registries and can take several minutes.
 
@@ -187,3 +187,5 @@ keys. A second `make demo` before cleanup refuses to overwrite data or print key
 If startup fails, use `make demo-down` in the **same checkout** before retrying. Ownership
 checks prevent cleanup of another checkout's demo. Losing its state requires manual Docker
 inspection; the script does not guess which other project's data is safe to delete.
+
+The clean-checkout run and actual results are recorded in [demo verification](demo-verification.md).

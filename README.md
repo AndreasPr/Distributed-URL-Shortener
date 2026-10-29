@@ -120,7 +120,7 @@ Redirects, health and liveness are public. Link creation/deletion require write 
 
 `make demo` starts an isolated Redis Streams/FakeProvider stack, including the frontend,
 runs migrations, seeds 30 links with click history and six flagged fixtures, and prints
-fresh private keys once. Requires Docker Compose >=2.24.4 and Python 3; no host Node/.venv
+fresh private keys once. Requires Docker Compose >=2.24.4 and Python 3.9+; no host Node/.venv
 or cloud credentials. Demo ports differ from the ordinary stack above. Follow the
 [three-minute script](docs/demo-script.md); `make demo-down` removes demo data and credentials.
 
