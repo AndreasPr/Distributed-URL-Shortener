@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { apiClient } from '../lib/api'
+import { apiClient, DEMO_MODE } from '../lib/api'
 
 export default function ApiKeySettings({ children }: { children: React.ReactNode }) {
   const [draft, setDraft] = useState('')
@@ -15,6 +15,11 @@ export default function ApiKeySettings({ children }: { children: React.ReactNode
     setVersion(value => value + 1)
   }
 
+  if (DEMO_MODE) return <>
+    <aside className="sticky top-0 z-50 bg-amber-100 border-b border-amber-300 p-3 text-center text-sm" aria-label="Demo mode">
+      Demo mode: sample data, nothing is sent to a server. Run it yourself with make demo.
+    </aside>{children}
+  </>
   return <>
     <form className="mx-auto max-w-6xl p-4 flex flex-wrap items-center gap-3"
       onSubmit={event => { event.preventDefault(); apply(draft.trim()) }}>

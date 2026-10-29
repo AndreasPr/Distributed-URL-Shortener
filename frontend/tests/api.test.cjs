@@ -13,6 +13,7 @@ function clientUnderTest() {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
   const context = {
+    require: (name) => { if (name === './demo-api') return {}; throw new Error(name) },
     AbortSignal, exports: {}, process: { env: {} },
     fetch: async (url, options = {}) => {
       requests.push({ url, options })

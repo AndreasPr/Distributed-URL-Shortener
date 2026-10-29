@@ -9,6 +9,7 @@ Docker Desktop Ryuk workaround. [Final audit](final-audit.md) records successes 
 
 | CV-safe claim | Status | Repository evidence and limits | Reproduce |
 |---|---|---|---|
+| Built a browser-only interactive demo UI | VERIFIED (local UI only) | [Vercel URL](https://distributed-url-shortener-two.vercel.app/), [Playwright tests](../frontend/e2e/demo.spec.ts), [deployment guide](deployment-demo.md). Local browser checks verify sample state only; deployment of this branch is pending. This is not a hosted backend or live telemetry claim. | `cd frontend && npm run build:demo && npm run check:demo-build && npm run test:e2e` |
 | Built event-driven click analytics with interchangeable Kafka and Redis Streams adapters | VERIFIED | [Adapters](../app/events/), [event tests](../tests/test_event_bus.py); both real adapters exercised in this audit. In-memory adapter is for tests. | `make test-integration-slow` |
 | Implemented idempotent analytics database effects, commit-before-ack and a dead-letter path | VERIFIED | [Worker](../app/workers/analytics_worker.py), [integration tests](../tests/integration/test_redis_postgres.py). Stable IDs deduplicate effects; publication is not lossless or exactly-once delivery. | `make test-integration-slow` |
 | Enforced scoped API keys and atomic Redis token-bucket rate limits | VERIFIED | [Limiter](../app/middleware/rate_limiter.py), [auth tests](../tests/test_auth.py), real Redis Lua integration. Public redirects fail open, writes fail closed during Redis failure. | `make test-integration` |

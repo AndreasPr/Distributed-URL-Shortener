@@ -25,7 +25,7 @@ export default function HealthPage() {
   }, [])
 
   const statusColor =
-    health?.status === 'ok'
+    (health?.status === 'ok' || health?.status === 'sample healthy')
       ? 'text-green-700'
       : health?.status === 'degraded'
       ? 'text-amber-700'
