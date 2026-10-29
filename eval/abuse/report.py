@@ -16,6 +16,19 @@ def table_row(values):
     return "| " + " | ".join(cell(value) for value in values) + " |"
 
 
+def update_report(path, generated):
+    """Replace only the synthetic block; preserve reviewed public measurements."""
+    start, end = "<!-- synthetic-eval:start -->", "<!-- synthetic-eval:end -->"
+    previous = path.read_text() if path.exists() else "# Abuse evaluation results\n"
+    block = start + "\n" + generated + "\n" + end
+    if start in previous and end in previous:
+        before, tail = previous.split(start, 1)
+        _, after = tail.split(end, 1)
+        path.write_text(before + block + after)
+    else:
+        path.write_text(previous.rstrip() + "\n\n" + block + "\n")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -98,7 +111,12 @@ def main():
             "See [evaluation instructions](../eval/abuse/README.md).",
         ]
     )
-    (ROOT / "docs/eval-results.md").write_text("\n".join(lines) + "\n")
+    update_report(
+        ROOT / "docs/eval-results.md",
+        "\n".join(lines).replace(
+            "# Abuse evaluation results", "## Current synthetic regression", 1
+        ),
+    )
 
 
 if __name__ == "__main__":

@@ -38,8 +38,8 @@ Controls (same topic names must be used by all worker replicas):
 | ABUSE_TOPIC | url-created | Creation events |
 | ABUSE_GROUP | abuse-group | Shared consumer group |
 | ABUSE_DLQ_TOPIC | abuse-dlq | Invalid event envelopes |
-| ABUSE_GRAY_LOW | 0.25 | Scores below this skip inference as clean |
-| ABUSE_GRAY_HIGH | 0.75 | Scores at/above this skip inference as malicious |
+| ABUSE_GRAY_LOW | 0.15 | Scores below this skip inference as clean |
+| ABUSE_GRAY_HIGH | 0.65 | Scores at/above this skip inference as malicious |
 | ABUSE_VERDICT_TTL | 3600 | Contextual domain cache seconds |
 | ABUSE_LLM_INPUT_LIMIT | 512 | Host+path characters before JSON quoting |
 | ABUSE_METRICS_PORT | 8003 | Host-run worker metric port |
@@ -103,3 +103,5 @@ OTLP export also requires a configured reachable endpoint and permitted egress.
   gray-zone heuristic concerns. No guarantee of prompt-injection immunity is made.
 - Replays of poison envelopes go to the separate abuse DLQ; the existing analytics
   DLQ CLI defaults to analytics settings and is not an abuse review interface.
+
+The lexical score and .15/.65 defaults were revised in [ADR 0025](adr/0025-abuse-recall-and-reused-holdout.md). See [measured results](eval-results.md); scores are not probabilities and existing verdicts are not backfilled. Query-based features run locally; query content never enters the model prompt.

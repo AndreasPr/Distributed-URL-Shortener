@@ -1,6 +1,61 @@
 # Abuse evaluation results
 
-## Public-data evaluation
+## Step 9.2: lexical features and a frozen, reused holdout
+
+Measured locally on 2026-10-29, with **no live LLM calls**. The source snapshot is unchanged
+(SHA-256 `f5d963f1961bd337b1e0c3834ae4ec31b918b01021df9d8f634ab60671f87750`),
+100 Tranco popularity-labeled benign and 100 OpenPhish feed-labeled malicious URLs.
+Labels are source-derived, not independently adjudicated. Do not interpret them as proof
+that each site is safe or malicious.
+
+All 61 historical test examples remain in test. Registered-domain grouping (including private
+PSL suffixes) adds three related examples, preventing domain overlap with train/dev. Fixed
+seed 42 yields **96 train (42/54 benign/malicious), 40 dev (29/11), 64 test (29/35)**.
+The old test was already reported and old dev was already used: these are **exploratory reused
+holdout results, not fresh independent validation**. No feature or threshold was selected
+using this task's test results. Handwritten weights were not fitted on train.
+
+Dev-only selection maximized F1 subject to precision >=90% and FPR <=5% over the fixed
+threshold grid. It selected **gray_low=0.15, gray_high=0.65** (same as the historical
+comparison; previous runtime defaults were .25/.75). Dev: TP=6, FP=0, TN=29, FN=5,
+precision 100%, recall 54.5455%, F1 70.5882%, FPR 0%. No benign dev blocks.
+Weights, all candidate metrics and source fingerprints were frozen before test. The only
+pre-test refreeze changed a lint comment hash and replaced unmeasured latency zeros with null;
+thresholds, weights and all classification metrics remained identical.
+
+| Dataset / scorer | Precision | Recall | F1 | FPR | TP | FP | TN | FN |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Original 61 / frozen old scorer | 100% | 9.3750% | 17.1429% | 0% | 3 | 0 | 29 | 29 |
+| Same 61 / new scorer | 100% | 40.6250% | 57.7778% | 0% | 13 | 0 | 29 | 19 |
+| Domain-separated 64 / frozen old scorer | 100% | 8.5714% | 15.7895% | 0% | 3 | 0 | 29 | 32 |
+| Same 64 / new heuristics | 100% | 37.1429% | 54.1667% | 0% | 13 | 0 | 29 | 22 |
+| Same 64 / new combined + constant FakeProvider | 100% | 37.1429% | 54.1667% | 0% | 13 | 0 | 29 | 22 |
+
+**Flagged is suspicious OR malicious; it does not mean blocked.** All 13 new test positives
+were suspicious, with **zero automatic blocks**. There were 13 fake calls/13 attempts/no
+errors and no reported tokens. The fake always returns suspicious, so its matching detection
+numbers provide a routing regression check, not an LLM quality measurement. The historical
+Gemini/Ollama results below are unchanged; neither was rerun with these features.
+
+The new score includes explicit homoglyph, hex/high-entropy hostname and long base64 query
+signals, plus lexical nested shortener recognition. Existing brand, IDN, IP, depth, TLD and
+path indicators remain explainable contributions. No target page or redirect was fetched.
+A detected shortener string does not prove a chain; IDNs, CDN labels, auth queries and login
+paths can be benign. The sample cannot establish these features' production false-positive
+rates, robustness against evasion, or prompt-injection immunity. Recall still misses **22/35**
+malicious labels; zero false positives among only 29 benign examples does not prove safety.
+
+Evidence: [fixed split protocol](../eval/splits/README.md),
+[hashed membership](../eval/splits/manifest.json), [dev policy](../eval/splits/policy.json),
+[actual test output](../eval/splits/test-results.json), and
+[verification commands/output](abuse-recall-verification.md).
+Raw URLs remain ignored because source redistribution terms are unreviewed. A fresh clone
+can reproduce synthetic tests but needs the exact legally acquired local snapshot for these
+public numbers. A new temporal/campaign-separated labeled holdout is required for confirmation.
+Existing persisted verdicts are not backfilled. Local `.env` overrides still take precedence;
+operators must explicitly use .15/.65 to match this policy.
+
+## Historical public-data evaluation
 
 This report summarizes user-run evaluations of a sanitized Tranco/OpenPhish snapshot: 100 popularity-labeled benign URLs and 100 feed-labeled malicious URLs. These are public-source examples, not the committed synthetic regression fixture. No listed pages were fetched by the evaluator.
 
@@ -224,4 +279,164 @@ Exact recorded command:
 - LLM token counts cover returned usage metadata, not unreported upstream work. Historical failures cannot be retrospectively assigned HTTP status codes.
 - Keep this held-out result as the baseline. Future tuning must use dev data and a fresh final test set; do not select settings or providers based on the best repeated test score.
 
-This public-data comparison was assembled from archived JSON. Running `make eval` regenerates this path with its selected run, defaulting to the synthetic dataset; preserve this report in version control before regeneration.
+The historical comparison above was assembled from archived JSON. `make eval` now updates only the marked synthetic section below and preserves this public comparison.
+
+<!-- synthetic-eval:start -->
+## Current synthetic regression
+
+Synthetic regression fixtures, not real-world accuracy. Fake always returns suspicious and does not reason about URLs.
+Flagged means suspicious OR malicious, not blocked. Cache disabled; dev examples are excluded from held-out results.
+
+| Variant | Provider / model | Precision | Recall | F1 | FPR | Median / P95 ms | LLM calls / attempts | Input / output tokens | Injection correct |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| heuristics | fake / not_called | 1.0000 | 0.8889 | 0.9412 | 0.0000 | 0.0237 / 0.4499 | 0 / 0 | N/A / N/A | 16/16 |
+| combined | fake / deterministic | 1.0000 | 0.8889 | 0.9412 | 0.0000 | 0.0368 / 0.4058 | 13 / 13 | N/A / N/A | 16/16 |
+
+## Detail: heuristics / fake
+
+Synthetic fixtures and constant fake responses are regression checks, not real-world accuracy or injection immunity.
+
+UTC: 2026-10-29T14:27:35.626591+00:00
+Model: `not_called`; split: **test**; seed: 42
+Sizes: `{"benign": 60, "dev": 84, "evaluated": 36, "injection_evaluated": 16, "malicious": 60, "test": 36, "total": 120}`
+Dataset SHA-256: `c6651ab25a3c2d7640d61c4450266ef46d44e5ac062b4b7307fff6c2ff09a1ac`
+Command: `/Users/andreaspriftis/Desktop/projects/distributed-URL-Shortener/.venv/bin/python -m eval.abuse.run --variant heuristics --provider fake --limit 0 --seed 42`
+
+flagged = suspicious or malicious; cache disabled; host-grouped holdout
+
+| Metric | Value |
+| --- | ---: |
+| precision | 1.0000 |
+| recall | 0.8889 |
+| f1 | 0.9412 |
+| false_positive_rate | 0.0000 |
+| median_latency_ms | 0.0237 |
+| p95_latency_ms | 0.4499 |
+| llm_calls_made | 0 |
+| llm_attempts | 0 |
+| input_tokens | N/A |
+| output_tokens | N/A |
+| input_known | 0 |
+| output_known | 0 |
+
+Confusion matrix: `{"tp": 16, "fp": 0, "tn": 18, "fn": 2}`
+Actual blocks: malicious=3, benign=0
+LLM errors: `{}`
+Injection correct: **16/16**
+
+Injection metrics (reported separately from held-out metrics):
+```json
+{
+  "n": 16,
+  "correct": 16,
+  "precision": 1.0,
+  "recall": 1.0,
+  "f1": 1.0,
+  "false_positive_rate": 0.0,
+  "confusion_matrix": {
+    "tp": 8,
+    "fp": 0,
+    "tn": 8,
+    "fn": 0
+  },
+  "median_latency_ms": 0.02720800694078207,
+  "p95_latency_ms": 0.11875003110617399,
+  "blocked_malicious": 0,
+  "blocked_benign": 0,
+  "verdict_counts": {
+    "clean": 8,
+    "suspicious": 8,
+    "malicious": 0
+  },
+  "llm_calls_made": 0,
+  "llm_attempts": 0,
+  "input_known": 0,
+  "output_known": 0,
+  "input_tokens": null,
+  "output_tokens": null,
+  "llm_errors": {}
+}
+```
+
+Tokens include only reported usage; known counts identify calls with metadata. Retries with no usage are unaccounted for.
+Undefined ratios are N/A; P95 uses nearest rank. Timing is measured, not deterministic.
+
+Source SHA-256: `93ce2eaf1ec02583417f3fac959fb824cbe18ac1114d686d32b66e8c12d659bd`
+Config: `{"dev_fraction": 0.7, "gray_high": 0.65, "gray_low": 0.15, "input_limit": 512, "regression": {"precision_min": 0.75, "recall_min": 0.7, "seed": 42}, "version": 1}`
+Runtime: `{"backoff_seconds": 0.25, "concurrency": 2, "daily_budget": 100, "gemini_min_interval_seconds": 5.0, "max_output_tokens": 512, "max_retries": 2, "packages": {"pydantic": "2.13.4", "requests": "2.34.2", "tldextract": "5.4.0"}, "python": "3.11.14", "timeout_seconds": 15.0}`
+
+## Detail: combined / fake
+
+Synthetic fixtures and constant fake responses are regression checks, not real-world accuracy or injection immunity.
+
+UTC: 2026-10-29T14:27:35.991207+00:00
+Model: `deterministic`; split: **test**; seed: 42
+Sizes: `{"benign": 60, "dev": 84, "evaluated": 36, "injection_evaluated": 16, "malicious": 60, "test": 36, "total": 120}`
+Dataset SHA-256: `c6651ab25a3c2d7640d61c4450266ef46d44e5ac062b4b7307fff6c2ff09a1ac`
+Command: `/Users/andreaspriftis/Desktop/projects/distributed-URL-Shortener/.venv/bin/python -m eval.abuse.run --variant combined --provider fake --limit 0 --seed 42`
+
+flagged = suspicious or malicious; cache disabled; host-grouped holdout
+
+| Metric | Value |
+| --- | ---: |
+| precision | 1.0000 |
+| recall | 0.8889 |
+| f1 | 0.9412 |
+| false_positive_rate | 0.0000 |
+| median_latency_ms | 0.0368 |
+| p95_latency_ms | 0.4058 |
+| llm_calls_made | 13 |
+| llm_attempts | 13 |
+| input_tokens | N/A |
+| output_tokens | N/A |
+| input_known | 0 |
+| output_known | 0 |
+
+Confusion matrix: `{"tp": 16, "fp": 0, "tn": 18, "fn": 2}`
+Actual blocks: malicious=3, benign=0
+LLM errors: `{}`
+Injection correct: **16/16**
+
+Injection metrics (reported separately from held-out metrics):
+```json
+{
+  "n": 16,
+  "correct": 16,
+  "precision": 1.0,
+  "recall": 1.0,
+  "f1": 1.0,
+  "false_positive_rate": 0.0,
+  "confusion_matrix": {
+    "tp": 8,
+    "fp": 0,
+    "tn": 8,
+    "fn": 0
+  },
+  "median_latency_ms": 0.0908754882402718,
+  "p95_latency_ms": 0.2531659556552768,
+  "blocked_malicious": 0,
+  "blocked_benign": 0,
+  "verdict_counts": {
+    "clean": 8,
+    "suspicious": 8,
+    "malicious": 0
+  },
+  "llm_calls_made": 8,
+  "llm_attempts": 8,
+  "input_known": 0,
+  "output_known": 0,
+  "input_tokens": null,
+  "output_tokens": null,
+  "llm_errors": {}
+}
+```
+
+Tokens include only reported usage; known counts identify calls with metadata. Retries with no usage are unaccounted for.
+Undefined ratios are N/A; P95 uses nearest rank. Timing is measured, not deterministic.
+
+Source SHA-256: `93ce2eaf1ec02583417f3fac959fb824cbe18ac1114d686d32b66e8c12d659bd`
+Config: `{"dev_fraction": 0.7, "gray_high": 0.65, "gray_low": 0.15, "input_limit": 512, "regression": {"precision_min": 0.75, "recall_min": 0.7, "seed": 42}, "version": 1}`
+Runtime: `{"backoff_seconds": 0.25, "concurrency": 2, "daily_budget": 100, "gemini_min_interval_seconds": 5.0, "max_output_tokens": 512, "max_retries": 2, "packages": {"pydantic": "2.13.4", "requests": "2.34.2", "tldextract": "5.4.0"}, "python": "3.11.14", "timeout_seconds": 15.0}`
+
+Tune only with `--split dev`; do not tune on held-out scores. See [evaluation instructions](../eval/abuse/README.md).
+<!-- synthetic-eval:end -->

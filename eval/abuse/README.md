@@ -95,3 +95,7 @@ no inference errors and checks the injection cases. HTTP and Redis are forbidden
 by test fixtures. The existing GitHub Actions `make check` includes this pytest
 file; lint/type checks now cover eval/ as well. Production policy remains unchanged
 by default; only explicit evaluator constructor options select alternate modes.
+
+## Public recall follow-up
+
+The fixed train/dev/test protocol, hashed membership and frozen policy are in [eval/splits](../splits/README.md). This retains the previously reported test examples and labels the reused-snapshot limitation explicitly. `make eval` now updates only the marked synthetic block in docs/eval-results.md; it preserves the historical and current public comparison. It does not run the public split by default.

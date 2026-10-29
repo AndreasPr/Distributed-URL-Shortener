@@ -51,9 +51,11 @@ See [claims](claims.md) and the [final audit](final-audit.md) for evidence bound
 - Capacity arithmetic is hypothetical. Local mixed-load results do not establish 10,000
   redirects/s, 100 million records, tail latency under sustained saturation or linear scaling.
   Hardware and Docker resource budgets need recording. Fresh clone lacks ignored raw result archives.
-- Public abuse evaluation recall is 9.375% (3/32 malicious examples flagged), despite 100%
-  precision on only three positive predictions. The 61-example holdout is small and labels/group
-  splits do not eliminate all campaign leakage. Synthetic fixture regression is not field accuracy.
+- Historical public recall was 9.375% (3/32). The recall follow-up flags 13/35 on a
+  64-example domain-separated but reused holdout (37.1429% recall, 100% precision, no blocks).
+  Only 29 benign examples and previously inspected/noisy source labels cannot establish low
+  field FPR or generalization; 22 malicious examples remain missed. See [results](eval-results.md).
+  Synthetic FakeProvider regression is not live-model accuracy.
 - Heuristics do not fetch pages. URLs may redirect before classification; false positives and
   false negatives remain. Query removal does not make a sensitive path safe to send externally.
   Free-tier provider terms/quotas may change; no live inference was invoked in this audit.
