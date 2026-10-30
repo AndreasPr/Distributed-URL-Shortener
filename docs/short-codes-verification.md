@@ -6,7 +6,7 @@ Final `make check`: exit 0; Black, isort, Flake8, mypy passed; 69 passed, 5 skip
 
 The first PostgreSQL run reported three setup errors because the extracted shared fixture lacked the sqlalchemy.text import. That import was fixed and the complete PostgreSQL run passed. No test failure was suppressed.
 
-The concurrency test uses eight independent SQLAlchemy sessions/services against a freshly migrated disposable PostgreSQL container, 25 commits per session, and a forced first-candidate collision across all sessions. The 100,000-candidate sample injects a deterministic test RNG to avoid a probabilistically flaky assertion; production uses secrets.choice. See [ADR](adr/0001-short-code-generation.md) for probability and security limits.
+The concurrency test uses eight independent SQLAlchemy sessions/services against a freshly migrated disposable PostgreSQL container, 25 commits per session, and a forced first-candidate collision across all sessions. The 100,000-candidate sample injects a deterministic test RNG to avoid a probabilistically flaky assertion; production uses secrets.choice. See [ADR](adr/0028-short-code-generation.md) for probability and security limits.
 
 
 ## make check

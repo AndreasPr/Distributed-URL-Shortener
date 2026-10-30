@@ -41,7 +41,7 @@ output makes gray-zone cases suspicious; low/high heuristics still work. Pending
 links remain redirectable until classification, and old links are not backfilled.
 Do not interpret a clean verdict as proof of safety. Admin decisions override
 automatic blocking and survive duplicate delivery. See [operation guide](abuse-pipeline.md)
-and [ADR](adr/0004-abuse-pipeline.md).
+and [ADR](adr/0031-abuse-pipeline.md).
 
 ## Actual output
 

@@ -67,7 +67,7 @@ links still redirect (307), unknown links return 404, and expired links return
 cached for 30 seconds; creations invalidate that entry and its in-flight loader.
 A failed invalidation during a partial Redis outage can briefly leave a stale
 404 on another replica (bounded by the negative TTL). Positive redirects still
-validate deletion/expiry in PostgreSQL. See [ADR](adr/0002-cache-strategy.md).
+validate deletion/expiry in PostgreSQL. See [ADR](adr/0029-cache-strategy.md).
 
 
 # Step 2.1: API-key authorization and token buckets

@@ -1,4 +1,4 @@
-# ADR 0004: Asynchronous URL abuse review
+# ADR 0031: Asynchronous URL abuse review
 
 ## Context
 

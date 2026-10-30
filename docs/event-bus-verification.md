@@ -49,7 +49,7 @@ The bounded API queue is best-effort, not durable. Database failures remain
 unacknowledged, while malformed events/poison rows go to DLQ after three local
 attempts. Crash/restart can repeat attempts and DLQ publication; valid replay
 preserves the original UUID for database deduplication. See
-[ADR 0003](adr/0003-event-bus.md) and [runbook](developer.md#analytics-event-bus-step-15).
+[ADR 0003](adr/0030-event-bus.md) and [runbook](developer.md#analytics-event-bus-step-15).
 
 ## make check
 

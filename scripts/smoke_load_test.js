@@ -10,7 +10,9 @@ export const options = {
   scenarios: {
     redirects: {
       executor: 'constant-arrival-rate', rate: 5, timeUnit: '1s',
-      duration: __ENV.DURATION || '30s', preAllocatedVUs: 2, maxVUs: 5,
+      // 5/s × observed 0.83s transient = 4.15 concurrent VUs. Allocate the
+      // existing ceiling upfront; dynamic allocation dropped arrivals at 2 VUs.
+      duration: __ENV.DURATION || '30s', preAllocatedVUs: 5, maxVUs: 5,
       gracefulStop: '5s',
     },
   },

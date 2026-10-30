@@ -139,7 +139,7 @@ RUN_DOCKER_TESTS=1 .venv/bin/python -m pytest -q
 This also runs PostgreSQL SELECT-counting and a real Redis outage test. Containers
 use disposable names, loopback ephemeral ports, and no project volumes. The Redis
 test stops only the container it created. No frontend or Kubernetes deployment is
-needed. See [cache strategy](adr/0002-cache-strategy.md) for lifecycle checks on
+needed. See [cache strategy](adr/0029-cache-strategy.md) for lifecycle checks on
 positive hits and the bounded stale-404 tradeoff during failed invalidation.
 
 
@@ -211,7 +211,7 @@ duplicated if acknowledgement fails. Old unversioned Kafka events go to the DLQ.
 Redis Streams shares resources with the redirect cache. Compose now persists Redis
 with AOF and a volume, but this is not replicated/zero-loss storage. Streams and DLQ
 history are not auto-trimmed: monitor memory and trim only safely processed history.
-Do not evict stream keys or delete pending entries. See [ADR 0003](adr/0003-event-bus.md)
+Do not evict stream keys or delete pending entries. See [ADR 0003](adr/0030-event-bus.md)
 for throughput, partitioning and retention tradeoffs.
 
 Validation:

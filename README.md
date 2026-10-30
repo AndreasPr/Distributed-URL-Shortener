@@ -172,10 +172,10 @@ Retain failed runs and disclose environment, sample size and provider errors. A 
 
 ## Design decisions and trade-offs
 
-- [Random short codes](docs/adr/0001-short-code-generation.md): database uniqueness plus bounded retries avoids replica coordination; randomness is not access control.
-- [Cache strategy](docs/adr/0002-cache-strategy.md): single-flight, short locks, negative caching and a breaker reduce load, while lifecycle checks preserve deletion/block semantics.
-- [Event adapters](docs/adr/0003-event-bus.md) and [publish retries](docs/adr/0022-retry-ambiguous-click-publications.md): stable event IDs allow idempotent analytics; the bounded in-memory publisher is not a durable outbox.
-- [Abuse pipeline](docs/adr/0004-abuse-pipeline.md): no destination fetching; heuristic gating reduces LLM calls but cannot guarantee phishing detection.
+- [Random short codes](docs/adr/0028-short-code-generation.md): database uniqueness plus bounded retries avoids replica coordination; randomness is not access control.
+- [Cache strategy](docs/adr/0029-cache-strategy.md): single-flight, short locks, negative caching and a breaker reduce load, while lifecycle checks preserve deletion/block semantics.
+- [Event adapters](docs/adr/0030-event-bus.md) and [publish retries](docs/adr/0022-retry-ambiguous-click-publications.md): stable event IDs allow idempotent analytics; the bounded in-memory publisher is not a durable outbox.
+- [Abuse pipeline](docs/adr/0031-abuse-pipeline.md): no destination fetching; heuristic gating reduces LLM calls but cannot guarantee phishing detection.
 - [MCP boundary](docs/adr/0014-mcp-http-boundary.md): typed on-demand tools call the API, default to read-only, and audit calls; no direct database access or continuous monitoring.
 - [AWS design](docs/adr/0019-validation-only-aws-design.md): modular Terraform demonstrates a deployment design without creating paid infrastructure.
 
