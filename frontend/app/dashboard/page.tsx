@@ -46,70 +46,70 @@ export default function DashboardPage() {
   }, [])
 
   return (
-    <main className="p-8">
+    <main className="p-4 sm:p-8">
       <section className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8 text-slate-900">Dashboard</h1>
+        <h1 className="text-3xl font-bold mb-8 text-foreground">Dashboard</h1>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <Card className="p-6">
-            <h3 className="text-sm font-medium text-slate-600 mb-2">
+            <h3 className="text-sm font-medium text-muted-foreground mb-2">
               API Status
             </h3>
-            <p className="text-2xl font-bold text-slate-900">
+            <p className="text-2xl font-bold text-foreground">
               {loading ? '...' : health?.status || 'Unknown'}
             </p>
-            <p className="text-xs text-slate-500 mt-2">{DEMO_MODE ? 'Bundled sample status' : 'Status at page load'}</p>
+            <p className="text-xs text-muted-foreground mt-2">{DEMO_MODE ? 'Bundled sample status' : 'Status at page load'}</p>
           </Card>
 
           <Card className="p-6">
-            <h3 className="text-sm font-medium text-slate-600 mb-2">
+            <h3 className="text-sm font-medium text-muted-foreground mb-2">
               Redis Status
             </h3>
-            <p className="text-2xl font-bold text-slate-900">
+            <p className="text-2xl font-bold text-foreground">
               {loading ? '...' : health?.redis || 'Unknown'}
             </p>
-            <p className="text-xs text-slate-500 mt-2">Cache system</p>
+            <p className="text-xs text-muted-foreground mt-2">Cache system</p>
           </Card>
 
           <Card className="p-6">
-            <h3 className="text-sm font-medium text-slate-600 mb-2">
+            <h3 className="text-sm font-medium text-muted-foreground mb-2">
               Database Size
             </h3>
-            <p className="text-2xl font-bold text-slate-900">
+            <p className="text-2xl font-bold text-foreground">
               {loading ? '...' : health?.total_urls ?? 0}
             </p>
-            <p className="text-xs text-slate-500 mt-2">Stored URLs</p>
+            <p className="text-xs text-muted-foreground mt-2">Stored URLs</p>
           </Card>
         </div>
 
         {error && (
-          <div className="p-4 mb-8 bg-red-50 border border-red-200 rounded text-red-700">
+          <div className="p-4 mb-8 bg-muted border border-destructive rounded text-destructive">
             {error}
           </div>
         )}
 
         {/* URL Table Section */}
         <Card className="p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4 text-slate-900">
+          <h2 className="text-xl font-semibold mb-4 text-foreground">
             Recent URLs
           </h2>
           <URLTable entries={urls} loading={loading} error={urlsError} />
         </Card>
 
         {/* Performance Metrics */}
-        <Card className="p-6 bg-slate-50">
-          <h2 className="text-xl font-semibold mb-4 text-slate-900">
+        <Card className="p-6 bg-background">
+          <h2 className="text-xl font-semibold mb-4 text-foreground">
             Performance Metrics
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 bg-white rounded border border-slate-200">
-              <h3 className="text-sm font-medium text-slate-600">Avg Response Time</h3>
-              <p className="text-xl font-semibold text-slate-900 mt-2">Not measured here</p>
+            <div className="p-4 bg-card rounded border border-slate-200">
+              <h3 className="text-sm font-medium text-muted-foreground">Avg Response Time</h3>
+              <p className="text-xl font-semibold text-foreground mt-2">Not measured here</p>
             </div>
-            <div className="p-4 bg-white rounded border border-slate-200">
-              <h3 className="text-sm font-medium text-slate-600">API Uptime</h3>
-              <p className="text-xl font-semibold text-slate-900 mt-2">See local monitoring</p>
+            <div className="p-4 bg-card rounded border border-slate-200">
+              <h3 className="text-sm font-medium text-muted-foreground">API Uptime</h3>
+              <p className="text-xl font-semibold text-foreground mt-2">See local monitoring</p>
             </div>
           </div>
         </Card>

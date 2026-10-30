@@ -4,11 +4,11 @@ import ShortenForm from '../components/ShortenForm'
 
 export default function Home() {
   return (
-    <main className="p-8">
+    <main className="p-4 sm:p-8">
       <section className="max-w-4xl mx-auto">
         <header className="mb-6">
-          <h1 className="text-4xl font-bold">URL Shortener</h1>
-          <p className="text-slate-600 mt-2">An event-driven URL shortener that explores resilient redirects, asynchronous analytics and explainable abuse review.</p>
+          <h1 className="text-4xl font-bold">Small links. Clear signals.</h1>
+          <p className="text-muted-foreground mt-2">An event-driven URL shortener that explores resilient redirects, asynchronous analytics and explainable abuse review.</p>
         </header>
 
         <section aria-label="About this project" className="space-y-4 mb-8">
@@ -26,9 +26,9 @@ export default function Home() {
             <a className="underline" href="https://github.com/AndreasPr/Distributed-URL-Shortener/blob/master/docs/adr/README.md">ADRs</a>
             <span>Demo video: recording coming soon</span>
           </p>
-          <p className="border-l-4 border-amber-400 pl-4"><strong>Limits:</strong> the hosted demo runs on bundled data in your browser. Reloading resets changes; codes do not redirect. The real Kafka or Redis Streams, Redis and PostgreSQL stack runs locally with <code>make demo</code>. No live model, database or monitoring runs on this page.</p>
+          <p className="border-l-4 border-primary pl-4"><strong>Limits:</strong> the hosted demo runs on bundled data in your browser. Reloading resets changes; codes do not redirect. The real Kafka or Redis Streams, Redis and PostgreSQL stack runs locally with <code>make demo</code>. No live model, database or monitoring runs on this page.</p>
         </section>
-        <div className="bg-white shadow rounded p-6">
+        <div className="bg-card shadow rounded p-6">
           <ShortenForm />
         </div>
       </section>

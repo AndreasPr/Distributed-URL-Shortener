@@ -1,36 +1,24 @@
 'use client'
 
-import React, { useState } from 'react'
+import { createContext, useContext, useState } from 'react'
 import { apiClient, DEMO_MODE } from '../lib/api'
+import { Button } from './ui/button'
+import { Input } from './ui/input'
 
-export default function ApiKeySettings({ children }: { children: React.ReactNode }) {
-  const [draft, setDraft] = useState('')
+const KeyContext = createContext({ configured: false, apply: (_key: string) => {} })
+export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
   const [configured, setConfigured] = useState(false)
-  const [version, setVersion] = useState(0)
-
-  const apply = (key: string) => {
-    apiClient.setApiKey(key)
-    setConfigured(Boolean(key))
-    setDraft('')
-    setVersion(value => value + 1)
-  }
-
-  if (DEMO_MODE) return <>
-    <aside className="sticky top-0 z-50 bg-amber-100 border-b border-amber-300 p-3 text-center text-sm" aria-label="Demo mode">
-      Demo mode: sample data, nothing is sent to a server. Run it yourself with make demo.
-    </aside>{children}
-  </>
-  return <>
-    <form className="mx-auto max-w-6xl p-4 flex flex-wrap items-center gap-3"
-      onSubmit={event => { event.preventDefault(); apply(draft.trim()) }}>
-      <label htmlFor="api-key">API key</label>
-      <input id="api-key" type="password" autoComplete="off"
-        className="border rounded p-2" value={draft}
-        onChange={event => setDraft(event.target.value)} placeholder="Paste your API key" />
-      <button type="submit" className="border rounded p-2">Use key</button>
-      <button type="button" className="border rounded p-2" onClick={() => apply('')}>Forget key</button>
-      <span role="status">{configured ? 'Key set for this tab.' : 'Key required for links and analytics.'} Cleared on reload.</span>
-    </form>
-    <div key={version}>{children}</div>
-  </>
+  const apply = (key: string) => { apiClient.setApiKey(key); setConfigured(Boolean(key)) }
+  return <KeyContext.Provider value={{ configured, apply }}>{children}</KeyContext.Provider>
+}
+export default function ApiKeySettings() {
+  const [draft, setDraft] = useState('')
+  const { configured, apply } = useContext(KeyContext)
+  if (DEMO_MODE) return <p>No API key is needed for sample data. Real API keys stay in memory and are cleared on reload.</p>
+  return <form className="space-y-4" onSubmit={event => { event.preventDefault(); apply(draft.trim()); setDraft('') }}>
+    <label htmlFor="api-key" className="block text-sm font-medium">API key</label>
+    <Input id="api-key" type="password" autoComplete="off" value={draft} onChange={event => setDraft(event.target.value)} placeholder="Paste your API key" />
+    <div className="flex gap-3"><Button type="submit">Use key</Button><Button type="button" variant="outline" onClick={() => { apply(''); setDraft('') }}>Forget key</Button></div>
+    <p role="status" className="text-sm text-muted-foreground">{configured ? 'Key set for this tab.' : 'Key required for links and analytics.'} Cleared on reload.</p>
+  </form>
 }

@@ -13,24 +13,24 @@ export default function URLTable({
   error = null,
 }: URLTableProps) {
   if (loading) {
-    return <div className="text-slate-600">Loading recent URLs...</div>
+    return <div className="text-muted-foreground">Loading recent URLs...</div>
   }
 
   if (error) {
     return (
-      <div className="p-3 rounded border border-red-200 bg-red-50 text-red-700">
+      <div className="p-3 rounded border border-destructive bg-muted text-destructive">
         {error}
       </div>
     )
   }
 
   if (!entries.length) {
-    return <div className="text-slate-600">No URLs found yet.</div>
+    return <div className="text-muted-foreground">No URLs found yet.</div>
   }
 
   return (
     <div className="overflow-auto">
-      <table className="min-w-full bg-white">
+      <table className="min-w-full bg-card">
         <thead>
           <tr>
             <th className="px-4 py-2 text-left">Short Code</th>

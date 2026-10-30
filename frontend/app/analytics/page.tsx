@@ -68,13 +68,13 @@ export default function AnalyticsPage() {
   const chartData = generateChartData()
 
   return (
-    <main className="p-8">
+    <main className="p-4 sm:p-8">
       <section className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8 text-slate-900">Analytics</h1>
+        <h1 className="text-3xl font-bold mb-8 text-foreground">Analytics</h1>
 
         {/* Search Section */}
         <Card className="mb-8 p-6">
-          <h2 className="text-xl font-semibold mb-4 text-slate-900">
+          <h2 className="text-xl font-semibold mb-4 text-foreground">
             Look Up URL Analytics
           </h2>
           <form onSubmit={handleFetchAnalytics} className="flex gap-2">
@@ -92,7 +92,7 @@ export default function AnalyticsPage() {
           </form>
 
           {error && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-700">
+            <div className="mt-4 p-3 bg-muted border border-destructive rounded text-destructive">
               {error}
             </div>
           )}
@@ -102,25 +102,25 @@ export default function AnalyticsPage() {
         {analytics && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <Card className="p-6">
-              <h3 className="text-sm font-medium text-slate-600 mb-2">
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">
                 Short Code
               </h3>
-              <p className="text-2xl font-bold font-mono text-slate-900">
+              <p className="text-2xl font-bold font-mono text-foreground">
                 {analytics.short_code}
               </p>
             </Card>
 
             <Card className="p-6">
-              <h3 className="text-sm font-medium text-slate-600 mb-2">
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">
                 Total Clicks
               </h3>
-              <p className="text-2xl font-bold text-slate-900">
+              <p className="text-2xl font-bold text-foreground">
                 {analytics.total_clicks || 0}
               </p>
             </Card>
 
             <Card className="p-6">
-              <h3 className="text-sm font-medium text-slate-600 mb-2">
+              <h3 className="text-sm font-medium text-muted-foreground mb-2">
                 Status
               </h3>
               <p className="text-2xl font-bold text-green-600">{DEMO_MODE ? 'Sample history' : 'History available'}</p>
