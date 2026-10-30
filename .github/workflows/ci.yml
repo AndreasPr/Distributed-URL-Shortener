@@ -143,10 +143,9 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci --no-audit --no-fund
         working-directory: frontend
-      - name: Advisory frontend audit (non-blocking)
-        continue-on-error: true
+      - name: Blocking frontend audit (high and critical)
         working-directory: frontend
-        run: npm audit --json > npm-audit.json
+        run: npm run audit
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

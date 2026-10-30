@@ -94,3 +94,10 @@ def test_runtime_image_uses_allowlisted_sources_and_removes_build_tools():
     assert "--no-binary=psycopg2-binary" in dockerfile
     assert "libpq-dev" in dockerfile
     assert ".kilo" in (ROOT / ".dockerignore").read_text().splitlines()
+
+
+def test_frontend_audit_blocks_high_findings():
+    steps = load("ci.yml")["jobs"]["npm-audit"]["steps"]
+    audit = next(step for step in steps if step.get("run") == "npm run audit")
+    assert not audit.get("continue-on-error", False)
+    assert audit["working-directory"] == "frontend"

@@ -5,13 +5,15 @@ See [claims](claims.md) and the [final audit](final-audit.md) for evidence bound
 
 ## Blocking or material audit findings
 
-- **Frontend vulnerabilities:** npm audit reported 27 findings (2 critical, 19 high,
-  4 moderate, 2 low). Includes Next.js (critical), proxy-addr (critical), axios and other
-  transitive/development packages. Suggested fixes include major Next/eslint-config-next
-  changes and a shadcn dependency change. A dedicated dependency migration with browser,
-  build and regression testing is required; no forced broad upgrade was made in this audit.
-  Successful builds and the intentionally non-blocking CI npm report do not make this safe
-  for public production exposure. Run `cd frontend && npm audit` for current details.
+- **Frontend dependencies:** the 27-finding historical audit has been remediated by
+  the Next 16 / React 19 / Tailwind 4 migration. The dated
+  [before](frontend-audit-before.md) and [after](frontend-audit-after.md) reports
+  preserve the evidence. The current audit gate blocks high/critical findings with
+  no active exceptions. Zero reported findings is a point-in-time registry result,
+  not proof of security or of the version currently deployed on Vercel. Deploy the
+  reviewed commit and rerun CI/audit as advisories change. ESLint 9 is deprecated but
+  retained for the current Next lint plugins’ declared peer compatibility; TypeScript 6
+  is retained until typescript-eslint supports the TypeScript 7 compiler API.
 - **Local kind load gate:** the historical 2-drop failure and a fresh 1-drop reproduction
   had passing HTTP checks but insufficient preallocated k6 workers for short latency
   spikes. Preallocating the existing five-VU ceiling fixed the controlled reproduction;
