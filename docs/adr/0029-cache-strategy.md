@@ -1,8 +1,8 @@
-# ADR 0002: Bounded cache coordination and Redis failure isolation
+# ADR 0029: Bounded cache coordination and Redis failure isolation
 
 Status: Accepted (step 1.4)
 
-The requested filename is retained. This is separate from the earlier
+Renumbered from the duplicate 0002 cache record. This is separate from the earlier
 0002-local-configuration-and-image-pins.md and updates the cache portion of
 [ADR 0006](0006-url-validation-and-lifecycle.md).
 

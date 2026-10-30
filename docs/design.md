@@ -354,7 +354,7 @@ The request-side queue is bounded and not durable across API crashes. Publish at
 to 60; final local abandonment increments the drop counter, but a lost acknowledgement can
 still conceal broker acceptance. Strict chaos reconciliation intentionally detects ambiguity.
 DLQ inspection/replay is an operator CLI action; replay preserves idempotent effects and does
-not erase retained DLQ history. See [event ADR](adr/0003-event-bus.md).
+not erase retained DLQ history. See [event ADR](adr/0030-event-bus.md).
 
 ### Abuse review
 

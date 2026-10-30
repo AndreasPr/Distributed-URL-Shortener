@@ -67,7 +67,7 @@ if [[ "${RUN_K6:-false}" == true ]]; then
   LOAD_KEY_JSON=$(kubectl -n url-shortener exec deployment/api -- python -m app.cli keys create --name kind-load --scopes read write)
   API_KEY=$(printf '%s' "$LOAD_KEY_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin)["key"])')
   export API_KEY BASE_URL=http://127.0.0.1:18000 DURATION=30s
-  k6 run --summary-export "$RESULTS_DIR/k6-summary.json" scripts/smoke_load_test.js 2>&1 | tee "$RESULTS_DIR/k6.log"
+  k6 run --out "json=$RESULTS_DIR/k6-points.json" --summary-export "$RESULTS_DIR/k6-summary.json" scripts/smoke_load_test.js 2>&1 | tee "$RESULTS_DIR/k6.log"
   LOAD_KEY_ID=$(printf '%s' "$LOAD_KEY_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
   kubectl -n url-shortener exec deployment/api -- python -m app.cli keys revoke "$LOAD_KEY_ID"
   unset LOAD_KEY_JSON LOAD_KEY_ID

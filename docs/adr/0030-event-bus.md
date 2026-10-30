@@ -1,7 +1,6 @@
-# ADR 0003: Versioned analytics events over Kafka or Redis Streams
+# ADR 0030: Versioned analytics events over Kafka or Redis Streams
 
-Status: accepted for step 1.5. This requested filename is independent of the
-existing baseline ADR numbering; existing records are not renamed.
+Status: accepted for step 1.5. Renumbered from the duplicate 0003 event-bus record.
 
 ## Context
 

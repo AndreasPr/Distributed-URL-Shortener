@@ -12,14 +12,20 @@ See [claims](claims.md) and the [final audit](final-audit.md) for evidence bound
   build and regression testing is required; no forced broad upgrade was made in this audit.
   Successful builds and the intentionally non-blocking CI npm report do not make this safe
   for public production exposure. Run `cd frontend && npm audit` for current details.
-- **Local kind load gate:** this audit deployed successfully and passed HTTP/auth/rate-limit
-  smoke checks, but dropped 2 scheduled k6 iterations. p95 was 90.12ms and HTTP errors zero.
-  The strict gate correctly failed. Root cause is not established; repeat under documented
-  Docker CPU/RAM and generator conditions and investigate, without weakening the threshold.
-- **Docker Desktop integration setup:** default Testcontainers Ryuk setup failed before tests.
-  The documented `TESTCONTAINERS_RYUK_DISABLED=true` workaround passed all selected integration
-  tests, but removes crash-cleanup protection. Normal fixture cleanup remains; fix helper/socket
-  startup before relying on default local execution. Do not globally disable Ryuk in CI.
+- **Local kind load gate:** the historical 2-drop failure and a fresh 1-drop reproduction
+  had passing HTTP checks but insufficient preallocated k6 workers for short latency
+  spikes. Preallocating the existing five-VU ceiling fixed the controlled reproduction;
+  the full fixed kind gate passed (151 iterations, zero drops/errors, redirect p95 23.64ms).
+  Thresholds were not relaxed. The exact host/backend cause of the historical 830ms tail
+  remains unknown; this is not proof that tail latency or host contention is eliminated.
+  [Evidence and reproduction](loose-ends-verification.md). A hosted PR run for this commit
+  is still needed; the local workflow entrypoint was exercised completely.
+- **Docker Desktop integration setup:** the historical Ryuk socket failure did not recur.
+  Default Ryuk-enabled tests passed; the full gate using the new explicit Linux CI socket
+  settings passed 443 tests with 93.67% coverage. CI keeps crash cleanup enabled.
+  [Socket diagnosis and fallback](testing.md#docker-desktop-cleanup-helper-diagnosis)
+  explains environment-specific paths. The exact historical host failure is unproven;
+  disabling Ryuk remains a last-resort local fallback, not the CI configuration.
 - **Local secrets:** ignored `.env` contains GEMINI_API_KEY; ignored `mcp-server/.env` contains
   GITHUB_TOKEN and SLACK_WEBHOOK_URL. Scanner findings do not prove public exposure. Review
   necessity/scopes and rotate/revoke if exposed or no longer needed. Never commit them.

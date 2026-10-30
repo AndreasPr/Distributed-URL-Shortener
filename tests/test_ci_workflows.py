@@ -64,6 +64,12 @@ def test_ci_checks_are_independent_and_actions_are_immutable():
         s.get("run", "").strip() == "make test-integration"
         for s in workflow["jobs"]["integration"]["steps"]
     )
+    integration_env = workflow["jobs"]["integration"]["env"]
+    assert (
+        integration_env["TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE"]
+        == "/var/run/docker.sock"
+    )
+    assert integration_env["TESTCONTAINERS_RYUK_DISABLED"] == "false"
     for path in (ROOT / ".github/workflows").glob("*.yml"):
         text = path.read_text()
         assert "GHCR_TOKEN" not in text

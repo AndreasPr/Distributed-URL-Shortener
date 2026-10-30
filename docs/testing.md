@@ -66,27 +66,51 @@ meaningful tests for worker CLI startup/signal handling and optional metrics-ser
 lifecycle, then record the new measured baseline. Do not lower it to conceal a
 regression. Frontend and MCP have separate checks and are not in this percentage.
 
-## Docker Desktop cleanup-helper failure
+## Docker Desktop cleanup-helper diagnosis
 
-On the verification machine, the default invocation failed before PostgreSQL
-startup: Testcontainers' Ryuk 0.8.1 exited with `Cannot connect to the Docker daemon
-at unix:///var/run/docker.sock`. Docker itself and a standalone helper worked, so
-this is a locally observed helper/socket startup problem, not a passing test run.
-A privileged-helper diagnostic also failed; its precise Docker Desktop cause is
-not established. The committed defaults keep Ryuk enabled.
+The earlier audit failed before PostgreSQL startup: Ryuk 0.8.1 logged
+`Cannot connect to the Docker daemon at unix:///var/run/docker.sock`. That identifies
+helper-to-daemon access, not an application assertion failure. Historical logs do
+not establish whether the host socket mapping or daemon readiness caused it.
 
-For this diagnosed local failure only, the verification commands used:
+On 2026-10-29 the default configuration was rerun on Docker Desktop Engine 27.4.0
+with Ryuk enabled, unprivileged and using the discovered host socket
+`~/.docker/run/docker.sock`: 12 targeted integration tests passed, followed by the
+full combined gate (442 passed, 93.67% coverage). No disabled-helper workaround was
+set. An independent explicit-socket probe printed `Docker daemon is available!`
+and `Started!`, and Redis ping returned True. See [verification](loose-ends-verification.md).
+
+Ubuntu CI now explicitly sets:
+
+```yaml
+TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE: /var/run/docker.sock
+TESTCONTAINERS_RYUK_DISABLED: 'false'
+```
+
+This pins the daemon-side mount source for the helper and retains crash cleanup.
+It does not change the Docker SDK connection used by pytest. On a local Docker
+Desktop host with the historical error, first confirm Docker is running, then try:
+
+```sh
+TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock make test-integration
+```
+
+Rootless/remote Docker can require a different daemon-visible socket path; do not
+blindly use the Linux CI value there. The current defaults work on the verification
+host, so no host-wide environment or Docker setting was changed.
+
+Only if socket access still cannot be restored, the previous **local-only** fallback is:
 
 ```sh
 TESTCONTAINERS_RYUK_DISABLED=true make test-integration
-TESTCONTAINERS_RYUK_DISABLED=true make test-integration-slow
 ```
 
-Normal fixture teardown still removes these containers and their anonymous
-volumes. Disabling Ryuk removes crash recovery: after an interrupted invocation,
-inspect `docker ps -a --filter label=org.testcontainers=true` and remove only the
-containers belonging to that test session. Never use a blanket Docker prune or
-stop the developer's Compose stack. Prefer fixing Docker Desktop socket access
-and returning to the default command. CI does not set this override.
+Normal fixture teardown removes these containers and anonymous volumes, but disabling
+Ryuk loses crash cleanup. After an interrupted invocation inspect
+`docker ps -a --filter label=org.testcontainers=true` and remove only resources for
+that test session. Never blanket-prune Docker or stop the developer's stack.
+Do not add the disabled-helper fallback to CI.
 
-See [integration-verification.md](integration-verification.md) for actual outputs.
+The optional `tests/test_k6_smoke.py` unit regression needs a local k6 binary; otherwise
+it is explicitly skipped. It uses a loopback fake HTTP server, not Docker, and checks
+that brief stalls pass while 429 responses and sustained latency still fail the gate.

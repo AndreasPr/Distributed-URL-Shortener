@@ -1,10 +1,8 @@
-# ADR 0001: Random short-code generation
+# ADR 0028: Random short-code generation
 
 Status: Accepted (step 1.2)
 
-This filename follows the requested task naming. The earlier
-[0001-free-local-baseline.md](0001-free-local-baseline.md) is a separate historical
-ADR and is not superseded or renumbered.
+Renumbered from the duplicate 0001 short-code record; the baseline ADR remains 0001.
 
 ## Previous behavior
 
