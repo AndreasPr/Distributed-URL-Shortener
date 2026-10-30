@@ -79,7 +79,7 @@ cd ..
 make frontend-check
 ```
 
-The checked-in `.eslintrc.json` extends `next/core-web-vitals`; `eslint-config-next` is pinned to the existing Next.js 14.2.35 release. `npm run lint` is noninteractive, and no rules were disabled. npm ci uses package-lock.json and does not update it. tsc uses `--incremental false` to avoid creating build information. Next regenerates the ignored next-env.d.ts automatically.
+The checked-in `eslint.config.mjs` uses the Next 16 core-web-vitals flat configuration; `npm run lint` invokes ESLint directly because Next 16 removed `next lint`. Next and eslint-config-next are pinned together. Tailwind 4 uses `@tailwindcss/postcss` and CSS theme tokens. TypeScript strict mode remains enabled; TypeScript 6 is retained for ESLint compiler-API compatibility. `npm run lint` is noninteractive, and no rules were disabled. npm ci uses package-lock.json and does not update it. tsc uses `--incremental false` to avoid creating build information. Next regenerates the ignored next-env.d.ts automatically.
 
 Local verification used Node 23.9.0, which produced an engine warning for eslint-visitor-keys (it requires Node ^20.19, ^22.13, or >=24). The frontend gate still exited zero. Use Node 22.13+ to satisfy that dependency. npm also reports existing ecosystem deprecations and audit findings; this tooling change does not claim to remediate them or upgrade the application's framework. The install in frontend-check suppresses audit/funding network reports; dependency security review is separate from lint/type checking.
 
@@ -298,3 +298,16 @@ Run `make test` for fast units and `make test-integration` for the combined
 unit + disposable PostgreSQL/Redis coverage gate (Docker required).
 `make test-integration-slow` adds optional Kafka. See [testing.md](testing.md)
 for isolation, measured coverage, and Docker Desktop troubleshooting.
+
+
+Frontend dependency audit: `cd frontend && npm run audit`. This runs
+`npm audit --audit-level=high --json`, saves ignored `npm-audit.json`, and fails on
+unexcepted high/critical findings or registry errors. The committed
+`frontend/audit-exceptions.json` is empty. An exception must name an exact package,
+affected `range` from the audit, the complete `advisories` URL set, a nonempty
+`reason`, and a future `expires` date (YYYY-MM-DD). Review reasons and expiry in a PR;
+never use wildcard package or severity suppression. Expired/invalid entries fail
+closed. Low/moderate findings remain in the artifact but do not fail this gate.
+Use Node 22.23.4 (`nvm use` in frontend); project `.npmrc` enables peer resolution,
+overriding any host-wide legacy-peer-deps setting. Recharts still requires react-is
+as a transitive peer; it is no longer an app-level dependency.

@@ -49,8 +49,11 @@ the authoritative gate regardless of Codecov availability.
 ## Security gates
 
 Gitleaks scans the full Git history with redacted output. pip-audit scans backend
-and MCP runtime locks and fails on findings. npm audit produces an advisory JSON
-artifact; npm install, lint, type checks, tests and production build still block.
+and MCP runtime locks and fails on findings. npm audit now blocks high/critical findings through `npm run audit`, which runs
+`npm audit --audit-level=high --json` and retains its JSON artifact. Registry failures
+also fail closed. The empty `frontend/audit-exceptions.json` supports only exact,
+reasoned, expiring exceptions; see [developer policy](developer.md). Installation,
+lint, strict type checks, tests and both production builds also block.
 Trivy scans the actual built image and fails on **fixable HIGH/CRITICAL** findings.
 `.trivyignore` currently has no exceptions. Any future exception must name the exact
 CVE/package, evidence, owner, tracking issue and expiry; broad suppression is not

@@ -60,4 +60,10 @@ test('landing layout fits a mobile viewport', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'URL Shortener', exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy()
+  const colors = await page.getByRole('button', { name: 'Shorten', exact: true }).evaluate(el => {
+    const style = getComputedStyle(el)
+    return { background: style.backgroundColor, foreground: style.color }
+  })
+  expect(colors.background).not.toBe('rgba(0, 0, 0, 0)')
+  expect(colors.background).not.toBe(colors.foreground)
 })

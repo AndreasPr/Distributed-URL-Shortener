@@ -7,6 +7,12 @@ updates:
     open-pull-requests-limit: 5
   - package-ecosystem: npm
     directory: /frontend
+    open-pull-requests-limit: 5
+    groups:
+      next-and-react:
+        patterns: ["next", "eslint-config-next", "react", "react-dom", "@types/react", "@types/react-dom"]
+      tailwind:
+        patterns: ["tailwindcss", "@tailwindcss/*"]
     schedule:
       interval: weekly
   - package-ecosystem: docker
