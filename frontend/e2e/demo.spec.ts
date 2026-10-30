@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 
 test('metadata stays in head and assets load', async ({ page }) => {
   await page.goto('/')
-  await expect(page).toHaveTitle('Distributed URL Shortener | Interactive Demo')
+  await expect(page).toHaveTitle('Relaymark | Links with clarity')
   expect(await page.locator('head').evaluate(el => getComputedStyle(el).display)).toBe('none')
   await expect(page.locator('head meta[property="og:image"]')).toHaveAttribute('content', /opengraph-image/)
   expect((await page.request.get('/icon.svg')).ok()).toBeTruthy()
@@ -26,7 +26,7 @@ test('shorten, copy, navigate and reload without API traffic or persistence', as
   await page.getByRole('button', { name: 'Copy code' }).click()
   await expect(page.getByRole('button', { name: 'Copied!' })).toBeVisible()
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('local-demo')
-  await page.getByRole('link', { name: 'Dashboard', exact: true }).click()
+  await page.getByRole('link', { name: 'Links', exact: true }).click()
   await expect(page.getByText('local-demo', { exact: true })).toBeVisible()
   await expect(page.locator('tbody tr')).toHaveCount(31)
   expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0])
@@ -42,8 +42,8 @@ test('allow and block mutate only the sample queue; analytics and health are sam
   await expect(page.getByRole('button', { name: 'Block', exact: true })).toHaveCount(2)
   await page.getByRole('button', { name: 'Block', exact: true }).first().click()
   await expect(page.getByRole('button', { name: 'Allow', exact: true })).toHaveCount(1)
-  await page.getByRole('link', { name: 'Dashboard', exact: true }).click()
-  await page.getByRole('link', { name: 'Flagged', exact: true }).click()
+  await page.getByRole('link', { name: 'Links', exact: true }).click()
+  await page.getByRole('link', { name: 'Review queue', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Allow', exact: true })).toHaveCount(1)
   await page.reload()
   await expect(page.getByRole('button', { name: 'Allow', exact: true })).toHaveCount(3)
@@ -58,7 +58,7 @@ test('allow and block mutate only the sample queue; analytics and health are sam
 test('landing layout fits a mobile viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'URL Shortener', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Small links. Clear signals.', exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy()
   const colors = await page.getByRole('button', { name: 'Shorten', exact: true }).evaluate(el => {
     const style = getComputedStyle(el)

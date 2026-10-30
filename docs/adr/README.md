@@ -49,3 +49,5 @@ summaries; original detailed reasoning and evidence are retained.
 Current overview: [engineering design](../design.md).
 
 | [0033-supported-frontend-and-blocking-audit.md](0033-supported-frontend-and-blocking-audit.md) | 0033: Supported frontend stack and blocking dependency audit |
+
+- [0034: Frontend design system](0034-frontend-design-system.md)

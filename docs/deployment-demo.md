@@ -24,7 +24,7 @@ navigates to GitHub. No analytics/LLM/backend service is contacted by demo opera
    commit (Deployments → Redeploy, without using the old build cache if troubleshooting).
 6. Confirm the deployment commit SHA and successful build log. Open the public URL in
    a fresh tab: expect the amber demo banner, no API-key input, and the new page title.
-7. Create a code, copy it, visit Dashboard, review a flagged record, then reload:
+7. Create a code, copy it, visit Links, review a flagged record, then reload:
    all fixtures should reset. Browser Network must show no backend calls. Verify the
    icon and `/opengraph-image`, and inspect the title/description/og:image in `<head>`.
 

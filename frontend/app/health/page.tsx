@@ -26,26 +26,26 @@ export default function HealthPage() {
 
   const statusColor =
     (health?.status === 'ok' || health?.status === 'sample healthy')
-      ? 'text-green-700'
+      ? 'text-primary'
       : health?.status === 'degraded'
-      ? 'text-amber-700'
-      : 'text-red-700'
+      ? 'text-muted-foreground'
+      : 'text-destructive'
 
   return (
-    <main className="p-8">
+    <main className="p-4 sm:p-8">
       <section className="max-w-4xl mx-auto">
-        <h2 className="text-2xl font-semibold mb-4 text-slate-900">System Health</h2>
+        <h1 className="text-2xl font-semibold mb-4 text-foreground">System Health</h1>
         <Card className="shadow rounded p-6">
-          {loading && <div className="text-slate-600">Loading...</div>}
+          {loading && <div className="text-muted-foreground">Loading...</div>}
 
           {error && (
-            <div className="p-3 rounded border border-red-200 bg-red-50 text-red-700">
+            <div className="p-3 rounded border border-destructive bg-muted text-destructive">
               {error}
             </div>
           )}
 
           {!loading && !error && health && (
-            <div className="space-y-2 text-slate-800">
+            <div className="space-y-2 text-foreground">
               <div>
                 API: <span className={statusColor}>{health.status}</span>
               </div>
