@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import func
+from sqlalchemy import and_, func, true
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -32,6 +32,9 @@ class URLRepository:
         custom_alias: str | None = None,
         expires_at: datetime | None = None,
         created_by: str | None = None,
+        *,
+        workspace_id: str,
+        created_by_user_id: str | None = None,
     ) -> str:
         """Reserve a candidate atomically; the caller owns the transaction."""
         for _ in range(MAX_CODE_ATTEMPTS):
@@ -47,6 +50,8 @@ class URLRepository:
                     short_code=code,
                     expires_at=expires_at,
                     created_by=created_by,
+                    workspace_id=workspace_id,
+                    created_by_user_id=created_by_user_id,
                 )
                 .on_conflict_do_nothing(index_elements=[URL.short_code])
                 .returning(URL.short_code)
@@ -57,16 +62,16 @@ class URLRepository:
                 raise AliasTakenError("Alias is already taken")
         raise CodeGenerationExhausted("Short-code allocation attempts exhausted")
 
-    def get_by_code(self, db: Session, code: str):
+    def get_by_code(self, db: Session, code: str, *, workspace_id: str):
         return (
             db.query(URL)
             .populate_existing()
-            .filter(URL.short_code == code)
+            .filter(URL.short_code == code, URL.workspace_id == workspace_id)
             .with_for_update(read=True)
             .first()
         )
 
-    def get_lifecycle(self, db: Session, code: str):
+    def get_public_lifecycle(self, db: Session, code: str):
         """Read only mutable lifecycle fields, holding the same deletion lock."""
         row = (
             db.query(URL.deleted_at, URL.expires_at)
@@ -76,10 +81,31 @@ class URLRepository:
         )
         return None if row is None else (row.deleted_at, row.expires_at)
 
-    def soft_delete(self, db: Session, code: str) -> bool:
+    def soft_delete(
+        self,
+        db: Session,
+        code: str,
+        *,
+        workspace_id: str,
+        user_id: str | None = None,
+        api_key_id: int | None = None,
+    ) -> bool:
         changed = (
             db.query(URL)
-            .filter(URL.short_code == code, URL.deleted_at.is_(None))
+            .filter(
+                URL.short_code == code,
+                URL.deleted_at.is_(None),
+                URL.workspace_id == workspace_id,
+                (
+                    URL.created_by_user_id == user_id
+                    if user_id is not None
+                    else (
+                        URL.created_by == str(api_key_id)
+                        if api_key_id is not None
+                        else true()
+                    )
+                ),
+            )
             .update(
                 {URL.deleted_at: datetime.now(timezone.utc).replace(tzinfo=None)},
                 synchronize_session=False,
@@ -87,7 +113,7 @@ class URLRepository:
         )
         return bool(changed)
 
-    def list_recent(self, db: Session, limit: int = 20):
+    def list_recent(self, db: Session, limit: int = 20, *, workspace_id: str):
         rows = (
             db.query(
                 URL.short_code,
@@ -95,8 +121,14 @@ class URLRepository:
                 URL.created_at,
                 func.count(Analytics.id).label("click_count"),
             )
-            .outerjoin(Analytics, URL.short_code == Analytics.short_code)
-            .filter(URL.deleted_at.is_(None))
+            .outerjoin(
+                Analytics,
+                and_(
+                    URL.short_code == Analytics.short_code,
+                    Analytics.workspace_id == workspace_id,
+                ),
+            )
+            .filter(URL.deleted_at.is_(None), URL.workspace_id == workspace_id)
             .group_by(URL.id)
             .order_by(URL.created_at.desc())
             .limit(limit)
@@ -112,3 +144,13 @@ class URLRepository:
             }
             for row in rows
         ]
+
+    def get_public_by_code(self, db: Session, code: str):
+        """Public redirect / trusted worker resolver; never use for tenant endpoints."""
+        return (
+            db.query(URL)
+            .populate_existing()
+            .filter(URL.short_code == code)
+            .with_for_update(read=True)
+            .first()
+        )

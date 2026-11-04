@@ -9,6 +9,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.models.api_key import APIKey
+from app.models.identity import DEFAULT_WORKSPACE_ID
 
 SCOPES = {"read", "write", "admin"}
 
@@ -21,7 +22,14 @@ def hash_key(raw: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
-def create_key(db: Session, name: str, scopes: list[str]) -> tuple[APIKey, str]:
+def create_key(
+    db: Session,
+    name: str,
+    scopes: list[str],
+    *,
+    workspace_id: str = DEFAULT_WORKSPACE_ID,
+    created_by_user_id: str | None = None,
+) -> tuple[APIKey, str]:
     if not name.strip() or len(name) > 100:
         raise ValueError("Key name must contain 1–100 characters")
     if not scopes or not set(scopes) <= SCOPES:
@@ -29,6 +37,8 @@ def create_key(db: Session, name: str, scopes: list[str]) -> tuple[APIKey, str]:
     raw = secrets.token_urlsafe(32)
     key = APIKey(
         name=name.strip(),
+        workspace_id=workspace_id,
+        created_by_user_id=created_by_user_id,
         key_hash=hash_key(raw),
         prefix=raw[:8],
         scopes=sorted(set(scopes)),
@@ -58,7 +68,7 @@ def authenticate(db: Session, raw: str) -> APIKey | None:
     return key if changed is not None else None
 
 
-def list_keys(db: Session) -> list[dict]:
+def list_keys(db: Session, *, workspace_id: str = DEFAULT_WORKSPACE_ID) -> list[dict]:
     return [
         {
             "id": key.id,
@@ -69,12 +79,20 @@ def list_keys(db: Session) -> list[dict]:
             "revoked_at": key.revoked_at.isoformat() if key.revoked_at else None,
             "last_used_at": key.last_used_at.isoformat() if key.last_used_at else None,
         }
-        for key in db.scalars(select(APIKey).order_by(APIKey.id))
+        for key in db.scalars(
+            select(APIKey)
+            .where(APIKey.workspace_id == workspace_id)
+            .order_by(APIKey.id)
+        )
     ]
 
 
-def revoke_key(db: Session, key_id: int) -> bool:
-    key = db.get(APIKey, key_id)
+def revoke_key(
+    db: Session, key_id: int, *, workspace_id: str = DEFAULT_WORKSPACE_ID
+) -> bool:
+    key = db.scalar(
+        select(APIKey).where(APIKey.id == key_id, APIKey.workspace_id == workspace_id)
+    )
     if key is None:
         return False
     if key.revoked_at is None:

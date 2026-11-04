@@ -16,8 +16,10 @@ from fastapi.testclient import TestClient
 
 import app.api.routes as routes
 import app.services.activity_signals as activity
-from app.api.auth import require_admin, require_read, require_write
+from app.api.auth import require_admin, require_read, require_write, require_edit, require_analytics, require_keys
 from app.db.database import get_db
+from app.api.principal import Principal
+from app.models.identity import DEFAULT_WORKSPACE_ID
 from app.models.analytics import Analytics
 from app.models.url import URL
 from app.models.url_verdict import URLVerdict
@@ -32,8 +34,8 @@ def client(db_session, monkeypatch):
     application = FastAPI()
     application.include_router(routes.router)
     application.dependency_overrides[get_db] = lambda: db_session
-    for dep in (require_admin, require_read, require_write):
-        application.dependency_overrides[dep] = lambda: SimpleNamespace(id=1)
+    for dep in (require_admin, require_read, require_write, require_edit, require_analytics, require_keys):
+        application.dependency_overrides[dep] = lambda: Principal(api_key_id=1, workspace_id=DEFAULT_WORKSPACE_ID, role="admin", scopes=frozenset({"admin"}), auth_method="api_key")
     monkeypatch.setattr(activity.time, "time", lambda: 1800000000)
     monkeypatch.setattr(activity.cache, "read_cache", lambda fn: [b"2"] + [None] * 59)
     return TestClient(application)
@@ -107,6 +109,9 @@ def test_activity_partial_failure(client, db_session, monkeypatch):
 
 def test_signal_code_isolation_and_window(client, db_session):
     seed(db_session)
+    assert client.get("/admin/activity/other").status_code == 404
+    db_session.add(URL(short_code="other", long_url="https://example.com"))
+    db_session.commit()
     body = client.get("/admin/activity/other").json()
     assert body["click_count"] == 0
     assert client.get("/admin/activity/fixture?window_minutes=61").status_code == 422

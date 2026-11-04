@@ -43,7 +43,7 @@ def test_migrations_empty_postgres_matches_models(pg_engine):
         )
         assert compare_metadata(context, Base.metadata) == []
         assert (
-            connection.scalar(text("SELECT version_num FROM alembic_version")) == "0005"
+            connection.scalar(text("SELECT version_num FROM alembic_version")) == "0006"
         )
         assert set(Base.metadata.tables) == {
             "urls",
@@ -51,6 +51,10 @@ def test_migrations_empty_postgres_matches_models(pg_engine):
             "api_keys",
             "url_verdicts",
             "abuse_outbox",
+            "users",
+            "workspaces",
+            "workspace_members",
+            "workspace_invites",
         }
 
 

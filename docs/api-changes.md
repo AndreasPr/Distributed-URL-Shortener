@@ -121,3 +121,19 @@ See [security.md](security.md) for scopes, headers, proxy trust and deployment s
   Partial source failures have null values and `failed` status in the 200 body.
 - Both endpoints use existing 401 missing/invalid key and 403 insufficient-scope
   behavior. Existing endpoint status codes are unchanged.
+
+## Step 15.1 — workspace boundaries
+
+- Successful existing response shapes and public redirects remain unchanged.
+- `/urls`, analytics, lifecycle/status previews, `/admin/flagged`, review, activity,
+  key listing and revocation now use the authenticated key's workspace.
+- A missing or cross-workspace `/admin/activity/{code}` now returns 404 instead of
+  a zero-count response. Other cross-tenant lookups/mutations return 404 as well.
+- Write/member keys can delete only links they created (other or unowned links
+  return 404); workspace admins retain management of all workspace links.
+- New `/me`, `/workspaces`, workspace member routes and `/api-keys` are documented
+  in [security](security.md). New workspace/key/invite creation returns 201;
+  duplicate workspace slugs/invites and last-owner removal/demotion return 409.
+- Keys cannot obtain owner permissions. User-token authentication is step 15.3;
+  owner mutations are currently unavailable to API-key callers (403). HTTP key
+  creation/list/revoke is available to workspace admins now.

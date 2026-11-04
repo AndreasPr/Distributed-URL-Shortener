@@ -3,10 +3,11 @@ from datetime import datetime
 from sqlalchemy import JSON, TIMESTAMP, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.models.tenant import TenantRecord
 from app.models.url import Base
 
 
-class APIKey(Base):
+class APIKey(TenantRecord, Base):
     __tablename__ = "api_keys"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

@@ -1,14 +1,13 @@
 from datetime import datetime
 
 from sqlalchemy import TIMESTAMP, Integer, String, Text, func
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.models.base import Base
+from app.models.tenant import TenantRecord
 
 
-class Base(DeclarativeBase):
-    pass
-
-
-class URL(Base):
+class URL(TenantRecord, Base):
     __tablename__ = "urls"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

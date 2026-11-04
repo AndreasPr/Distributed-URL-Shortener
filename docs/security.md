@@ -1,15 +1,88 @@
 # API keys and rate limits
 
-The API is a shared workspace, not a multi-tenant service. API keys authorize
-operations; they do not currently restrict access to the URLs created by that key.
-Each new URL records its creator's key ID as a string in `urls.created_by`. Legacy
-URLs retain NULL ownership. Read keys can view all active URLs and their analytics;
-write keys can create and soft-delete any URL. Admin implies both read and write.
+The API now isolates tenant data by workspace. API keys bind to one workspace;
+clients cannot select a different workspace by sending an ID in a header or body.
+Migration `0006` backfills all existing URLs, keys, analytics, verdicts and outbox
+records into the `legacy` workspace (`00000000-0000-0000-0000-000000000001`).
+Existing key secrets and globally unique short codes remain valid. Historical
+`created_by_user_id` stays NULL: a key ID is not evidence of a human identity.
+
+## Principals and permissions
+
+`app/api/principal.py` defines one immutable Principal and a permission table.
+`app/api/auth.py:require_permission` is the shared dependency for permission checks
+and write rate limiting. API-key authentication currently sets `api_key_id`, not
+`user_id`: read maps to viewer, write to member, admin to admin. Permissions also
+require the corresponding key scope; a write-only key does not gain read access.
+
+| Role | Permissions (cumulative) |
+| --- | --- |
+| viewer | Read links, lifecycle/status previews, analytics and workspace metadata |
+| member | Create links; modify/delete own links only |
+| admin | Manage all links and keys in the workspace, abuse review and activity |
+| owner | Manage members, create workspaces; billing and workspace deletion are reserved permissions, not implemented endpoints |
+
+Keys cannot become owner or platform administrator by requesting scopes. New
+self-service `GET/POST /api-keys` and `DELETE /api-keys/{id}` require workspace
+key-management permission (admin/owner); legacy `/admin/keys` aliases remain.
+POST accepts `name` and `scopes` and returns the secret once. Listings exclude it
+and its hash. A key from workspace A cannot list or revoke a key from B.
+
+Cross-workspace resource reads and authorized mutations return **404**, as do
+member attempts to delete another member's links. A role/scope that cannot perform
+the operation at all returns **403**, independent of whether the resource exists.
+Global key-hash lookup is the authentication bootstrap, not a tenant listing.
+Public redirects resolve globally unique codes; health retains a global aggregate
+URL count. Neither is a private listing. Worker event persistence derives workspace
+from the stored URL, never a tenant ID supplied in event JSON. Tenant repositories
+require explicit workspace arguments; the two named public redirect lookups and
+trusted click-ingestion entry point are deliberate exceptions tested separately.
+
+## Supabase identity boundary (step 15.3)
+
+`users.id` is the future verified Supabase JWT `sub` UUID, with email,
+email_verified, display_name, avatar_url, created_at, last_login_at, suspended_at,
+and deleted_at. There are no password columns, generated user identities, JWT
+verification, Supabase calls or credentials in this step. The extension point is
+`get_principal`: step 15.3 must verify a JWT and membership before producing a user
+Principal. Do not replace it with client-supplied user IDs, roles or workspace IDs.
+`platform_admin` defaults false and is reserved for a trusted future identity
+source; existing review endpoints are workspace-only, not a global queue.
+
+`GET /me` exposes safe principal metadata. `GET /workspaces` lists the key's single
+workspace. `GET /workspaces/{id}/members` shows scoped membership and pending
+invites. `POST /workspaces`, invitation creation, member role PATCH and member
+DELETE have working authorization/persistence paths tested with a trusted user
+Principal override; API-key callers cannot obtain owner permissions, so owner
+mutations await user-token authentication in 15.3. No public user provisioning or
+invite acceptance endpoint exists yet. Invitations are normalized pending rows;
+no email is sent and no membership is granted. Both member item paths and the
+collection PATCH/DELETE form are supported (DELETE collection takes `user_id` as
+a query parameter). A workspace row lock serializes owner changes, including
+changes to different owners; removing or demoting the final owner returns **409**.
+
+## PostgreSQL RLS deployment boundary
+
+Migration `0006` enables RLS with **zero policies on every application table and
+alembic_version**. This is preparation, not a claim that the current server is
+isolated by RLS: PostgreSQL table owners/superusers bypass non-forced RLS. The
+current migration/API deployment uses such a trusted database role and enforces
+workspace isolation in application queries. A non-owner role without BYPASSRLS
+sees no rows and cannot insert until policies are supplied. Real PostgreSQL tests
+prove this default-deny behavior. Do not switch the running API to an unprivileged
+role before 15.3 supplies the verified context, policies and role tests. No policy
+or FORCE ROW LEVEL SECURITY is silently installed here.
+
+Upgrade before starting the new application. Downgrading to `0005` retains link,
+key, analytics and verdict data but drops identity/workspace/member/invite records
+and tenant attribution; it disables RLS on surviving tables and must not be used
+as a routine rollback once multiple tenants exist. Back up first. Plan limits are
+step 15.2; the `plan='free'` column does not enforce quotas.
 
 ## Provisioning and revocation
 
-Run migration `0004` (`alembic upgrade head`) before starting the new API. Compose
-runs it through the migration service. Key management is a local operator CLI,
+Run migration `0006` (`alembic upgrade head`) before starting the new API. Compose
+runs it through the migration service. Key management includes a local operator CLI,
 trusted because it has direct database access; it does not require an API key to
 bootstrap. Never expose shell/database access to untrusted clients.
 
@@ -29,7 +102,8 @@ Creation prints JSON containing the full key **once**, after committing its reco
 Save it privately or paste it directly into the frontend's API-key field/Swagger
 Authorize dialog. It cannot be recovered later: replace a lost key by creating a
 new key and revoking the old one. `keys create --name operator --scopes admin`
-creates an administrative key. Default scopes are read and write. Revoke by ID,
+creates an administrative key. Add `--workspace <uuid>` to create/list/revoke
+commands for a non-legacy workspace; omission deliberately targets legacy. Default scopes are read and write. Revoke by ID,
 not the display prefix. Revocation is idempotent; unknown IDs are reported as errors.
 Do not commit keys, put them in URLs, or paste creation output into issue reports.
 
@@ -69,17 +143,14 @@ its APIKey security scheme. Use HTTPS outside local development.
 Missing, unknown, or revoked keys return **401** with a generic error and
 `WWW-Authenticate: APIKey`. Valid keys lacking the required scope return **403**.
 Write does not implicitly include read. Admin includes both and is also rate-limited
-on mutations. Key creation is CLI-only; there is no HTTP key-creation endpoint.
+on mutations. HTTP key creation is available through `POST /api-keys` for workspace admins.
 Successful existing API response shapes remain unchanged.
 
 Listing URLs and viewing click analytics were previously public. They now require
 read access because destinations and usage data should not be disclosed to every
 anonymous caller. This also means old scripts must supply a read/write key. The
-current k6 scripts predate authentication and need header/expectation updates before
-reuse; their historical spoofed-IP approach no longer creates separate buckets.
-MCP uses direct database access rather than these HTTP routes; its legacy
-sliding-window signal reader is not token-bucket history and must not be treated as
-an accurate rate-limit abuse signal. Redesign of that pipeline remains deferred.
+k6 scripts supply keys, and the MCP server calls authenticated HTTP endpoints using
+its configured key; both inherit that key's workspace boundary.
 
 ## Token buckets
 

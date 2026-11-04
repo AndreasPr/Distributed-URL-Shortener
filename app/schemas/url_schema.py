@@ -18,6 +18,9 @@ RESERVED_CODES = frozenset(
         "livez",
         "redoc",
         "openapi",
+        "me",
+        "workspaces",
+        "api-keys",
     }
 )
 

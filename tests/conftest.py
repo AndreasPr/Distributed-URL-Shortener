@@ -30,6 +30,9 @@ def db_session():
     Base.metadata.create_all(bind=engine)
     SessionLocal = sessionmaker(bind=engine)
     session = SessionLocal()
+    from app.models.identity import Workspace, DEFAULT_WORKSPACE_ID
+    session.add(Workspace(id=DEFAULT_WORKSPACE_ID, name="Legacy workspace", slug="legacy"))
+    session.commit()
 
     try:
         yield session

@@ -4,13 +4,14 @@ import argparse
 import base64
 import json
 import time
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from app.core.config import settings
 from app.db.database import SessionLocal
 from app.events import create_event_bus
 from app.events.base import EventBus
 from app.events.models import ClickEvent, DeadLetter
+from app.models.identity import DEFAULT_WORKSPACE_ID
 from app.services.api_keys import create_key, list_keys, revoke_key
 
 
@@ -71,16 +72,22 @@ def main() -> None:
         choices=["read", "write", "admin"],
         default=["read", "write"],
     )
-    actions.add_parser("list")
+    listing = actions.add_parser("list")
     revoke = actions.add_parser("revoke")
     revoke.add_argument("id", type=int)
+    for key_command in (create, listing, revoke):
+        key_command.add_argument(
+            "--workspace", type=UUID, default=UUID(DEFAULT_WORKSPACE_ID)
+        )
     args = parser.parse_args()
     if args.command == "keys":
         if SessionLocal is None:
             raise RuntimeError("Database not configured")
         with SessionLocal() as db:
             if args.action == "create":
-                key, raw = create_key(db, args.name, args.scopes)
+                key, raw = create_key(
+                    db, args.name, args.scopes, workspace_id=str(args.workspace)
+                )
                 print(
                     json.dumps(
                         {
@@ -93,8 +100,8 @@ def main() -> None:
                     )
                 )
             elif args.action == "list":
-                print(json.dumps(list_keys(db)))
-            elif not revoke_key(db, args.id):
+                print(json.dumps(list_keys(db, workspace_id=str(args.workspace))))
+            elif not revoke_key(db, args.id, workspace_id=str(args.workspace)):
                 parser.error("Key not found")
             else:
                 print(json.dumps({"id": args.id, "revoked": True}))
