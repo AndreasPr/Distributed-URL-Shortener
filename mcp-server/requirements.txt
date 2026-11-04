@@ -1093,6 +1093,7 @@ pyjwt==2.15.1 \
     --hash=sha256:4f259e80cdfb6b3fc18a7de51fd1ef9ec79652f25019bae68975ca2468a34df8
     # via
     #   -c requirements-dev.txt
+    #   -r mcp-server/../requirements.in
     #   mcp
 python-dotenv==1.2.2 \
     --hash=sha256:1d8214789a24de455a8b8bd8ae6fe3c6b69a5e3d64aa8a8e5d68e694bbcb285a \

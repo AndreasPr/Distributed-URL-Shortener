@@ -55,13 +55,38 @@ export interface FlaggedURL {
 
 export class APIClient {
   private apiKey = ''
+  private bearerToken = ''
+  private tokenExpiresAt = 0
+  private loginPromise: Promise<void> | null = null
+
+  setBearerToken(token: string): void {
+    this.apiKey = ''
+    this.bearerToken = token
+    this.tokenExpiresAt = token ? Infinity : 0
+  }
 
   setApiKey(key: string): void {
     this.apiKey = key
+    this.bearerToken = ''
+    this.tokenExpiresAt = 0
   }
 
-  private authHeaders(): Record<string, string> {
-    return this.apiKey ? { 'X-API-Key': this.apiKey } : {}
+  private async authHeaders(): Promise<Record<string, string>> {
+    if (this.apiKey) return { 'X-API-Key': this.apiKey }
+    if (process.env.NEXT_PUBLIC_LOCAL_AUTH === 'true' && Date.now() >= this.tokenExpiresAt) {
+      // Only the isolated make demo build opts in. Tokens remain in memory.
+      this.loginPromise ??= timedFetch(`${this.baseUrl}/auth/dev-login`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user: 'owner' }),
+      }).then(async response => {
+        if (!response.ok) throw new Error('Local demo login failed')
+        const body = await response.json()
+        this.bearerToken = body.access_token
+        this.tokenExpiresAt = Date.now() + (body.expires_in - 30) * 1000
+      }).finally(() => { this.loginPromise = null })
+      await this.loginPromise
+    }
+    return this.bearerToken ? { Authorization: `Bearer ${this.bearerToken}` } : {}
   }
 
   private baseUrl: string
@@ -73,7 +98,7 @@ export class APIClient {
   async shorten(longUrl: string, customAlias?: string, expiresAt?: string): Promise<ShortenResponse> {
     const response = await timedFetch(`${this.baseUrl}/shorten`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+      headers: { 'Content-Type': 'application/json', ...await this.authHeaders() },
       body: JSON.stringify({ long_url: longUrl, custom_alias: customAlias, expires_at: expiresAt }),
     })
 
@@ -90,7 +115,7 @@ export class APIClient {
   }
 
   async getAnalytics(shortCode: string): Promise<Analytics> {
-    const response = await timedFetch(`${this.baseUrl}/analytics/${encodeURIComponent(shortCode)}`, { headers: this.authHeaders() })
+    const response = await timedFetch(`${this.baseUrl}/analytics/${encodeURIComponent(shortCode)}`, { headers: await this.authHeaders() })
 
     if (!response.ok) {
       throw new Error(`Analytics failed: ${response.statusText}`)
@@ -101,20 +126,20 @@ export class APIClient {
 
   async deleteUrl(code: string): Promise<void> {
     const response = await timedFetch(`${this.baseUrl}/urls/${encodeURIComponent(code)}`, {
-      method: 'DELETE', headers: this.authHeaders(),
+      method: 'DELETE', headers: await this.authHeaders(),
     })
     if (!response.ok) throw new Error(`Delete failed: ${response.statusText}`)
   }
 
   async listFlagged(offset = 0): Promise<FlaggedURL[]> {
-    const response = await timedFetch(`${this.baseUrl}/admin/flagged?limit=50&offset=${offset}`, { headers: this.authHeaders() })
+    const response = await timedFetch(`${this.baseUrl}/admin/flagged?limit=50&offset=${offset}`, { headers: await this.authHeaders() })
     if (!response.ok) throw new Error(`Review queue unavailable (${response.status}); an admin key is required`)
     return response.json()
   }
 
   async reviewFlagged(code: string, decision: 'allow' | 'block'): Promise<void> {
     const response = await timedFetch(`${this.baseUrl}/admin/flagged/${encodeURIComponent(code)}/review`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...await this.authHeaders() },
       body: JSON.stringify({ decision }),
     })
     if (!response.ok) throw new Error(`Review failed (${response.status})`)
@@ -131,7 +156,7 @@ export class APIClient {
   }
 
   async listUrls(): Promise<URLEntry[]> {
-    const response = await timedFetch(`${this.baseUrl}/urls`, { headers: this.authHeaders() })
+    const response = await timedFetch(`${this.baseUrl}/urls`, { headers: await this.authHeaders() })
 
     if (!response.ok) {
       throw new Error(`List URLs failed: ${response.statusText}`)

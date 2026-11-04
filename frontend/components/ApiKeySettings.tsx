@@ -14,6 +14,7 @@ export function ApiKeyProvider({ children }: { children: React.ReactNode }) {
 export default function ApiKeySettings() {
   const [draft, setDraft] = useState('')
   const { configured, apply } = useContext(KeyContext)
+  if (process.env.NEXT_PUBLIC_LOCAL_AUTH === 'true') return <p>Local demo: signed in automatically as the demo owner. Tokens stay in memory. API keys remain available for CLI demonstrations.</p>
   if (DEMO_MODE) return <p>No API key is needed for sample data. Real API keys stay in memory and are cleared on reload.</p>
   return <form className="space-y-4" onSubmit={event => { event.preventDefault(); apply(draft.trim()); setDraft('') }}>
     <label htmlFor="api-key" className="block text-sm font-medium">API key</label>

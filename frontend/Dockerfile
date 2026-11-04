@@ -3,6 +3,8 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --no-audit --no-fund
 COPY . .
+ARG NEXT_PUBLIC_LOCAL_AUTH=false
+ENV NEXT_PUBLIC_LOCAL_AUTH=${NEXT_PUBLIC_LOCAL_AUTH}
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL} NEXT_TELEMETRY_DISABLED=1
 RUN mkdir -p public && npm run build && npm prune --omit=dev --no-audit --no-fund

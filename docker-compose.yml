@@ -16,6 +16,13 @@ services:
       kafka:
         condition: service_started
     environment: &api_environment
+      AUTH_MODE: ${AUTH_MODE:-apikey_only}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_JWT_AUDIENCE: ${SUPABASE_JWT_AUDIENCE:-authenticated}
+      SUPABASE_JWT_ALGORITHMS: ${SUPABASE_JWT_ALGORITHMS:-RS256,ES256}
+      SUPABASE_LEGACY_JWT_SECRET: ${SUPABASE_LEGACY_JWT_SECRET:-}
+      JWKS_CACHE_TTL: ${JWKS_CACHE_TTL:-600}
+      JWKS_REFRESH_INTERVAL: ${JWKS_REFRESH_INTERVAL:-10}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       MAX_REQUEST_BODY_BYTES: ${MAX_REQUEST_BODY_BYTES:-16384}

@@ -9,6 +9,7 @@ RESERVED_CODES = frozenset(
     {
         "api",
         "health",
+        "auth",
         "metrics",
         "docs",
         "admin",

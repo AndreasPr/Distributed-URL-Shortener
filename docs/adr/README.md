@@ -55,3 +55,5 @@ Current overview: [engineering design](../design.md).
 - [0035: Workspaces and permissions](0035-workspaces-and-permissions.md)
 
 - [0036: Explicit CI runner OS](0036-explicit-ci-runner-os.md)
+
+- [0037: JWT authentication](0037-jwt-authentication.md)

@@ -151,3 +151,6 @@ abuse_queue_size = Gauge(
     "Abuse work: outbox rows or broker unread plus pending",
     ["kind"],
 )
+
+auth_success_total = Counter("auth_success_total", "Successful authentications")
+auth_failure_total = Counter("auth_failure_total", "Failed authentications", ["reason"])

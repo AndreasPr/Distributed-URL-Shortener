@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from prometheus_client import start_http_server
 from starlette.middleware.cors import CORSMiddleware
 
+from app.api.dev_auth import router as dev_auth_router
 from app.api.routes import router
 from app.api.workspaces import router as workspaces_router
 from app.core.config import settings
@@ -32,7 +33,7 @@ app.add_middleware(
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "X-API-Key"],
+    allow_headers=["Content-Type", "X-API-Key", "Authorization", "X-Workspace-ID"],
     expose_headers=[
         "RateLimit-Limit",
         "RateLimit-Remaining",
@@ -73,6 +74,7 @@ async def _on_startup():
     await asyncio.sleep(0)
 
 
+app.include_router(dev_auth_router)
 app.include_router(workspaces_router)
 app.include_router(router)
 instrument_app(app)

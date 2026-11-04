@@ -38,28 +38,22 @@ from the stored URL, never a tenant ID supplied in event JSON. Tenant repositori
 require explicit workspace arguments; the two named public redirect lookups and
 trusted click-ingestion entry point are deliberate exceptions tested separately.
 
-## Supabase identity boundary (step 15.3)
+## Supabase identity boundary
 
-`users.id` is the future verified Supabase JWT `sub` UUID, with email,
-email_verified, display_name, avatar_url, created_at, last_login_at, suspended_at,
-and deleted_at. There are no password columns, generated user identities, JWT
-verification, Supabase calls or credentials in this step. The extension point is
-`get_principal`: step 15.3 must verify a JWT and membership before producing a user
-Principal. Do not replace it with client-supplied user IDs, roles or workspace IDs.
-`platform_admin` defaults false and is reserved for a trusted future identity
-source; existing review endpoints are workspace-only, not a global queue.
+`users.id` equals the verified Supabase JWT `sub` UUID. There are no password
+columns. The API verifies signatures and claims before resolving database
+memberships; token role claims and user metadata never grant permissions.
+First login provisions a personal workspace atomically. Suspended/deleted users
+are rejected. See [authentication](auth.md) for modes, key rotation and local demo
+login. `platform_admin` remains false; review endpoints are workspace-only.
 
-`GET /me` exposes safe principal metadata. `GET /workspaces` lists the key's single
-workspace. `GET /workspaces/{id}/members` shows scoped membership and pending
-invites. `POST /workspaces`, invitation creation, member role PATCH and member
-DELETE have working authorization/persistence paths tested with a trusted user
-Principal override; API-key callers cannot obtain owner permissions, so owner
-mutations await user-token authentication in 15.3. No public user provisioning or
-invite acceptance endpoint exists yet. Invitations are normalized pending rows;
-no email is sent and no membership is granted. Both member item paths and the
-collection PATCH/DELETE form are supported (DELETE collection takes `user_id` as
-a query parameter). A workspace row lock serializes owner changes, including
-changes to different owners; removing or demoting the final owner returns **409**.
+`GET /me` exposes safe principal metadata. `GET /workspaces` currently lists only
+the selected workspace (the API key's workspace or bearer membership context).
+`X-Workspace-ID` can select another existing bearer membership; it cannot grant one.
+Owner mutations now accept verified user tokens. API keys still cannot acquire
+owner permissions. Invitations remain pending rows, with no email sending or
+acceptance endpoint. A workspace row lock serializes owner changes; removing or
+demoting the final owner returns **409**.
 
 ## PostgreSQL RLS deployment boundary
 
@@ -253,3 +247,10 @@ Reviews record API-key ID and timestamp; write rate limits apply. Malicious or
 manually blocked links return 451 even on cache hits. Suspicious and pending
 links remain redirectable. The async classifier is not proof of safety; see
 [the pipeline's boundaries and residual risks](abuse-pipeline.md).
+
+## User tokens
+
+[Authentication modes and verification](auth.md) document Supabase bearer tokens,
+local-only demo identities, membership-based authority, and JWKS rotation limits.
+API-key authentication remains the default. Do not expose local demo login to a
+shared/public network; it deliberately permits passwordless demo-owner access.
