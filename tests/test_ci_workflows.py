@@ -101,3 +101,13 @@ def test_frontend_audit_blocks_high_findings():
     audit = next(step for step in steps if step.get("run") == "npm run audit")
     assert not audit.get("continue-on-error", False)
     assert audit["working-directory"] == "frontend"
+
+
+def test_runner_os_is_explicitly_compatible_with_pinned_toolchains():
+    # ubuntu-latest moved to 26.04 before our pinned Python/Playwright supported it.
+    # Reusable-workflow calls inherit the called workflow's runners.
+    for path in (ROOT / ".github/workflows").glob("*.yml"):
+        workflow = yaml.safe_load(path.read_text())
+        for name, job in workflow["jobs"].items():
+            if "uses" not in job:
+                assert job["runs-on"] == "ubuntu-24.04", (path.name, name)

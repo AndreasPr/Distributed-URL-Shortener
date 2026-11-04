@@ -53,3 +53,5 @@ Current overview: [engineering design](../design.md).
 - [0034: Frontend design system](0034-frontend-design-system.md)
 
 - [0035: Workspaces and permissions](0035-workspaces-and-permissions.md)
+
+- [0036: Explicit CI runner OS](0036-explicit-ci-runner-os.md)

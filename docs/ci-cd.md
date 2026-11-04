@@ -96,3 +96,10 @@ Failed runs save pod logs/events/status; the workflow always deletes its kind cl
 
 GitHub-hosted orchestration, CodeQL uploads, optional Codecov and GHCR publication
 require a real GitHub run; local checks do not establish their success.
+
+### Hosted runner compatibility
+
+All hosted jobs use `ubuntu-24.04` explicitly. `ubuntu-latest` moved to 26.04,
+which did not support the pinned CPython 3.11.14 setup and Playwright 1.56.1 browser
+installation in the reported runs. Keep this OS pin until both toolchains are
+validated together on a newer image. See [ADR 0036](adr/0036-explicit-ci-runner-os.md).

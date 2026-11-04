@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   lint-types:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Python 3.11.14 and Playwright 1.56.1 support this OS.
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -21,7 +21,7 @@ jobs:
       - run: |
           make lint typecheck
   unit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Python 3.11.14 and Playwright 1.56.1 support this OS.
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -38,7 +38,7 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
   integration:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Python 3.11.14 and Playwright 1.56.1 support this OS.
     env:
       # Linux runner socket visible to the cleanup helper; keep crash cleanup on.
       TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE: /var/run/docker.sock
@@ -65,7 +65,7 @@ jobs:
           files: coverage.xml
           fail_ci_if_error: false
   mcp:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Python 3.11.14 and Playwright 1.56.1 support this OS.
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -75,7 +75,7 @@ jobs:
       - run: |
           make mcp-test
   pip-audit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Python 3.11.14 and Playwright 1.56.1 support this OS.
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -93,7 +93,7 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Python 3.11.14 and Playwright 1.56.1 support this OS.
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -130,7 +130,7 @@ jobs:
           path: frontend/test-results/
           retention-days: 7
   npm-audit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Python 3.11.14 and Playwright 1.56.1 support this OS.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -154,7 +154,7 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
   gitleaks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Python 3.11.14 and Playwright 1.56.1 support this OS.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -173,7 +173,7 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
   promtool:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # Python 3.11.14 and Playwright 1.56.1 support this OS.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
