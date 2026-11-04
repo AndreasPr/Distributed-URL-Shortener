@@ -6,7 +6,7 @@ const vm = require('node:vm')
 const ts = require('typescript')
 
 // Execute the actual TypeScript client with an isolated network fake.
-function clientUnderTest() {
+function clientUnderTest(env = {}) {
   const requests = []
   const source = fs.readFileSync(path.join(__dirname, '../lib/api.ts'), 'utf8')
   const compiled = ts.transpileModule(source, {
@@ -14,10 +14,10 @@ function clientUnderTest() {
   }).outputText
   const context = {
     require: (name) => { if (name === './demo-api') return {}; throw new Error(name) },
-    AbortSignal, exports: {}, process: { env: {} },
+    AbortSignal, exports: {}, process: { env },
     fetch: async (url, options = {}) => {
       requests.push({ url, options })
-      return { ok: true, json: async () => ({ short_code: 'example' }) }
+      return { ok: true, json: async () => ({ short_code: 'example', access_token: 'local-test-token', expires_in: 900 }) }
     },
   }
   vm.runInNewContext(compiled, context)
@@ -69,5 +69,29 @@ test('flagged list and review use admin key, encoded code and bounded fetch', as
   for (const { options } of requests) {
     assert.equal(options.headers['X-API-Key'], 'test-placeholder')
     assert.ok(options.signal instanceof AbortSignal)
+  }
+})
+
+
+test('bearer credentials and API keys are mutually exclusive', async () => {
+  const { client, requests } = clientUnderTest()
+  client.setApiKey('test-key')
+  client.setBearerToken('test-token')
+  await client.listUrls()
+  assert.equal(requests[0].options.headers.Authorization, 'Bearer test-token')
+  assert.equal(requests[0].options.headers['X-API-Key'], undefined)
+  client.setApiKey('test-key')
+  await client.listUrls()
+  assert.equal(requests[1].options.headers.Authorization, undefined)
+})
+
+test('local demo signs in once for concurrent requests, keeping the token in memory', async () => {
+  const { client, requests } = clientUnderTest({ NEXT_PUBLIC_LOCAL_AUTH: 'true' })
+  await Promise.all([client.listUrls(), client.listFlagged()])
+  assert.equal(requests.filter(r => r.url.endsWith('/auth/dev-login')).length, 1)
+  assert.equal(JSON.parse(requests[0].options.body).user, 'owner')
+  for (const request of requests.slice(1)) {
+    assert.equal(request.options.headers.Authorization, 'Bearer local-test-token')
+    assert.equal(request.options.headers['X-API-Key'], undefined)
   }
 })

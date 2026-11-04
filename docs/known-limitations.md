@@ -49,8 +49,8 @@ See [claims](claims.md) and the [final audit](final-audit.md) for evidence bound
 - Single-flight/leases mitigate stampedes; timeout fallback can duplicate work. Redis Streams
   shares cache failure/resource pressure in lightweight mode. Retained stream and DLQ history
   need an operational retention plan; replay does not clear DLQ entries.
-- Workspace-scoped queries now isolate API-key tenants, but Supabase JWT verification
-  and RLS policies are deferred to step 15.3. The current trusted database role bypasses
+- Workspace-scoped queries isolate API-key and verified user tenants. Supabase JWT
+  verification is implemented; database RLS policies remain future work. The current trusted database role bypasses
   RLS; scoped keys remain bearer secrets;
   stolen valid keys work until revoked. Metrics and admin interfaces require deployment controls.
 

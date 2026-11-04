@@ -189,3 +189,12 @@ checks prevent cleanup of another checkout's demo. Losing its state requires man
 inspection; the script does not guess which other project's data is safe to delete.
 
 The clean-checkout run and actual results are recorded in [demo verification](demo-verification.md).
+
+### Local user login
+
+`make demo` now opts into local authentication: the frontend automatically obtains
+a short-lived owner token in memory. The seeded viewer can be exercised through
+`POST /auth/dev-login` with `{"user":"viewer"}` and a Bearer header. CLI API-key
+steps above still work. Local tokens expire in 15 minutes and are invalidated by
+an API restart. See [authentication](auth.md); these endpoints are never for a
+public deployment.

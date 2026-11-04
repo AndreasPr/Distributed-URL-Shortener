@@ -51,6 +51,40 @@ class Settings:
         "OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318"
     )
     ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+    AUTH_MODE = os.getenv("AUTH_MODE", "apikey_only")
+    SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
+    SUPABASE_JWT_AUDIENCE = os.getenv("SUPABASE_JWT_AUDIENCE", "authenticated")
+    SUPABASE_JWT_ALGORITHMS = tuple(
+        os.getenv("SUPABASE_JWT_ALGORITHMS", "RS256,ES256").split(",")
+    )
+    SUPABASE_LEGACY_JWT_SECRET = os.getenv("SUPABASE_LEGACY_JWT_SECRET", "")
+    JWKS_CACHE_TTL = float(os.getenv("JWKS_CACHE_TTL", "600"))
+    JWKS_REFRESH_INTERVAL = float(os.getenv("JWKS_REFRESH_INTERVAL", "10"))
+    if AUTH_MODE not in {"supabase", "local", "apikey_only"}:
+        raise ValueError("Invalid AUTH_MODE")
+    if AUTH_MODE == "local" and ENVIRONMENT == "production":
+        raise ValueError("Local authentication is forbidden in production")
+    if not SUPABASE_JWT_ALGORITHMS or not set(SUPABASE_JWT_ALGORITHMS) <= {
+        "RS256",
+        "ES256",
+    }:
+        raise ValueError("Only RS256 and ES256 are accepted asymmetric algorithms")
+    if any(
+        not math.isfinite(v) or v <= 0 for v in (JWKS_CACHE_TTL, JWKS_REFRESH_INTERVAL)
+    ):
+        raise ValueError("JWKS durations must be finite and positive")
+    if AUTH_MODE == "supabase":
+        auth_url = urlsplit(SUPABASE_URL)
+        if (
+            auth_url.scheme != "https"
+            or not auth_url.hostname
+            or auth_url.username
+            or auth_url.password
+            or auth_url.path
+            or auth_url.query
+            or auth_url.fragment
+        ):
+            raise ValueError("SUPABASE_URL must be an HTTPS project origin")
     MAX_REQUEST_BODY_BYTES = int(os.getenv("MAX_REQUEST_BODY_BYTES", "16384"))
     if MAX_REQUEST_BODY_BYTES <= 0:
         raise ValueError("MAX_REQUEST_BODY_BYTES must be positive")

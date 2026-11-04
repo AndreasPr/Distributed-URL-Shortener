@@ -8,6 +8,8 @@ services:
       WRITE_RATE_REFILL: '1'
       EVENT_FLUSH_INTERVAL: '1'
       DEMO_MODE: '1'
+      AUTH_MODE: local
+      ENVIRONMENT: development
     volumes:
       - ./scripts/demo_seed.py:/app/demo_seed.py:ro
   worker-redis:
@@ -39,6 +41,7 @@ services:
       context: ./frontend
       args:
         NEXT_PUBLIC_API_URL: http://localhost:18080
+        NEXT_PUBLIC_LOCAL_AUTH: 'true'
     ports: ['127.0.0.1:13000:3000']
     depends_on:
       api-redis:
