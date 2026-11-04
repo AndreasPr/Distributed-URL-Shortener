@@ -138,7 +138,7 @@ def test_many_cold_requests_share_one_database_read(
         return row()
 
     repo = Mock()
-    repo.get_by_code.side_effect = load
+    repo.get_public_by_code.side_effect = load
     svc = service.URLService()
     svc.repo = repo
     monkeypatch.setattr(service, "publish_click_event", Mock())
@@ -159,7 +159,7 @@ def test_many_cold_requests_share_one_database_read(
             time.sleep(0.001)
         release.set()
         assert [f.result(timeout=5) for f in futures] == ["https://example.com/"] * 20
-    assert repo.get_by_code.call_count == 1
+    assert repo.get_public_by_code.call_count == 1
     assert service.loads._pending == {}
     assert service.publish_click_event.call_count == 20
 
@@ -174,8 +174,8 @@ def test_cross_process_lock_wait_rechecks_cache(monkeypatch):
         assert release.wait(5)
         return row()
 
-    svc.repo.get_by_code.side_effect = load
-    svc.repo.get_lifecycle.return_value = (None, None)
+    svc.repo.get_public_by_code.side_effect = load
+    svc.repo.get_public_lifecycle.return_value = (None, None)
     # Calling _load directly models separate process-local single-flight maps.
     with ThreadPoolExecutor(max_workers=2) as executor:
         first = executor.submit(svc._load, Mock(), "same")
@@ -190,19 +190,19 @@ def test_cross_process_lock_wait_rechecks_cache(monkeypatch):
         release.set()
         assert first.result(timeout=5).long_url == "https://example.com/"
         assert second.result(timeout=5).long_url == "https://example.com/"
-    assert svc.repo.get_by_code.call_count == 1
+    assert svc.repo.get_public_by_code.call_count == 1
     # Deliberate safety tradeoff: another replica still validates lifecycle.
-    svc.repo.get_lifecycle.assert_called_once()
+    svc.repo.get_public_lifecycle.assert_called_once()
 
 
 def test_negative_caching_and_alias_creation_invalidation(db_session, monkeypatch):
     svc = service.URLService()
-    original = svc.repo.get_by_code
-    svc.repo.get_by_code = Mock(wraps=original)
+    original = svc.repo.get_public_by_code
+    svc.repo.get_public_by_code = Mock(wraps=original)
     before = negative_cache_hits_total._value.get()
     for _ in range(5):
         assert svc.resolve(db_session, "new-alias") is None
-    assert svc.repo.get_by_code.call_count == 1
+    assert svc.repo.get_public_by_code.call_count == 1
     assert negative_cache_hits_total._value.get() == before + 4
     svc.shorten(db_session, "https://example.com/", "new-alias")
     monkeypatch.setattr(service, "publish_click_event", Mock())
@@ -216,7 +216,7 @@ def test_alias_creation_fences_an_inflight_negative_fill(db_session):
         service.URLService().shorten(db, "https://example.com/", code)
         return None  # Simulate a read that started before the creation committed.
 
-    svc.repo.get_by_code = Mock(side_effect=old_read)
+    svc.repo.get_public_by_code = Mock(side_effect=old_read)
     assert svc.resolve(db_session, "new-alias") is None
     assert cache.get_cache("new-alias") is None
 
@@ -235,19 +235,19 @@ def test_lock_release_and_publication_require_owner(isolated_cache):
 
 def test_negative_cache_expiry(db_session, isolated_cache):
     svc = service.URLService()
-    svc.repo.get_by_code = Mock(return_value=None)
+    svc.repo.get_public_by_code = Mock(return_value=None)
     assert svc.resolve(db_session, "missing") is None
     payload = json.loads(isolated_cache.get("missing"))
     assert 29 <= payload["until"] - time.time() <= 30
     isolated_cache.deadlines["missing"] = 0
     assert svc.resolve(db_session, "missing") is None
-    assert svc.repo.get_by_code.call_count == 2
+    assert svc.repo.get_public_by_code.call_count == 2
 
 
 def test_redis_down_falls_back_and_counts_metric(isolated_cache, monkeypatch):
     isolated_cache.down = True
     svc = service.URLService()
-    svc.repo.get_by_code = Mock(return_value=row())
+    svc.repo.get_public_by_code = Mock(return_value=row())
     monkeypatch.setattr(service, "publish_click_event", Mock())
     before = cache_fallback_total._value.get()
     for _ in range(10):
@@ -279,18 +279,18 @@ def test_singleflight_timeout_and_exception_cleanup():
 
 def test_positive_cache_still_checks_deletion_and_database_failure(monkeypatch):
     svc = service.URLService()
-    svc.repo.get_by_code = Mock(return_value=row())
-    svc.repo.get_lifecycle = Mock(return_value=(None, None))
+    svc.repo.get_public_by_code = Mock(return_value=row())
+    svc.repo.get_public_lifecycle = Mock(return_value=(None, None))
     monkeypatch.setattr(service, "publish_click_event", Mock())
     assert svc.resolve(Mock(), "abc") == "https://example.com/"
     assert svc.resolve(Mock(), "abc") == "https://example.com/"
-    assert svc.repo.get_by_code.call_count == 1
-    assert svc.repo.get_lifecycle.call_count == 1
-    svc.repo.get_lifecycle.side_effect = RuntimeError("database unavailable")
+    assert svc.repo.get_public_by_code.call_count == 1
+    assert svc.repo.get_public_lifecycle.call_count == 1
+    svc.repo.get_public_lifecycle.side_effect = RuntimeError("database unavailable")
     with pytest.raises(RuntimeError, match="database unavailable"):
         svc.resolve(Mock(), "abc")
-    svc.repo.get_lifecycle.side_effect = None
-    svc.repo.get_lifecycle.return_value = (datetime.now(timezone.utc), None)
+    svc.repo.get_public_lifecycle.side_effect = None
+    svc.repo.get_public_lifecycle.return_value = (datetime.now(timezone.utc), None)
     assert svc.resolve(Mock(), "abc") is None
 
 
@@ -317,14 +317,14 @@ def test_postgresql_stampede_executes_one_select(postgres, monkeypatch):
 
     event.listen(postgres, "before_cursor_execute", track)
     started, release = Event(), Event()
-    original = URLRepository.get_by_code
+    original = URLRepository.get_public_by_code
 
     def delayed(self, db, code):
         started.set()
         assert release.wait(5)
         return original(self, db, code)
 
-    monkeypatch.setattr(URLRepository, "get_by_code", delayed)
+    monkeypatch.setattr(URLRepository, "get_public_by_code", delayed)
     monkeypatch.setattr(service, "publish_click_event", Mock())
     barrier = Barrier(12)
     before = cache_lock_wait_total._value.get()

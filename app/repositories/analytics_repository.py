@@ -1,64 +1,75 @@
 from datetime import timezone
-from typing import List
 
-from sqlalchemy import text
+from sqlalchemy import Uuid, bindparam, func, select, text
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.events.models import ClickEvent
+from app.models.analytics import Analytics
+from app.models.url import URL
 
 
 class AnalyticsRepository:
     def create_event(self, db: Session, event: ClickEvent) -> None:
+        """Trusted worker entry: derive tenant from the globally unique stored code.
+
+        Never trust a tenant supplied in event JSON; missing codes are poison.
+        """
+        url = db.scalar(select(URL).where(URL.short_code == event.short_code))
+        if url is None:
+            raise ValueError("Unknown event short code")
         db.execute(
-            text(
-                "INSERT INTO analytics (short_code, event_id, clicked_at) "
-                "VALUES (:code, :event_id, :occurred_at) "
-                "ON CONFLICT (event_id) WHERE event_id IS NOT NULL DO NOTHING"
-            ),
-            {
-                "code": event.short_code,
-                "event_id": str(event.event_id),
-                "occurred_at": event.occurred_at.astimezone(timezone.utc).replace(
+            insert(Analytics)
+            .values(
+                short_code=event.short_code,
+                workspace_id=url.workspace_id,
+                created_by_user_id=url.created_by_user_id,
+                event_id=str(event.event_id),
+                clicked_at=event.occurred_at.astimezone(timezone.utc).replace(
                     tzinfo=None
                 ),
-            },
+            )
+            .on_conflict_do_nothing(
+                index_elements=[Analytics.event_id],
+                index_where=text("event_id IS NOT NULL"),
+            )
         )
 
-    def create_click(self, db: Session, short_code: str) -> None:
-        db.execute(
-            text("INSERT INTO analytics (short_code) VALUES (:short_code)"),
-            {"short_code": short_code},
-        )
+    def create_click(self, db: Session, short_code: str, *, workspace_id: str) -> None:
+        self.batch_create_clicks(db, [short_code], workspace_id=workspace_id)
 
-    def batch_create_clicks(self, db: Session, short_codes: List[str]) -> int:
-        """Insert multiple clicks in a single batch. Returns count inserted."""
+    def batch_create_clicks(
+        self, db: Session, short_codes: list[str], *, workspace_id: str
+    ) -> int:
         if not short_codes:
             return 0
-
-        placeholders = ", ".join(
-            [f"(:short_code_{i})" for i in range(len(short_codes))]
-        )
-        params = {f"short_code_{i}": code for i, code in enumerate(short_codes)}
-
         db.execute(
-            text(f"INSERT INTO analytics (short_code) VALUES {placeholders}"),
-            params,
+            insert(Analytics),
+            [dict(short_code=code, workspace_id=workspace_id) for code in short_codes],
         )
         return len(short_codes)
 
-    def get_click_count(self, db: Session, short_code: str) -> int:
-        result = db.execute(
-            text("SELECT COUNT(*) FROM analytics WHERE short_code = :short_code"),
-            {"short_code": short_code},
+    def get_click_count(
+        self, db: Session, short_code: str, *, workspace_id: str
+    ) -> int:
+        return int(
+            db.scalar(
+                select(func.count(Analytics.id)).where(
+                    Analytics.short_code == short_code,
+                    Analytics.workspace_id == workspace_id,
+                )
+            )
+            or 0
         )
-        return int(result.scalar() or 0)
 
-    def get_click_timestamps(self, db: Session, short_code: str):
-        result = db.execute(
-            text(
-                "SELECT clicked_at FROM analytics "
-                "WHERE short_code = :short_code ORDER BY clicked_at DESC"
-            ),
-            {"short_code": short_code},
+    def get_click_timestamps(self, db: Session, short_code: str, *, workspace_id: str):
+        # Preserve the established driver-native timestamp response contract.
+        statement = text(
+            "SELECT clicked_at FROM analytics WHERE short_code = :code "
+            "AND workspace_id = :workspace_id ORDER BY clicked_at DESC"
+        ).bindparams(bindparam("workspace_id", type_=Uuid(as_uuid=False)))
+        return list(
+            db.execute(
+                statement, {"code": short_code, "workspace_id": workspace_id}
+            ).scalars()
         )
-        return [row[0] for row in result.fetchall()]

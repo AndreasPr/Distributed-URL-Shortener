@@ -128,3 +128,27 @@ Downgrading to 0002 refuses if either table contains a code longer than 10
 characters, including soft-deleted links. No automatic truncation or deletion
 is performed. PostgreSQL tests verify 32-character alias creation and analytics
 references after migration, and refusal of an unsafe downgrade.
+
+## 0006: workspaces and Supabase-ready identities
+
+`alembic upgrade head` now includes UUID users/workspaces, memberships, pending
+invites, and workspace/human-creator attribution on URLs, API keys, analytics,
+verdicts and abuse outbox rows. Existing records and secrets remain in the `legacy`
+workspace. Short codes remain globally unique. Users are not fabricated during
+backfill: their UUID will be a verified Supabase subject in step 15.3.
+
+The migration enables RLS without policies on all PostgreSQL tables. The current
+owner-role server still works; an unprivileged role is default-denied until policies
+exist. See [security](security.md) for the precise boundary. Do not apply this to
+an API using a non-owner role and expect it to continue reading rows.
+
+Before deploying new routes, inspect existing aliases named `me`, `workspaces`, or
+`api-keys`; those names become reserved. A pre-existing alias at one of those exact
+paths conflicts with the new API route and needs an explicit operator migration
+plan; do not silently change its destination or assume the redirect survives.
+
+`alembic downgrade 0005` preserves pre-existing business rows but **discards user,
+workspace, membership and invite records plus tenant attribution**, and disables
+RLS on surviving tables. Do not downgrade a live multi-workspace system without a
+backup and an explicit data recovery plan. No cloud credentials are required to
+validate migrations against the disposable local PostgreSQL fixture.

@@ -1,18 +1,27 @@
 import logging
 from collections.abc import Iterator
 from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
 from fastapi.responses import JSONResponse, RedirectResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from app.abuse.persistence import LinkBlockedError, flagged, review
 from app.abuse.schemas import ReviewRequest
-from app.api.auth import require_admin, require_read, require_write
+from app.api.auth import (
+    require_admin,
+    require_analytics,
+    require_edit,
+    require_keys,
+    require_read,
+    require_write,
+)
+from app.api.principal import Principal
 from app.cache.redis_client import read_cache, redis_client
 from app.db.database import get_db
-from app.models.api_key import APIKey
 from app.models.url import URL
 from app.models.url_verdict import URLVerdict
 from app.observability.metrics import record_redirect
@@ -20,7 +29,7 @@ from app.repositories.url_repository import AliasTakenError
 from app.schemas.url_schema import URLCreate, URLResponse
 from app.services.activity_signals import signals
 from app.services.analytics_service import AnalyticsService, URLNotFoundError
-from app.services.api_keys import list_keys, revoke_key
+from app.services.api_keys import create_key, list_keys, revoke_key
 from app.services.url_service import LinkExpiredError, URLService
 
 logger = logging.getLogger(__name__)
@@ -39,7 +48,9 @@ analytics_service = AnalyticsService()
     },
 )
 def create_short_url(
-    req: URLCreate, key: APIKey = Depends(require_write), db: Session = Depends(get_db)
+    req: URLCreate,
+    key: Principal = Depends(require_write),
+    db: Session = Depends(get_db),
 ):
     try:
         code = service.shorten(
@@ -48,6 +59,8 @@ def create_short_url(
             req.custom_alias,
             req.expires_at,
             created_by=str(key.id),
+            workspace_id=key.workspace_id,
+            created_by_user_id=key.user_id,
         )
     except AliasTakenError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -56,10 +69,14 @@ def create_short_url(
 
 @router.get("/analytics/{short_code}")
 def analytics(
-    short_code: str, key: APIKey = Depends(require_read), db: Session = Depends(get_db)
+    short_code: str,
+    key: Principal = Depends(require_analytics),
+    db: Session = Depends(get_db),
 ):
     try:
-        return analytics_service.get_analytics(db, short_code)
+        return analytics_service.get_analytics(
+            db, short_code, workspace_id=key.workspace_id
+        )
     except URLNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Analytics not found") from exc
     except Exception as exc:
@@ -69,10 +86,12 @@ def analytics(
 
 @router.get("/urls", summary="List recent links, excluding soft-deleted entries")
 def list_urls(
-    limit: int = 20, key: APIKey = Depends(require_read), db: Session = Depends(get_db)
+    limit: int = 20,
+    key: Principal = Depends(require_read),
+    db: Session = Depends(get_db),
 ):
     try:
-        return service.list_recent_urls(db, limit=limit)
+        return service.list_recent_urls(db, limit=limit, workspace_id=key.workspace_id)
     except Exception as exc:
         logger.exception("Failed to list URLs")
         raise HTTPException(status_code=503, detail="URL listing unavailable") from exc
@@ -158,23 +177,65 @@ def redis_health():
     responses={404: {"description": "Missing or already deleted"}},
 )
 def delete_url(
-    code: str, key: APIKey = Depends(require_write), db: Session = Depends(get_db)
+    code: str, key: Principal = Depends(require_edit), db: Session = Depends(get_db)
 ):
-    if not service.delete(db, code):
+    if not service.delete(
+        db,
+        code,
+        workspace_id=key.workspace_id,
+        user_id=key.user_id if not key.allows("links:manage") else None,
+        api_key_id=(
+            key.api_key_id
+            if not key.allows("links:manage") and key.user_id is None
+            else None
+        ),
+    ):
         raise HTTPException(status_code=404, detail="Not found")
     return Response(status_code=204)
 
 
+class KeyCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100, pattern=r".*\S.*")
+    scopes: list[Literal["read", "write", "admin"]] = Field(min_length=1, max_length=3)
+
+
+@router.post("/api-keys", status_code=201)
+def new_key(
+    payload: KeyCreate,
+    key: Principal = Depends(require_keys),
+    db: Session = Depends(get_db),
+):
+    row, raw = create_key(
+        db,
+        payload.name,
+        list(payload.scopes),
+        workspace_id=key.workspace_id,
+        created_by_user_id=key.user_id,
+    )
+    return {
+        "id": row.id,
+        "name": row.name,
+        "prefix": row.prefix,
+        "scopes": row.scopes,
+        "key": raw,
+    }
+
+
+@router.get("/api-keys")
 @router.get("/admin/keys", summary="List key metadata (never key hashes)")
-def admin_keys(key: APIKey = Depends(require_admin), db: Session = Depends(get_db)):
-    return list_keys(db)
+def admin_keys(
+    key: Principal = Depends(require_keys),
+    db: Session = Depends(get_db),
+):
+    return list_keys(db, workspace_id=key.workspace_id)
 
 
+@router.delete("/api-keys/{key_id}", status_code=204)
 @router.delete("/admin/keys/{key_id}", status_code=204)
 def admin_revoke(
-    key_id: int, key: APIKey = Depends(require_admin), db: Session = Depends(get_db)
+    key_id: int, key: Principal = Depends(require_keys), db: Session = Depends(get_db)
 ):
-    if not revoke_key(db, key_id):
+    if not revoke_key(db, key_id, workspace_id=key.workspace_id):
         raise HTTPException(404, "Key not found")
     return Response(status_code=204)
 
@@ -183,20 +244,22 @@ def admin_revoke(
 def admin_flagged(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    key: APIKey = Depends(require_admin),
+    key: Principal = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    return flagged(db, limit, offset)
+    return flagged(db, limit, offset, workspace_id=key.workspace_id)
 
 
 @router.post("/admin/flagged/{code}/review", status_code=204)
 def admin_review(
     code: str,
     request: ReviewRequest,
-    key: APIKey = Depends(require_admin),
+    key: Principal = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    if not review(db, code, request.decision, str(key.id)):
+    if not review(
+        db, code, request.decision, str(key.id), workspace_id=key.workspace_id
+    ):
         raise HTTPException(404, "Verdict not found")
     return Response(status_code=204)
 
@@ -207,13 +270,19 @@ def admin_review(
 )
 def url_status(
     code: str = Path(pattern=r"^[A-Za-z0-9_-]{1,32}$"),
-    key: APIKey = Depends(require_read),
+    key: Principal = Depends(require_read),
     db: Session = Depends(get_db),
 ):
-    row = db.query(URL).filter_by(short_code=code).first()
+    row = (
+        db.query(URL).filter_by(short_code=code, workspace_id=key.workspace_id).first()
+    )
     if row is None:
         raise HTTPException(404, "Not found")
-    verdict = db.query(URLVerdict).filter_by(short_code=code).first()
+    verdict = (
+        db.query(URLVerdict)
+        .filter_by(short_code=code, workspace_id=key.workspace_id)
+        .first()
+    )
     state = "active"
     if row.deleted_at is not None:
         state = "deleted"
@@ -241,10 +310,15 @@ def url_status(
 def activity(
     code: str = Path(pattern=r"^[A-Za-z0-9_-]{1,32}$"),
     window_minutes: int = Query(60, ge=1, le=60),
-    key: APIKey = Depends(require_admin),
+    key: Principal = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    return signals(db, code, window_minutes)
+    if (
+        db.query(URL).filter_by(short_code=code, workspace_id=key.workspace_id).first()
+        is None
+    ):
+        raise HTTPException(404, "Not found")
+    return signals(db, code, window_minutes, workspace_id=key.workspace_id)
 
 
 @router.get(

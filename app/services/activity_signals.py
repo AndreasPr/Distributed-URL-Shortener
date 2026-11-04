@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.cache import redis_client as cache
 from app.models.analytics import Analytics
+from app.models.identity import DEFAULT_WORKSPACE_ID
 
 CODE = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
 # Dedicated minute counters expire after the maximum supported window plus slack.
@@ -34,7 +35,13 @@ def record_rejection(code: str) -> None:
         pass
 
 
-def signals(db: Session, code: str, window_minutes: int) -> dict:
+def signals(
+    db: Session,
+    code: str,
+    window_minutes: int,
+    *,
+    workspace_id: str = DEFAULT_WORKSPACE_ID,
+) -> dict:
     # Completed minute buckets give an explicit aligned interval, not a claim of
     # millisecond precision. Analytics may lag because clicks are asynchronous.
     minute = int(time.time()) // 60
@@ -47,6 +54,7 @@ def signals(db: Session, code: str, window_minutes: int) -> dict:
             db.query(func.count(Analytics.id))
             .filter(
                 Analytics.short_code == code,
+                Analytics.workspace_id == workspace_id,
                 Analytics.clicked_at >= start,
                 Analytics.clicked_at < end,
             )
@@ -57,6 +65,7 @@ def signals(db: Session, code: str, window_minutes: int) -> dict:
             db.query(func.count(Analytics.id))
             .filter(
                 Analytics.short_code == code,
+                Analytics.workspace_id == workspace_id,
                 Analytics.clicked_at >= start - timedelta(days=1),
                 Analytics.clicked_at < start,
             )

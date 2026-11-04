@@ -7,6 +7,7 @@ from prometheus_client import start_http_server
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
+from app.api.workspaces import router as workspaces_router
 from app.core.config import settings
 from app.events.publisher import publisher
 from app.middleware.hardening import BodyLimitMiddleware, install_error_handlers
@@ -30,7 +31,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "X-API-Key"],
     expose_headers=[
         "RateLimit-Limit",
@@ -72,6 +73,7 @@ async def _on_startup():
     await asyncio.sleep(0)
 
 
+app.include_router(workspaces_router)
 app.include_router(router)
 instrument_app(app)
 

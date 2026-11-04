@@ -19,5 +19,5 @@ def test_get_analytics_uses_repository_results():
         "total_clicks": 42,
         "timestamps": ["2026-05-11T12:00:00"],
     }
-    fake_repo.get_click_timestamps.assert_called_once_with(db, "abc")
-    fake_repo.get_click_count.assert_called_once_with(db, "abc")
+    fake_repo.get_click_timestamps.assert_called_once_with(db, "abc", workspace_id="00000000-0000-0000-0000-000000000001")
+    fake_repo.get_click_count.assert_called_once_with(db, "abc", workspace_id="00000000-0000-0000-0000-000000000001")

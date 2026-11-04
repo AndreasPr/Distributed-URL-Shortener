@@ -3,10 +3,11 @@ from datetime import datetime
 from sqlalchemy import TIMESTAMP, ForeignKey, Index, Integer, String, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.models.tenant import TenantRecord
 from app.models.url import Base
 
 
-class Analytics(Base):
+class Analytics(TenantRecord, Base):
     __tablename__ = "analytics"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

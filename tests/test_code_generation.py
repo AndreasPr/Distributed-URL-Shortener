@@ -61,12 +61,12 @@ def test_exhaustion_is_bounded_and_leaves_transaction_usable(db_session):
     generator = Mock()
     generator.generate.return_value = "AAAAAAA"
     with pytest.raises(CodeGenerationExhausted):
-        URLRepository(generator).create_with_code(db_session, "https://new.example")
+        URLRepository(generator).create_with_code(db_session, "https://new.example", workspace_id="00000000-0000-0000-0000-000000000001")
     assert generator.generate.call_count == MAX_CODE_ATTEMPTS
     assert db_session.query(URL).count() == 1
     generator.generate.return_value = "BBBBBBB"
     assert (
-        URLRepository(generator).create_with_code(db_session, "https://new.example")
+        URLRepository(generator).create_with_code(db_session, "https://new.example", workspace_id="00000000-0000-0000-0000-000000000001")
         == "BBBBBBB"
     )
     db_session.commit()
@@ -77,7 +77,7 @@ def test_non_collision_integrity_error_is_not_retried(db_session):
     generator = Mock()
     generator.generate.return_value = "AAAAAAA"
     with pytest.raises(IntegrityError):
-        URLRepository(generator).create_with_code(db_session, None)
+        URLRepository(generator).create_with_code(db_session, None, workspace_id="00000000-0000-0000-0000-000000000001")
     assert generator.generate.call_count == 1
     db_session.rollback()
 

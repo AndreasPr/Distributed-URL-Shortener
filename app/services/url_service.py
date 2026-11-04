@@ -15,6 +15,7 @@ from app.cache.redis_client import invalidate_cache as delete_cache
 from app.cache.redis_client import release_lock, set_cache
 from app.cache.singleflight import SingleFlight
 from app.kafka.producer import publish_click_event
+from app.models.identity import DEFAULT_WORKSPACE_ID
 from app.observability.metrics import (
     cache_fallback_total,
     cache_lock_wait_total,
@@ -91,24 +92,35 @@ class URLService:
         custom_alias: str | None = None,
         expires_at: datetime | None = None,
         created_by: str | None = None,
+        *,
+        workspace_id: str = DEFAULT_WORKSPACE_ID,
+        created_by_user_id: str | None = None,
     ) -> str:
         """Create a short URL and return the code."""
         with tracer.start_as_current_span("url.shorten") as span:
             _record_url_origin(span, str(long_url))
             long_url_str = str(long_url)
             with track_shorten_latency():
-                if custom_alias is None and expires_at is None and created_by is None:
-                    code = self.repo.create_with_code(db, long_url_str)
-                else:
-                    expiry = (
-                        expires_at.astimezone(timezone.utc).replace(tzinfo=None)
-                        if expires_at
-                        else None
-                    )
-                    code = self.repo.create_with_code(
-                        db, long_url_str, custom_alias, expiry, created_by=created_by
-                    )
-                enqueue_created(db, code)
+                expiry = (
+                    expires_at.astimezone(timezone.utc).replace(tzinfo=None)
+                    if expires_at
+                    else None
+                )
+                code = self.repo.create_with_code(
+                    db,
+                    long_url_str,
+                    custom_alias,
+                    expiry,
+                    created_by=created_by,
+                    workspace_id=workspace_id,
+                    created_by_user_id=created_by_user_id,
+                )
+                enqueue_created(
+                    db,
+                    code,
+                    workspace_id=workspace_id,
+                    created_by_user_id=created_by_user_id,
+                )
                 db.commit()
                 loads.invalidate(code)
                 delete_cache(code)
@@ -134,7 +146,7 @@ class URLService:
         if entry is None or entry.long_url is None:
             return entry
         # Positive hits retain Step 1.3's fail-closed deletion guarantee.
-        lifecycle = self.repo.get_lifecycle(db, code)
+        lifecycle = self.repo.get_public_lifecycle(db, code)
         if lifecycle is None or lifecycle[0] is not None:
             delete_cache(code)
             return Destination(None)
@@ -163,7 +175,7 @@ class URLService:
                 cached = self._cached_destination(db, code)
                 if cached is not None:
                     return cached
-            row = self.repo.get_by_code(db, code)
+            row = self.repo.get_public_by_code(db, code)
             if row is None or row.deleted_at is not None:
                 result = Destination(None)
                 if token is not None:
@@ -220,8 +232,18 @@ class URLService:
         ):
             raise LinkExpiredError("Link has expired")
 
-    def delete(self, db: Session, code: str) -> bool:
-        if not self.repo.soft_delete(db, code):
+    def delete(
+        self,
+        db: Session,
+        code: str,
+        *,
+        workspace_id: str = DEFAULT_WORKSPACE_ID,
+        user_id: str | None = None,
+        api_key_id: int | None = None,
+    ) -> bool:
+        if not self.repo.soft_delete(
+            db, code, workspace_id=workspace_id, user_id=user_id, api_key_id=api_key_id
+        ):
             return False
         db.commit()
         loads.invalidate(code)
@@ -235,6 +257,8 @@ class URLService:
         except Exception:
             logger.exception("Failed to record click for short_code=%s", short_code)
 
-    def list_recent_urls(self, db: Session, limit: int = 20):
+    def list_recent_urls(
+        self, db: Session, limit: int = 20, *, workspace_id: str = DEFAULT_WORKSPACE_ID
+    ):
         """List recent URLs with click counts for dashboard views."""
-        return self.repo.list_recent(db, limit=limit)
+        return self.repo.list_recent(db, limit=limit, workspace_id=workspace_id)

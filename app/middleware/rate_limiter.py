@@ -100,7 +100,7 @@ def client_ip(request: Request) -> str:
     return current
 
 
-def limit_write(request: Request, key_id: int) -> None:
+def limit_write(request: Request, key_id: int | str) -> None:
     template = request.scope["route"].path
     try:
         result = check_bucket(

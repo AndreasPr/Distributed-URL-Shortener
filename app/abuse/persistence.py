@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.abuse.schemas import Assessment
 from app.cache.redis_client import invalidate_cache
 from app.events.models import URLCreatedEvent
+from app.models.identity import DEFAULT_WORKSPACE_ID
 from app.models.url import URL
 from app.models.url_verdict import AbuseOutbox, URLVerdict
 from app.observability.context import inject_context
@@ -16,11 +17,19 @@ class LinkBlockedError(ValueError):
     pass
 
 
-def enqueue_created(db: Session, code: str) -> None:
+def enqueue_created(
+    db: Session,
+    code: str,
+    *,
+    workspace_id: str = DEFAULT_WORKSPACE_ID,
+    created_by_user_id: str | None = None,
+) -> None:
     event = URLCreatedEvent(short_code=code, trace_context=inject_context())
     db.add(
         AbuseOutbox(
             short_code=code,
+            workspace_id=workspace_id,
+            created_by_user_id=created_by_user_id,
             event_id=str(event.event_id),
             trace_context=event.trace_context,
         )
@@ -47,7 +56,12 @@ def store(db: Session, code: str, result: Assessment) -> bool:
         return False
     changed = db.execute(
         insert(URLVerdict)
-        .values(short_code=code, **result.model_dump())
+        .values(
+            short_code=code,
+            workspace_id=url.workspace_id,
+            created_by_user_id=url.created_by_user_id,
+            **result.model_dump(),
+        )
         .on_conflict_do_nothing(index_elements=[URLVerdict.short_code])
         .returning(URLVerdict.short_code)
     ).scalar_one_or_none()
@@ -59,11 +73,28 @@ def store(db: Session, code: str, result: Assessment) -> bool:
     return changed is not None
 
 
-def review(db: Session, code: str, decision: str, reviewer: str) -> bool:
-    url = db.query(URL).filter_by(short_code=code).with_for_update().first()
+def review(
+    db: Session,
+    code: str,
+    decision: str,
+    reviewer: str,
+    *,
+    workspace_id: str = DEFAULT_WORKSPACE_ID,
+) -> bool:
+    url = (
+        db.query(URL)
+        .filter_by(short_code=code, workspace_id=workspace_id)
+        .with_for_update()
+        .first()
+    )
     if url is None or url.deleted_at is not None:
         return False
-    row = db.query(URLVerdict).populate_existing().filter_by(short_code=code).first()
+    row = (
+        db.query(URLVerdict)
+        .populate_existing()
+        .filter_by(short_code=code, workspace_id=workspace_id)
+        .first()
+    )
     if row is None:
         return False
     row.reviewed_by = reviewer
@@ -74,12 +105,16 @@ def review(db: Session, code: str, decision: str, reviewer: str) -> bool:
     return True
 
 
-def flagged(db: Session, limit: int, offset: int):
+def flagged(
+    db: Session, limit: int, offset: int, *, workspace_id: str = DEFAULT_WORKSPACE_ID
+):
     rows = (
         db.query(URLVerdict, URL.long_url)
         .join(URL, URL.short_code == URLVerdict.short_code)
         .filter(
             URL.deleted_at.is_(None),
+            URL.workspace_id == workspace_id,
+            URLVerdict.workspace_id == workspace_id,
             URLVerdict.verdict.in_(["suspicious", "malicious"]),
             URLVerdict.review_decision.is_(None),
         )

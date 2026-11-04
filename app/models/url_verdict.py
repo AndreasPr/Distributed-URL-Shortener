@@ -3,10 +3,11 @@ from datetime import datetime
 from sqlalchemy import JSON, TIMESTAMP, CheckConstraint, Float, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.models.tenant import TenantRecord
 from app.models.url import Base
 
 
-class URLVerdict(Base):
+class URLVerdict(TenantRecord, Base):
     __tablename__ = "url_verdicts"
     __table_args__ = (
         CheckConstraint(
@@ -37,7 +38,7 @@ class URLVerdict(Base):
     review_decision: Mapped[str | None] = mapped_column(String(8), nullable=True)
 
 
-class AbuseOutbox(Base):
+class AbuseOutbox(TenantRecord, Base):
     __tablename__ = "abuse_outbox"
     short_code: Mapped[str] = mapped_column(
         String(32), ForeignKey("urls.short_code", ondelete="CASCADE"), primary_key=True

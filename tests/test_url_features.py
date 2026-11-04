@@ -271,7 +271,7 @@ def test_cache_not_used_when_database_fails(client, monkeypatch):
     cache.redis_client.get.return_value = "https://example.com/path"
     monkeypatch.setattr(
         routes.service.repo,
-        "get_by_code",
+        "get_public_by_code",
         Mock(side_effect=RuntimeError("database offline")),
     )
     with pytest.raises(RuntimeError, match="database offline"):
@@ -337,7 +337,7 @@ def test_postgresql_alias_races_and_delete_lock(postgres, monkeypatch):
 
     with ThreadPoolExecutor(max_workers=1) as executor:
         with Session(postgres) as reader:
-            assert URLRepository().get_by_code(reader, alias) is not None
+            assert URLRepository().get_public_by_code(reader, alias) is not None
             future = executor.submit(delete)
             assert started.wait(5)
             assert not finished.wait(0.1)
