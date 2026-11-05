@@ -13,7 +13,7 @@ function clientUnderTest(env = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
   const context = {
-    require: (name) => { if (name === './demo-api') return {}; throw new Error(name) },
+    require: (name) => { if (name === './demo-api') return { DemoAPIClient: class {} }; if (name === './auth/browser') return { accessToken: async () => '', signOut: async () => {} }; throw new Error(name) },
     AbortSignal, exports: {}, process: { env },
     fetch: async (url, options = {}) => {
       requests.push({ url, options })
@@ -43,7 +43,7 @@ test('public health omits the key and forgetting removes it from requests', asyn
   const { client, requests } = clientUnderTest()
   client.setApiKey('test-placeholder')
   await client.getHealth()
-  assert.equal(requests[0].options.headers, undefined)
+  assert.equal(requests[0].options.headers['X-API-Key'], undefined)
   client.setApiKey('')
   await client.listUrls()
   assert.equal(requests[1].options.headers['X-API-Key'], undefined)
@@ -94,4 +94,12 @@ test('local demo signs in once for concurrent requests, keeping the token in mem
     assert.equal(request.options.headers.Authorization, 'Bearer local-test-token')
     assert.equal(request.options.headers['X-API-Key'], undefined)
   }
+})
+
+test('workspace header is sent with bearer credentials', async () => {
+  const { client, requests } = clientUnderTest()
+  client.setBearerToken('fixture-token')
+  client.setWorkspace('workspace-two')
+  await client.listUrls()
+  assert.equal(requests[0].options.headers['X-Workspace-ID'], 'workspace-two')
 })

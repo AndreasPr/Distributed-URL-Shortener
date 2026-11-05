@@ -159,3 +159,13 @@ and JWT auth 15.3; their implementation/history is retained.
   after removal or incompatible demotion, those keys authenticate as **401**.
 - Production requires Supabase auth at startup. Local non-loopback/unknown
   listeners require explicit acknowledgement. Upgrade through migration `0008`.
+
+## Frontend authentication contracts (step 15.4)
+
+- GET /workspaces returns every workspace in the authenticated human's memberships;
+  API keys still see only their own workspace. No unrelated tenant is disclosed.
+- DELETE /me accepts `{ "confirmation": "DELETE" }` and returns 204 after application
+  user deactivation, key revocation and membership removal. API keys receive 403,
+  unverified humans receive 403/email_unverified, invalid confirmation receives 422,
+  and deleting a last owner receives 409. Shared data and the Supabase identity are
+  retained. No other existing route was renamed.

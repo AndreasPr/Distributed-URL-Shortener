@@ -8,17 +8,14 @@ test('artifact scanner rejects private endpoints and credential values', () => {
   assert.equal(inspect('synthetic-scanner-placeholder'), true)
   delete process.env.DEMO_TEST_API_KEY
 })
-test('Vercel production defaults to demo; explicit false and local builds retain real API', () => {
-  const keys = ['VERCEL_ENV', 'NEXT_PUBLIC_DEMO_MODE', 'NEXT_PUBLIC_API_URL']
-  const previous = keys.map(key => process.env[key])
-  function config() { delete require.cache[require.resolve('../next.config')]; return require('../next.config') }
-  try {
-    keys.forEach(key => delete process.env[key])
-    assert.equal(config().env.NEXT_PUBLIC_DEMO_MODE, 'false')
-    process.env.VERCEL_ENV = 'production'
-    assert.equal(config().env.NEXT_PUBLIC_DEMO_MODE, 'true')
-    assert.equal(config().env.NEXT_PUBLIC_API_URL, '')
-    process.env.NEXT_PUBLIC_DEMO_MODE = 'false'
-    assert.equal(config().env.NEXT_PUBLIC_DEMO_MODE, 'false')
-  } finally { keys.forEach((key, i) => previous[i] === undefined ? delete process.env[key] : process.env[key] = previous[i]) }
+test('demo selection is route-scoped and has no global config override', () => {
+  const config = require('../next.config')
+  assert.equal(config.env, undefined)
+})
+
+test('SDK fallback exception is exact; application private endpoints still fail', () => {
+ assert.equal(inspect('http://localhost:9999'), true)
+ assert.equal(inspect('http://localhost:9999', true), false)
+ assert.equal(inspect('http://localhost:8000', true), true)
+ assert.equal(inspect('http://127.0.0.1:9999', true), true)
 })

@@ -1,11 +1,15 @@
 'use client'
 
+import { useDemoMode } from '../../lib/auth/demo-route'
 import React, { useEffect, useState } from 'react'
-import { apiClient, DEMO_MODE, HealthResponse, URLEntry } from '../../lib/api'
+import { apiClient, HealthResponse, URLEntry } from '../../lib/api'
 import { Card } from '../../components/ui/card'
+import { Onboarding } from '../../components/Onboarding'
+import ShortenForm from '../../components/ShortenForm'
 import URLTable from '../../components/URLTable'
 
 export default function DashboardPage() {
+  const demo = useDemoMode()
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [urls, setUrls] = useState<URLEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -13,12 +17,14 @@ export default function DashboardPage() {
   const [urlsError, setUrlsError] = useState<string | null>(null)
 
   useEffect(() => {
+    let active = true
     const fetchDashboardData = async () => {
       const [healthResult, urlsResult] = await Promise.allSettled([
         apiClient.getHealth(),
         apiClient.listUrls(),
       ])
 
+      if (!active) return
       if (healthResult.status === 'fulfilled') {
         setHealth(healthResult.value)
       } else {
@@ -43,6 +49,7 @@ export default function DashboardPage() {
     }
 
     fetchDashboardData()
+    return () => { active = false }
   }, [])
 
   return (
@@ -50,7 +57,7 @@ export default function DashboardPage() {
       <section className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold mb-8 text-foreground">Dashboard</h1>
 
-        {/* Stats Cards */}
+        <section className="mb-8 space-y-4" aria-label="Get started"><Onboarding /><ShortenForm /></section>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <Card className="p-6">
             <h3 className="text-sm font-medium text-muted-foreground mb-2">
@@ -59,7 +66,7 @@ export default function DashboardPage() {
             <p className="text-2xl font-bold text-foreground">
               {loading ? '...' : health?.status || 'Unknown'}
             </p>
-            <p className="text-xs text-muted-foreground mt-2">{DEMO_MODE ? 'Bundled sample status' : 'Status at page load'}</p>
+            <p className="text-xs text-muted-foreground mt-2">{demo ? 'Bundled sample status' : 'Status at page load'}</p>
           </Card>
 
           <Card className="p-6">

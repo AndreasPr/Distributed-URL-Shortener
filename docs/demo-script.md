@@ -43,7 +43,8 @@ malicious fixtures. Destinations use reserved example domains; do not imply they
 phishing sites or working content pages. Never follow these URLs as part of verification.
 
 Open the frontend, dashboard and flagged page in advance. The isolated demo
-automatically logs in as its verified, allowlisted local owner. Log into Grafana as `demo`
+logs in automatically as its verified, allowlisted local owner when you choose
+**Open local workspace** on the landing page. Log into Grafana as `demo`
 with the printed password. Set its time range to the last 5 minutes. Preload Jaeger with
 service `api`, operation `GET /{code}` (or all operations if names differ), then Find Traces.
 The six startup clicks provide actual API/publish/worker/database tracing activity. Give

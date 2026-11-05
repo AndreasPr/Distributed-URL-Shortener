@@ -10,11 +10,13 @@
     "test": "node --test tests/*.test.cjs",
     "test:e2e": "playwright test",
     "check:demo-build": "node scripts/check-demo-build.cjs",
-    "build:demo": "NEXT_PUBLIC_DEMO_MODE=true next build",
+    "build:demo": "next build",
     "audit": "node scripts/audit.cjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.3.0",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.119.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",

@@ -1,13 +1,15 @@
 'use client'
 
+import { useDemoMode } from '../../lib/auth/demo-route'
 import React, { useEffect, useState } from 'react'
-import { apiClient, DEMO_MODE, Analytics, URLEntry } from '../../lib/api'
+import { apiClient, Analytics, URLEntry } from '../../lib/api'
 import AnalyticsChart from '../../components/AnalyticsChart'
 import { Card } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 
 export default function AnalyticsPage() {
+  const demo = useDemoMode()
   const [shortCode, setShortCode] = useState('')
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [loading, setLoading] = useState(false)
@@ -81,7 +83,7 @@ export default function AnalyticsPage() {
             <Input
               type="text"
               aria-label="Short code"
-              placeholder={DEMO_MODE ? "Try sample01" : "Enter short code (e.g., abc123)"}
+              placeholder={demo ? "Try sample01" : "Enter short code (e.g., abc123)"}
               value={shortCode}
               onChange={(e) => setShortCode(e.target.value)}
               className="flex-1"
@@ -123,7 +125,7 @@ export default function AnalyticsPage() {
               <h3 className="text-sm font-medium text-muted-foreground mb-2">
                 Status
               </h3>
-              <p className="text-2xl font-bold text-green-600">{DEMO_MODE ? 'Sample history' : 'History available'}</p>
+              <p className="text-2xl font-bold text-green-600">{demo ? 'Sample history' : 'History available'}</p>
             </Card>
           </div>
         )}

@@ -59,3 +59,5 @@ Current overview: [engineering design](../design.md).
 - [0037: JWT authentication](0037-jwt-authentication.md)
 
 - [0038: Auth alignment](0038-auth-alignment.md)
+
+- [0039 — Frontend cookie authentication and route-scoped samples](0039-frontend-cookie-auth.md)

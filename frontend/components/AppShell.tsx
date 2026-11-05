@@ -32,12 +32,12 @@ import {
   CommandGroup,
   CommandItem,
 } from "./ui/command";
-import { DEMO_MODE } from "../lib/api";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 const pages = [
   { href: "/dashboard", label: "Links", icon: Link2 },
   { href: "/analytics", label: "Analytics", icon: ChartNoAxesCombined },
   { href: "/flagged", label: "Review queue", icon: ShieldCheck },
-  { href: "/api-keys", label: "API keys", icon: KeyRound },
+  { href: "/app/keys", label: "API keys", icon: KeyRound },
   { href: "/settings", label: "Settings", icon: Settings },
   { href: "/health", label: "Health", icon: Activity },
   { href: "/design", label: "Design system", icon: Palette },
@@ -45,6 +45,11 @@ const pages = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const demo = pathname === '/demo' || pathname.startsWith('/demo/');
+  const publicPage = pathname === '/' || ['/login', '/signup', '/forgot-password', '/reset-password'].includes(pathname);
+  const pathFor = (href: string) => demo ? '/demo' + (href === '/' ? '' : href) : href;
+  const [generation, setGeneration] = useState(0);
+  useEffect(() => { const change = () => setGeneration(v => v + 1); window.addEventListener("workspace-changed", change); return () => window.removeEventListener("workspace-changed", change) }, []);
   const [menu, setMenu] = useState(false);
   const [command, setCommand] = useState(false);
   useEffect(() => {
@@ -57,6 +62,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
+  if (publicPage) return <><header className="flex items-center justify-between border-b p-4"><Link href="/" className="font-semibold">Relaymark</Link><Link href="/login">Sign in</Link></header><div id="main-content">{children}</div></>;
   const navigation = (
     <>
       <Link
@@ -74,10 +80,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {pages.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
-            href={href}
+            href={pathFor(href)}
             onClick={() => setMenu(false)}
-            aria-current={pathname === href ? "page" : undefined}
-            className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium ${pathname === href ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+            aria-current={pathname === pathFor(href) ? "page" : undefined}
+            className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium ${pathname === pathFor(href) ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
           >
             <Icon size={18} aria-hidden />
             {label}
@@ -157,7 +163,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         key={href}
                         onSelect={() => {
                           setCommand(false);
-                          router.push(href);
+                          router.push(pathFor(href));
                         }}
                       >
                         <Icon size={16} aria-hidden />
@@ -169,15 +175,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Command>
             </DialogContent>
           </Dialog>
+          {!demo && <WorkspaceSwitcher />}
+          <Link href="/account">Account</Link>
           <ThemeToggle />
           <Button asChild className="hidden sm:inline-flex">
-            <Link href="/">
+            <Link href={pathFor("/dashboard")}>
               <Plus size={16} />
               Create link
             </Link>
           </Button>
         </header>
-        {DEMO_MODE && (
+        {demo && (
           <aside
             aria-label="Demo mode"
             className="border-b bg-accent px-4 py-3 text-center text-xs leading-relaxed text-accent-foreground"
@@ -186,7 +194,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             with make demo.
           </aside>
         )}
-        <div id="main-content" tabIndex={-1}>
+        <div key={generation} id="main-content" tabIndex={-1}>
           {children}
         </div>
       </div>

@@ -1,11 +1,13 @@
 "use client"
 
+import { useDemoMode } from '../lib/auth/demo-route'
 import React, { useState } from 'react'
-import { apiClient, DEMO_MODE } from '../lib/api'
+import { apiClient } from '../lib/api'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 
 export default function ShortenForm() {
+  const demo = useDemoMode()
   const [copied, setCopied] = useState(false)
   const [url, setUrl] = useState('')
   const [alias, setAlias] = useState('')
@@ -23,6 +25,7 @@ export default function ShortenForm() {
     try {
       const result = await apiClient.shorten(url, alias || undefined, expiry ? new Date(expiry).toISOString() : undefined)
       setShort(result.short_code)
+      window.dispatchEvent(new CustomEvent('onboarding', { detail: 'create' }))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to shorten URL')
     } finally {
@@ -67,11 +70,11 @@ export default function ShortenForm() {
 
       {short && (
         <div className="p-4 bg-accent border border-border rounded">
-          <div className="text-sm font-medium text-accent-foreground mb-2">{DEMO_MODE ? "Created in this tab only. This is not a working redirect link." : "Success!"}</div>
+          <div className="text-sm font-medium text-accent-foreground mb-2">{demo ? "Created in this tab only. This is not a working redirect link." : "Success!"}</div>
           <div className="text-sm text-accent-foreground mb-2">Short code:</div>
           <div className="text-lg font-mono font-semibold text-accent-foreground break-all">{short}</div>
           <button type="button" className="border rounded px-3 py-2 mt-3" onClick={async () => {
-            try { await navigator.clipboard.writeText(short); setCopied(true) }
+            try { await navigator.clipboard.writeText(short); setCopied(true); window.dispatchEvent(new CustomEvent('onboarding', { detail: 'copy' })) }
             catch { setError('Copy unavailable; select the code to copy it manually.') }
           }}>{copied ? 'Copied!' : 'Copy code'}</button>
         </div>

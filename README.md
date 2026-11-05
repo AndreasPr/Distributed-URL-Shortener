@@ -15,8 +15,9 @@ A local-first URL shortener for exploring the engineering behind a small distrib
 
 ## Live demo
 
-[Explore the demo UI on Vercel](https://distributed-url-shortener-two.vercel.app/).
-The demo-mode build uses 30 bundled links, sample analytics and a local review queue.
+[Explore the demo UI on Vercel](https://distributed-url-shortener-two.vercel.app/demo).
+The `/demo` route uses 30 bundled links, sample analytics and a local review queue.
+The public landing and authenticated workspace are separate; see [frontend auth](docs/frontend.md).
 Changes stay in tab memory and reset on reload; generated codes are not working public redirects.
 No backend, API key or LLM is needed. Run `make demo` for the real local stack.
 See [deployment settings and verification](docs/deployment-demo.md); deployment of this branch

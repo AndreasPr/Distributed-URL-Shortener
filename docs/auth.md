@@ -3,7 +3,7 @@
 Human Principals are implemented. Historical branch/PR labels `15.1 users-workspaces`
 (PR #70) and `15.2 jwt-auth` (PR #72) correspond to roadmap **15.2 tenancy and
 permissions** and **15.3 JWT authentication**. This alignment adds guards; it does
-not rewrite those steps. The browser Supabase login/refresh UI is still future.
+not rewrite those steps. The browser Supabase login/refresh UI is implemented in step 15.4; see [frontend](frontend.md). Live-provider deployment remains unverified.
 
 ## Configuration
 
@@ -14,8 +14,8 @@ not rewrite those steps. The browser Supabase login/refresh UI is still future.
 | `SUPABASE_ANON_KEY` | Environment-only project publishable/anon key for the authenticated user endpoint; never a service-role key. Missing configuration leaves newly provisioned humans unverified. |
 | `SUPABASE_JWT_AUDIENCE` | `authenticated`. |
 | `PLATFORM_ADMIN_EMAILS` | Comma-separated emails, normalized to lowercase; empty by default. Only a stored verified email grants platform admin. |
-| `NEXT_PUBLIC_SUPABASE_URL` | Reserved for the future browser login UI; currently unused. |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Reserved public/publishable key for the future browser UI; currently unused. Never put a service-role key here. |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project origin for the SSR browser login UI. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public/publishable key for the SSR browser UI. Never put a service-role key here. |
 | `NEXT_PUBLIC_LOCAL_AUTH` | `false` normally; isolated demo build sets `true` for automatic owner login. |
 | `LOCAL_AUTH_I_UNDERSTAND` | `false`. Explicit acknowledgement required for local auth on a non-loopback or uninspectable listener. Never bypasses the production guard. |
 | `SUPABASE_JWT_ALGORITHMS` | `RS256,ES256`; asymmetric allowlist. |
@@ -109,7 +109,7 @@ sequenceDiagram
   participant Supabase
   participant API
   participant DB as PostgreSQL
-  Browser->>Supabase: OAuth PKCE login and code exchange (future browser UI)
+  Browser->>Supabase: OAuth PKCE login and code exchange (browser UI)
   Supabase-->>Browser: User access token
   Browser->>API: Bearer token, optional workspace selector
   API->>API: Verify signature/claims; reject anonymous session

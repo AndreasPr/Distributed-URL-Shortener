@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
 test('shell destinations, palette keyboard navigation, theme persistence', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/demo')
   for (const name of ['Links', 'Analytics', 'Review queue', 'API keys', 'Settings', 'Health']) await expect(page.getByRole('navigation').getByRole('link', { name, exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Open command palette' }).click()
   await expect(page.getByRole('dialog')).toBeVisible()
@@ -26,7 +26,7 @@ test('shell destinations, palette keyboard navigation, theme persistence', async
 
 test('mobile drawer closes on navigation and restores focus on Escape', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/')
+  await page.goto('/demo')
   const menu = page.getByRole('button', { name: 'Open navigation' })
   await menu.click()
   await page.getByRole('dialog').getByRole('link', { name: 'Links', exact: true }).click()
@@ -39,9 +39,9 @@ test('mobile drawer closes on navigation and restores focus on Escape', async ({
 })
 
 for (const theme of ['light', 'dark']) test(`gallery accessibility and overlays: ${theme}`, async ({ page }) => {
-  await page.goto('/settings')
+  await page.goto('/demo/settings')
   await page.getByRole('button', { name: theme, exact: true }).click()
-  await page.goto('/design')
+  await page.goto('/demo/design')
   expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations).toEqual([])
   const trigger = page.getByRole('button', { name: 'Open example dialog' })
   await trigger.click()

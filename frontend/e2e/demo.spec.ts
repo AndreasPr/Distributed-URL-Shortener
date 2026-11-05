@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 test('metadata stays in head and assets load', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/demo')
   await expect(page).toHaveTitle('Relaymark | Links with clarity')
   expect(await page.locator('head').evaluate(el => getComputedStyle(el).display)).toBe('none')
   await expect(page.locator('head meta[property="og:image"]')).toHaveAttribute('content', /opengraph-image/)
@@ -18,7 +18,7 @@ test('shorten, copy, navigate and reload without API traffic or persistence', as
     const url = new URL(request.url())
     if (url.origin !== 'http://127.0.0.1:3100' || request.method() !== 'GET' || /\/(shorten|urls|admin|health)$/.test(url.pathname) && request.resourceType() === 'fetch' && request.headers()['rsc'] !== '1') forbidden.push(request.url())
   })
-  await page.goto('/')
+  await page.goto('/demo')
   await page.getByLabel('Long URL').fill('https://example.com/hello?private=never-send')
   await page.getByLabel('Custom alias (optional)').fill('local-demo')
   await page.getByRole('button', { name: 'Shorten', exact: true }).click()
@@ -36,7 +36,7 @@ test('shorten, copy, navigate and reload without API traffic or persistence', as
 })
 
 test('allow and block mutate only the sample queue; analytics and health are samples', async ({ page }) => {
-  await page.goto('/flagged')
+  await page.goto('/demo/flagged')
   await expect(page.getByRole('button', { name: 'Allow', exact: true })).toHaveCount(3)
   await page.getByRole('button', { name: 'Allow', exact: true }).first().click()
   await expect(page.getByRole('button', { name: 'Block', exact: true })).toHaveCount(2)
@@ -51,14 +51,14 @@ test('allow and block mutate only the sample queue; analytics and health are sam
   await page.getByRole('textbox', { name: 'Short code' }).fill('sample01')
   await page.getByRole('button', { name: 'Search', exact: true }).click()
   await expect(page.getByText('12', { exact: true }).first()).toBeVisible()
-  await page.goto('/health')
+  await page.goto('/demo/health')
   await expect(page.getByLabel('Demo mode')).toBeVisible()
 })
 
 test('landing layout fits a mobile viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Small links. Clear signals.', exact: true })).toBeVisible()
+  await page.goto('/demo')
+  await expect(page.getByRole('heading', { name: 'Explore Relaymark', exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy()
   const colors = await page.getByRole('button', { name: 'Shorten', exact: true }).evaluate(el => {
     const style = getComputedStyle(el)
