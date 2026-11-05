@@ -52,3 +52,18 @@ The `plan` field is storage only, not quota enforcement.
 
 Evidence: `tests/test_tenancy.py`, `tests/test_tenancy_migrations.py`, existing auth
 and MCP contracts, and `tests/integration/test_redis_postgres.py`.
+
+## Addendum: roadmap alignment and human Principals
+
+The original prose above records the state at PR #70. Its historical branch label
+15.1 maps to roadmap 15.2 (tenancy/permissions). PR #72, labelled 15.2, implements
+roadmap 15.3 JWT authentication: **human Principals now exist**. This addendum does
+not rewrite either implementation or Git history. Earlier plan-limit numbering
+must not be interpreted as part of this auth alignment scope.
+
+Step 15.3a derives verified email from authenticated Supabase user metadata, gates
+human mutations, and separates platform-global review/activity from workspace
+roles. Keys remain scoped and cannot become platform admins. ACL hardening removes
+Supabase Data API role grants when those roles exist; RLS policies are still not
+implemented, and the trusted backend owner still bypasses RLS. See
+[0038](0038-auth-alignment.md) and [auth](../auth.md).

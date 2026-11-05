@@ -1,17 +1,19 @@
-"""Workspace management; user-token authentication is supplied in step 15.3."""
+"""Workspace management for authenticated human and API-key Principals."""
 
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.auth import get_principal, require_permission
 from app.api.principal import Principal, Role
 from app.db.database import get_db
+from app.models.api_key import APIKey
 from app.models.identity import User, Workspace, WorkspaceInvite, WorkspaceMember
+from app.services.api_keys import utcnow
 
 router = APIRouter()
 
@@ -84,6 +86,8 @@ def me(principal: Principal = Depends(get_principal)):
         "role": principal.role,
         "scopes": sorted(principal.scopes),
         "auth_method": principal.auth_method,
+        "email_verified": principal.email_verified,
+        "platform_admin": principal.platform_admin,
     }
 
 
@@ -92,8 +96,7 @@ def workspaces(
     principal: Principal = Depends(require_permission("workspaces:read")),
     db: Session = Depends(get_db),
 ):
-    # API keys can only see their bound workspace. User tokens will select a
-    # verified membership context in 15.3 rather than trusting a workspace header.
+    # Both kinds of Principal carry an authenticated workspace context.
     rows = db.scalars(select(Workspace).where(Workspace.id == principal.workspace_id))
     return [serialize_workspace(row) for row in rows]
 
@@ -208,6 +211,15 @@ def change_member(
         if owners == 1:
             raise HTTPException(409, "Cannot remove or demote the last owner")
     if role is None:
+        db.execute(
+            update(APIKey)
+            .where(
+                APIKey.workspace_id == principal.workspace_id,
+                APIKey.created_by_user_id == str(user_id),
+                APIKey.revoked_at.is_(None),
+            )
+            .values(revoked_at=utcnow())
+        )
         db.delete(row)
     else:
         row.role = role

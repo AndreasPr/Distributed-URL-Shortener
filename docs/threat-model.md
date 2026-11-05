@@ -25,7 +25,7 @@ surface; browser-held API keys are never a server-side secret.
 | Link enumeration | Random seven-character codes, unique database constraint and bounded retries in [generator](../app/services/code_generator.py) and [repository](../app/repositories/url_repository.py); [tests](../tests/test_code_generation.py) | Codes are public identifiers, not authorization. Custom aliases are guessable; IP limits can be distributed around. |
 | SSRF/internal navigation | HTTP(S)-only validation rejects credentials, local names and nonpublic literal IP addresses. Kubernetes [egress policies](../k8s/base/7-network-policies.yaml) restrict API/worker connections to dependencies and DNS. | The backend does not fetch destinations. Hostnames can resolve/rebind to private addresses in a visitor's browser. DNS resolution is not a complete destination safety guarantee. |
 | Resource exhaustion | [Body middleware](../app/middleware/hardening.py) caps actual bytes at 16 KiB and body reading at ten seconds, including chunked input. [Token buckets](../app/middleware/rate_limiter.py), bounded event queue, cache single-flight, database/socket deadlines and container limits constrain work. [Hardening tests](../tests/test_hardening.py) cover boundary failures. | Many parallel connections, large response lists, expensive queries and distributed attackers can still exhaust capacity. Add ingress connection limits and pagination as later work. |
-| Key theft or privilege escalation | [Key service](../app/services/api_keys.py) stores SHA-256 hashes, compares in constant time and supports revocation; [auth tests](../tests/test_auth.py). Browser keys remain in memory. Exact CORS origins, [frontend headers](../frontend/next.config.js), non-root containers and dropped capabilities reduce exposure. | No tenant ownership isolation: scoped keys operate on shared workspace data. TLS must be configured at ingress. XSS can steal in-memory keys. Static CSP retains unsafe-inline for Next hydration/styles; nonce-based CSP is deferred. |
+| Key theft or privilege escalation | [Key service](../app/services/api_keys.py) stores SHA-256 hashes, compares in constant time and supports revocation; [auth tests](../tests/test_auth.py). Browser keys remain in memory. Exact CORS origins, [frontend headers](../frontend/next.config.js), non-root containers and dropped capabilities reduce exposure. | Workspace-scoped queries enforce tenant boundaries; the trusted backend database role still bypasses RLS. TLS must be configured at ingress. XSS can steal in-memory keys. Static CSP retains unsafe-inline for Next hydration/styles; nonce-based CSP is deferred. |
 | Information disclosure | Validation responses omit submitted input/context; unexpected errors return generic JSON. Redis health errors no longer echo exceptions. URL tracing redacts paths/queries. [Assembly tests](../tests/test_app_assembly.py) and [trace tests](../tests/test_trace_privacy.py) cover these contracts. | Operational exception logs may contain dependency details; restrict log access and retention. Public local metrics and health reveal operational information. Kubernetes metrics ports are restricted to Prometheus. |
 | Supply-chain compromise | Hashed Python locks, npm lock, runtime-only backend dependencies, [Dependabot](../.github/dependabot.yml), and `make audit` using pip-audit. | Pins are not proof of safety. Audit requires network access, covers known Python advisories only, and is not an image or npm audit. Review updates and regenerate locks before merging. |
 
@@ -50,3 +50,31 @@ narrow egress rule before enabling it.
 See [deployment caveats and verification](security-hardening-verification.md)
 for what was actually run. Live cluster enforcement and vulnerability auditing
 must not be inferred from passing mock/static tests.
+
+## Auth alignment trust boundaries
+
+The JWT signature establishes a subject, not an authorization role or verified
+email. [Trusted email lookup](../app/services/email_verification.py) checks the
+Supabase user endpoint's subject and confirmation timestamp, with bounded HTTP,
+and persists an hourly attempt budget. [Human write gating](../app/api/auth.py)
+rejects unverified writes and anonymous sessions. Platform access requires a
+verified stored email on a server-configured allowlist; token role/metadata cannot
+grant it. Workspace admins/API keys cannot use global review/activity endpoints.
+
+[Key issuance](../app/services/api_keys.py) checks membership scope ceilings,
+retains delegated creators and rejects oversized keys after demotion. Member
+removal revokes keys transactionally. Auth endpoints are IP-limited; write buckets
+include actor kind/ID and trusted-proxy-derived IP. Distributed attackers and NAT
+sharing remain limitations; Redis failure blocks auth-limited routes and writes.
+
+The [ACL migration](../alembic/versions/0008_auth_role_privileges.py) denies existing
+Supabase Data API roles application privileges and removes PUBLIC inheritance.
+It does not implement tenant RLS policies or strip arbitrary role memberships.
+It affects default grants of the migration creator, not every future database role.
+
+Residual risks: trusted email state can be one hour stale, or older during outages
+because the requested policy preserves prior values. In-flight checks can see
+previous state. Token theft works until expiry/local suspension; XSS can steal
+in-memory credentials. The browser OAuth UI is not built. Local mode is explicitly
+passwordless; startup requires a recognized loopback listener or acknowledgement,
+logs a CRITICAL warning and is always prohibited in production.

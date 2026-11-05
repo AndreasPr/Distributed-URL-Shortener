@@ -49,12 +49,12 @@ def test_workspace_boundary_with_real_postgres_and_redis(stack):
     for path in [
         "/analytics/privateTenant",
         "/urls/privateTenant/status",
-        "/admin/activity/privateTenant",
     ]:
         assert stack.client.get(path).status_code == 404
     assert stack.client.delete("/urls/privateTenant").status_code == 404
     assert stack.client.delete(f"/api-keys/{key_id}").status_code == 404
-    assert stack.client.get("/admin/flagged").json() == []
+    assert stack.client.get("/admin/flagged").status_code == 403
+    assert stack.client.get("/admin/activity/privateTenant").status_code == 403
     response = stack.client.get(
         "/analytics/privateTenant", headers={"X-API-Key": secret}
     )

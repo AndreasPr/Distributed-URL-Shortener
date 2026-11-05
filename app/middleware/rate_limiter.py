@@ -100,12 +100,12 @@ def client_ip(request: Request) -> str:
     return current
 
 
-def limit_write(request: Request, key_id: int | str) -> None:
+def limit_write(request: Request, identity: str) -> None:
     template = request.scope["route"].path
     try:
         result = check_bucket(
             template,
-            f"key:{key_id}",
+            f"{identity}:ip:{client_ip(request)}",
             settings.WRITE_RATE_CAPACITY,
             settings.WRITE_RATE_REFILL,
         )
@@ -128,6 +128,29 @@ async def rate_limit_middleware(request: Request, call_next):
             template = getattr(route, "path", None)
             break
     headers = {}
+    if template is not None and (request.method, template) in {
+        ("POST", "/auth/dev-login"),
+        ("GET", "/me"),
+    }:
+        try:
+            result = await run_in_threadpool(
+                check_bucket,
+                template,
+                f"ip:{client_ip(request)}",
+                settings.AUTH_IP_RATE_CAPACITY,
+                settings.AUTH_IP_RATE_REFILL,
+            )
+        except Exception:
+            return JSONResponse(
+                {"detail": "Authentication rate limiter unavailable"},
+                status_code=503,
+                headers={"Retry-After": "1"},
+            )
+        headers = result.headers()
+        if not result.allowed:
+            return JSONResponse(
+                {"detail": "Rate limit exceeded"}, status_code=429, headers=headers
+            )
     if request.method == "GET" and template == "/{code}":
         try:
             result = await run_in_threadpool(

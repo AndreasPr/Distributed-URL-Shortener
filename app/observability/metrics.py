@@ -154,3 +154,7 @@ abuse_queue_size = Gauge(
 
 auth_success_total = Counter("auth_success_total", "Successful authentications")
 auth_failure_total = Counter("auth_failure_total", "Failed authentications", ["reason"])
+
+auth_email_verification_total = Counter(
+    "auth_email_verification_total", "Trusted email verification results", ["result"]
+)

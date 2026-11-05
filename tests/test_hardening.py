@@ -90,7 +90,7 @@ def test_chunked_body_cannot_bypass_limit():
     ],
 )
 def test_production_rejects_unsafe_cors(origins):
-    env = dict(os.environ, ENVIRONMENT="production", CORS_ORIGINS=origins)
+    env = dict(os.environ, ENVIRONMENT="production", AUTH_MODE="supabase", SUPABASE_URL="https://project.supabase.co", CORS_ORIGINS=origins)
     result = subprocess.run(
         [sys.executable, "-c", "import app.core.config"], env=env, capture_output=True
     )
@@ -98,7 +98,7 @@ def test_production_rejects_unsafe_cors(origins):
 
 
 def test_production_accepts_exact_origin():
-    env = dict(os.environ, ENVIRONMENT="production", CORS_ORIGINS="https://example.com")
+    env = dict(os.environ, ENVIRONMENT="production", AUTH_MODE="supabase", SUPABASE_URL="https://project.supabase.co", CORS_ORIGINS="https://example.com")
     assert (
         subprocess.run(
             [sys.executable, "-c", "import app.core.config"],

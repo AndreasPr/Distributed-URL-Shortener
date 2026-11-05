@@ -52,6 +52,17 @@ class Settings:
     )
     ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
     AUTH_MODE = os.getenv("AUTH_MODE", "apikey_only")
+    SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+    PLATFORM_ADMIN_EMAILS = frozenset(
+        email.strip().lower()
+        for email in os.getenv("PLATFORM_ADMIN_EMAILS", "").split(",")
+        if email.strip()
+    )
+    LOCAL_AUTH_I_UNDERSTAND = (
+        os.getenv("LOCAL_AUTH_I_UNDERSTAND", "false").lower() == "true"
+    )
+    AUTH_IP_RATE_CAPACITY = int(os.getenv("AUTH_IP_RATE_CAPACITY", "60"))
+    AUTH_IP_RATE_REFILL = float(os.getenv("AUTH_IP_RATE_REFILL", "1"))
     SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
     SUPABASE_JWT_AUDIENCE = os.getenv("SUPABASE_JWT_AUDIENCE", "authenticated")
     SUPABASE_JWT_ALGORITHMS = tuple(
@@ -62,8 +73,11 @@ class Settings:
     JWKS_REFRESH_INTERVAL = float(os.getenv("JWKS_REFRESH_INTERVAL", "10"))
     if AUTH_MODE not in {"supabase", "local", "apikey_only"}:
         raise ValueError("Invalid AUTH_MODE")
-    if AUTH_MODE == "local" and ENVIRONMENT == "production":
-        raise ValueError("Local authentication is forbidden in production")
+    if ENVIRONMENT == "production" and AUTH_MODE != "supabase":
+        raise ValueError(
+            "Production requires AUTH_MODE=supabase; "
+            "local and apikey_only are forbidden"
+        )
     if not SUPABASE_JWT_ALGORITHMS or not set(SUPABASE_JWT_ALGORITHMS) <= {
         "RS256",
         "ES256",
@@ -138,6 +152,8 @@ class Settings:
     for network in TRUSTED_PROXIES:
         ipaddress.ip_network(network, strict=False)
     for rate in (
+        AUTH_IP_RATE_CAPACITY,
+        AUTH_IP_RATE_REFILL,
         WRITE_RATE_CAPACITY,
         WRITE_RATE_REFILL,
         REDIRECT_RATE_CAPACITY,

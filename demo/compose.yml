@@ -9,6 +9,9 @@ services:
       EVENT_FLUSH_INTERVAL: '1'
       DEMO_MODE: '1'
       AUTH_MODE: local
+      # Container binds 0.0.0.0; published ports above are loopback-only.
+      LOCAL_AUTH_I_UNDERSTAND: 'true'
+      PLATFORM_ADMIN_EMAILS: owner@example.test
       ENVIRONMENT: development
     volumes:
       - ./scripts/demo_seed.py:/app/demo_seed.py:ro

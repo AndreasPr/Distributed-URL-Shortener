@@ -85,3 +85,21 @@ See [claims](claims.md) and the [final audit](final-audit.md) for evidence bound
 - CI evidence is tied to specific prior commits. The final audit branch must be pushed and its
   checks reviewed separately. CodeQL was not executed locally; a prior successful public run
   is linked in the audit. Optional Codecov is not a local validation requirement.
+
+## Auth alignment
+
+Backend human JWT and email-verification guards are tested; the Supabase browser
+login UI remains unbuilt and live-provider configuration is not proven by fake
+server tests. Email verification is cached for an hour; failures preserve prior
+trusted state, so stale verified/platform-admin access can last longer during an
+outage. The platform allowlist is environment-based and changes require restart.
+
+Global review/activity now rejects all API keys. Current MCP API-key transport
+cannot use those tools; it reports explicit failures. Workspace-key endpoints
+remain available. Production startup now requires Supabase configuration; the
+undeployed Terraform design needs those auth settings supplied before it can run.
+
+The ACL migration retains owner-role RLS bypass and only changes defaults for its
+object creator. It does not remove arbitrary inherited-role privileges. Local
+mode is passwordless and single-process; unknown/non-loopback listeners require
+explicit acknowledgement and log a critical warning.

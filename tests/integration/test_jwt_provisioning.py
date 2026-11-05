@@ -35,3 +35,33 @@ def test_concurrent_first_login_is_atomic(database):
             )
             == 1
         )
+
+
+def test_hourly_email_budget_is_shared_across_sessions(database, monkeypatch):
+    import time
+
+    import app.services.user_auth as service
+    from app.core.config import settings
+
+    subject = str(uuid4())
+    calls = []
+    monkeypatch.setattr(settings, "AUTH_MODE", "supabase")
+
+    def lookup(user_id, token):
+        calls.append(user_id)
+        time.sleep(0.05)
+        return "verified@example.test", True
+
+    monkeypatch.setattr(service, "confirmed_email", lookup)
+
+    def login(_):
+        with database() as db:
+            return user_principal(db, {"sub": subject}, token="placeholder-token")
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(login, range(8)))
+    assert calls == [subject]
+    assert len({result.workspace_id for result in results}) == 1
+    with database() as db:
+        assert db.get(User, subject).email_verified
+        assert db.get(User, subject).email_verification_checked_at is not None

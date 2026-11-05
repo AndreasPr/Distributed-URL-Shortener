@@ -26,6 +26,7 @@ class Principal:
     user_id: str | None = None
     api_key_id: int | None = None
     platform_admin: bool = False
+    email_verified: bool = False
 
     def __post_init__(self) -> None:
         UUID(self.workspace_id)
@@ -40,6 +41,14 @@ class Principal:
             UUID(self.user_id)
         else:
             raise ValueError("Unknown authentication method")
+
+    @property
+    def rate_identity(self) -> str:
+        return (
+            f"user:{self.user_id}"
+            if self.auth_method == "user"
+            else f"key:{self.api_key_id}"
+        )
 
     @property
     def id(self) -> str | int:
