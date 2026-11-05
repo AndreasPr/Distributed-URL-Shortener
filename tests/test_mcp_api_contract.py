@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 
 import app.api.routes as routes
 import app.services.activity_signals as activity
-from app.api.auth import require_admin, require_read, require_write, require_edit, require_analytics, require_keys
+from app.api.auth import require_platform_admin, require_admin, require_read, require_write, require_edit, require_analytics, require_keys
 from app.db.database import get_db
 from app.api.principal import Principal
 from app.models.identity import DEFAULT_WORKSPACE_ID
@@ -36,6 +36,11 @@ def client(db_session, monkeypatch):
     application.dependency_overrides[get_db] = lambda: db_session
     for dep in (require_admin, require_read, require_write, require_edit, require_analytics, require_keys):
         application.dependency_overrides[dep] = lambda: Principal(api_key_id=1, workspace_id=DEFAULT_WORKSPACE_ID, role="admin", scopes=frozenset({"admin"}), auth_method="api_key")
+    # These are authorized response-shape contracts. The MCP API-key transport
+    # now receives 403 on platform-only endpoints (covered separately).
+    application.dependency_overrides[require_platform_admin] = lambda: Principal(
+        user_id="00000000-0000-0000-0000-000000000010", workspace_id=DEFAULT_WORKSPACE_ID,
+        role="admin", scopes=frozenset(), auth_method="user", email_verified=True, platform_admin=True)
     monkeypatch.setattr(activity.time, "time", lambda: 1800000000)
     monkeypatch.setattr(activity.cache, "read_cache", lambda fn: [b"2"] + [None] * 59)
     return TestClient(application)

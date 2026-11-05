@@ -106,19 +106,28 @@ def review(
 
 
 def flagged(
-    db: Session, limit: int, offset: int, *, workspace_id: str = DEFAULT_WORKSPACE_ID
+    db: Session,
+    limit: int,
+    offset: int,
+    *,
+    workspace_id: str | None = DEFAULT_WORKSPACE_ID,
 ):
-    rows = (
+    query = (
         db.query(URLVerdict, URL.long_url)
         .join(URL, URL.short_code == URLVerdict.short_code)
         .filter(
             URL.deleted_at.is_(None),
-            URL.workspace_id == workspace_id,
-            URLVerdict.workspace_id == workspace_id,
+            URL.workspace_id == URLVerdict.workspace_id,
             URLVerdict.verdict.in_(["suspicious", "malicious"]),
             URLVerdict.review_decision.is_(None),
         )
-        .order_by(URLVerdict.created_at, URLVerdict.short_code)
+    )
+    if workspace_id is not None:
+        query = query.filter(
+            URL.workspace_id == workspace_id, URLVerdict.workspace_id == workspace_id
+        )
+    rows = (
+        query.order_by(URLVerdict.created_at, URLVerdict.short_code)
         .offset(offset)
         .limit(limit)
         .all()

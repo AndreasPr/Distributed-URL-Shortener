@@ -250,6 +250,14 @@ def test_enforcement_on_warm_cache_and_review(client, db_session, monkeypatch):
     assert client.get("/admin/flagged").status_code == 403
     _, admin = create_key(db_session, "reviewer", ["admin"])
     client.headers["X-API-Key"] = admin
+    assert client.get("/admin/flagged").status_code == 403
+    from app.api.auth import get_principal
+    from app.api.principal import Principal
+    from app.models.identity import DEFAULT_WORKSPACE_ID
+    from uuid import uuid4
+    client.app.dependency_overrides[get_principal] = lambda: Principal(
+        user_id=str(uuid4()), workspace_id=DEFAULT_WORKSPACE_ID, role="admin",
+        scopes=frozenset(), auth_method="user", email_verified=True, platform_admin=True)
     rows = client.get("/admin/flagged").json()
     assert rows[0]["short_code"] == code and rows[0]["reasons"] == ["credential_path"]
     assert (
@@ -279,6 +287,7 @@ def test_enforcement_on_warm_cache_and_review(client, db_session, monkeypatch):
         ).status_code
         == 404
     )
+    del client.app.dependency_overrides[get_principal]
     client.headers.pop("X-API-Key")
     assert client.get("/admin/flagged").status_code == 401
     assert (

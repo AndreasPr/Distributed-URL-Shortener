@@ -238,7 +238,7 @@ def up() -> None:
     print("READ_WRITE_KEY=" + data["read_write_key"])
     print("Grafana username: demo; password: " + grafana_password)
     print("API docs: http://localhost:18080/docs")
-    print("Frontend: http://localhost:13000 (paste a key into its in-memory settings)")
+    print("Frontend: http://localhost:13000 (automatically logs in as the local owner)")
     print("Grafana: http://localhost:13001/d/url-shortener")
     print("Jaeger: http://localhost:16687 (service: api or worker)")
     print("Walkthrough: docs/demo-script.md | Reset: make demo-down && make demo")

@@ -12,16 +12,17 @@ from sqlalchemy.orm import Session
 from app.abuse.persistence import LinkBlockedError, flagged, review
 from app.abuse.schemas import ReviewRequest
 from app.api.auth import (
-    require_admin,
     require_analytics,
     require_edit,
     require_keys,
+    require_platform_admin,
     require_read,
     require_write,
 )
 from app.api.principal import Principal
 from app.cache.redis_client import read_cache, redis_client
 from app.db.database import get_db
+from app.models.api_key import APIKey
 from app.models.url import URL
 from app.models.url_verdict import URLVerdict
 from app.observability.metrics import record_redirect
@@ -29,7 +30,7 @@ from app.repositories.url_repository import AliasTakenError
 from app.schemas.url_schema import URLCreate, URLResponse
 from app.services.activity_signals import signals
 from app.services.analytics_service import AnalyticsService, URLNotFoundError
-from app.services.api_keys import create_key, list_keys, revoke_key
+from app.services.api_keys import KeyScopeError, create_key, list_keys, revoke_key
 from app.services.url_service import LinkExpiredError, URLService
 
 logger = logging.getLogger(__name__)
@@ -205,13 +206,21 @@ def new_key(
     key: Principal = Depends(require_keys),
     db: Session = Depends(get_db),
 ):
-    row, raw = create_key(
-        db,
-        payload.name,
-        list(payload.scopes),
-        workspace_id=key.workspace_id,
-        created_by_user_id=key.user_id,
-    )
+    creator = key.user_id
+    if key.api_key_id is not None:
+        parent = db.get(APIKey, key.api_key_id)
+        creator = parent.created_by_user_id if parent is not None else None
+    try:
+        row, raw = create_key(
+            db,
+            payload.name,
+            list(payload.scopes),
+            workspace_id=key.workspace_id,
+            created_by_user_id=creator,
+        )
+    except KeyScopeError:
+        db.rollback()
+        raise HTTPException(403, "Key scopes exceed creator membership") from None
     return {
         "id": row.id,
         "name": row.name,
@@ -244,21 +253,22 @@ def admin_revoke(
 def admin_flagged(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    key: Principal = Depends(require_admin),
+    key: Principal = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ):
-    return flagged(db, limit, offset, workspace_id=key.workspace_id)
+    return flagged(db, limit, offset, workspace_id=None)
 
 
 @router.post("/admin/flagged/{code}/review", status_code=204)
 def admin_review(
     code: str,
     request: ReviewRequest,
-    key: Principal = Depends(require_admin),
+    key: Principal = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ):
-    if not review(
-        db, code, request.decision, str(key.id), workspace_id=key.workspace_id
+    url = db.query(URL).filter_by(short_code=code).first()
+    if url is None or not review(
+        db, code, request.decision, str(key.id), workspace_id=url.workspace_id
     ):
         raise HTTPException(404, "Verdict not found")
     return Response(status_code=204)
@@ -310,15 +320,14 @@ def url_status(
 def activity(
     code: str = Path(pattern=r"^[A-Za-z0-9_-]{1,32}$"),
     window_minutes: int = Query(60, ge=1, le=60),
-    key: Principal = Depends(require_admin),
+    key: Principal = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ):
-    if (
-        db.query(URL).filter_by(short_code=code, workspace_id=key.workspace_id).first()
-        is None
-    ):
+    # Explicit global lookup only after the platform-admin dependency succeeds.
+    url = db.query(URL).filter_by(short_code=code).first()
+    if url is None:
         raise HTTPException(404, "Not found")
-    return signals(db, code, window_minutes, workspace_id=key.workspace_id)
+    return signals(db, code, window_minutes, workspace_id=url.workspace_id)
 
 
 @router.get(

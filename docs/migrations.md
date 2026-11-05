@@ -152,3 +152,19 @@ workspace, membership and invite records plus tenant attribution**, and disables
 RLS on surviving tables. Do not downgrade a live multi-workspace system without a
 backup and an explicit data recovery plan. No cloud credentials are required to
 validate migrations against the disposable local PostgreSQL fixture.
+
+## Auth alignment revisions
+
+`0007` adds nullable `users.email_verification_checked_at` for the shared hourly
+Supabase metadata-attempt budget. `0008` hardens application ACLs only when `anon`
+or `authenticated` exists; on ordinary PostgreSQL it changes no ACLs. Existing
+RLS remains enabled. PUBLIC-inherited privileges and migration-creator global/schema
+default grants are removed too, since PostgreSQL cannot deny a role a PUBLIC grant.
+Application-owned sequences and non-extension routines in the application schema
+are covered; additional creator roles/inherited role grants need operator review.
+
+Run `alembic upgrade head` before the new API. Production auth configuration is now
+mandatory; see [auth](auth.md). Downgrading `0008` deliberately does not regrant
+privileges. Dropping `0007` loses the email-check timestamp, so a later upgrade
+permits an immediate refresh. Real PostgreSQL tests are in
+`tests/integration/test_auth_role_privileges.py` and the migration suite.

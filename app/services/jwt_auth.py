@@ -137,6 +137,8 @@ def verify_token(token: str) -> dict[str, Any]:
             audience=audience,
             options={"require": ["exp", "iss", "aud", "sub"]},
         )
+        if claims.get("is_anonymous") is True:
+            raise InvalidToken("anonymous_session")
         claims["sub"] = str(UUID(claims["sub"]))
         return claims
     except InvalidToken:

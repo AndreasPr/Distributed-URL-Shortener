@@ -133,7 +133,7 @@ export class APIClient {
 
   async listFlagged(offset = 0): Promise<FlaggedURL[]> {
     const response = await timedFetch(`${this.baseUrl}/admin/flagged?limit=50&offset=${offset}`, { headers: await this.authHeaders() })
-    if (!response.ok) throw new Error(`Review queue unavailable (${response.status}); an admin key is required`)
+    if (!response.ok) throw new Error(`Review queue unavailable (${response.status}); a verified platform-admin session is required`)
     return response.json()
   }
 

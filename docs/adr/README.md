@@ -57,3 +57,5 @@ Current overview: [engineering design](../design.md).
 - [0036: Explicit CI runner OS](0036-explicit-ci-runner-os.md)
 
 - [0037: JWT authentication](0037-jwt-authentication.md)
+
+- [0038: Auth alignment](0038-auth-alignment.md)

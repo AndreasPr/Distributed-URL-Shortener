@@ -137,3 +137,25 @@ See [security.md](security.md) for scopes, headers, proxy trust and deployment s
 - Keys cannot obtain owner permissions. User-token authentication is step 15.3;
   owner mutations are currently unavailable to API-key callers (403). HTTP key
   creation/list/revoke is available to workspace admins now.
+
+## Step 15.3a — auth alignment
+
+Historical PR labels 15.1 (PR #70) and 15.2 (PR #72) map to roadmap tenancy 15.2
+and JWT auth 15.3; their implementation/history is retained.
+
+- Human POST/PUT/PATCH/DELETE operations now return **403** with
+  `detail.code=email_unverified` until trusted email confirmation. API keys are
+  exempt; the local login bootstrap remains local-only.
+- Anonymous bearer sessions now return generic **401**, with a Bearer challenge.
+- `/admin/flagged`, its review action and `/admin/activity/{code}` are global and
+  require verified allowlisted human platform admin. Workspace admins/owners and
+  admin API keys now receive **403**; valid platform admins can review any tenant.
+  Missing global targets still return **404**. This breaks the current API-key-only
+  MCP review/activity transport intentionally; no automatic privilege bypass exists.
+- `/me` and `/auth/dev-login` can return **429** (Retry-After) or **503** if Redis
+  cannot enforce their per-IP limit. Write buckets now include actor kind and IP.
+- `/me` adds `email_verified` and `platform_admin`; existing fields remain.
+- Human key scopes exceeding current membership return **403** at HTTP creation;
+  after removal or incompatible demotion, those keys authenticate as **401**.
+- Production requires Supabase auth at startup. Local non-loopback/unknown
+  listeners require explicit acknowledgement. Upgrade through migration `0008`.

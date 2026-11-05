@@ -74,18 +74,17 @@ def test_real_api_key_principal_and_tenant_isolation(client, db_session, tenants
     assert me["auth_method"] == "api_key" and me["user_id"] is None
     assert [row["short_code"] for row in client.get("/urls").json()] == ["ours"]
     assert client.get("/analytics/ours").json()["total_clicks"] == 1
-    for path in ["/analytics/theirs", "/urls/theirs/status", "/admin/activity/theirs"]:
+    for path in ["/analytics/theirs", "/urls/theirs/status"]:
         assert client.get(path).status_code == 404
     assert client.delete("/urls/theirs").status_code == 404
     assert (
         client.post(
             "/admin/flagged/theirs/review", json={"decision": "block"}
         ).status_code
-        == 404
+        == 403
     )
-    assert [row["short_code"] for row in client.get("/admin/flagged").json()] == [
-        "ours"
-    ]
+    assert client.get("/admin/flagged").status_code == 403
+    assert client.get("/admin/activity/theirs").status_code == 403
     assert all(row["id"] != key_id for row in client.get("/api-keys").json())
     assert client.delete(f"/api-keys/{key_id}").status_code == 404
     assert client.get(f"/workspaces/{other}/members").status_code == 404
@@ -151,6 +150,7 @@ def user_context(db_session, client):
         role="owner",
         scopes=frozenset(),
         auth_method="user",
+        email_verified=True,
     )
     # Deliberate trusted dependency override, NOT an HTTP user/role header.
     client.app.dependency_overrides[get_principal] = lambda: principal
@@ -191,7 +191,7 @@ def test_role_endpoint_matrix(
     client.app.dependency_overrides[get_principal] = lambda: principal
     response = client.request(method, path, json=payload)
     assert response.status_code == (
-        allowed if permission in ROLE_PERMISSIONS[role] else 403
+        allowed if permission in ROLE_PERMISSIONS[role] and not path.startswith("/admin/flagged") else 403
     ), response.text
 
 

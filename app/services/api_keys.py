@@ -9,9 +9,19 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.models.api_key import APIKey
-from app.models.identity import DEFAULT_WORKSPACE_ID
+from app.models.identity import DEFAULT_WORKSPACE_ID, Workspace, WorkspaceMember
 
 SCOPES = {"read", "write", "admin"}
+ROLE_SCOPES = {
+    "viewer": {"read"},
+    "member": {"read", "write"},
+    "admin": SCOPES,
+    "owner": SCOPES,
+}
+
+
+class KeyScopeError(ValueError):
+    pass
 
 
 def utcnow() -> datetime:
@@ -34,6 +44,19 @@ def create_key(
         raise ValueError("Key name must contain 1–100 characters")
     if not scopes or not set(scopes) <= SCOPES:
         raise ValueError("Choose at least one scope: read, write, admin")
+    if created_by_user_id is not None:
+        # Same workspace lock as member removal: no key can be minted after removal.
+        db.scalar(
+            select(Workspace).where(Workspace.id == workspace_id).with_for_update()
+        )
+        member = db.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == workspace_id,
+                WorkspaceMember.user_id == created_by_user_id,
+            )
+        )
+        if member is None or not set(scopes) <= ROLE_SCOPES[member.role]:
+            raise KeyScopeError("Key scopes exceed creator membership")
     raw = secrets.token_urlsafe(32)
     key = APIKey(
         name=name.strip(),
@@ -56,6 +79,15 @@ def authenticate(db: Session, raw: str) -> APIKey | None:
     valid = hmac.compare_digest(digest, key.key_hash if key is not None else "0" * 64)
     if not valid or key is None or key.revoked_at is not None:
         return None
+    if key.created_by_user_id is not None:
+        member = db.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == key.workspace_id,
+                WorkspaceMember.user_id == key.created_by_user_id,
+            )
+        )
+        if member is None or not set(key.scopes) <= ROLE_SCOPES[member.role]:
+            return None
     now = utcnow()
     # Conditional update prevents a concurrent revocation from being overwritten.
     changed = db.execute(

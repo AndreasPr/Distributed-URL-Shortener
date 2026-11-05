@@ -41,7 +41,9 @@ def get_principal(
                     x_workspace_id = str(UUID(x_workspace_id))
                 except ValueError:
                     raise InvalidToken("workspace_membership") from None
-            principal = user_principal(db, verify_token(token), x_workspace_id)
+            principal = user_principal(
+                db, verify_token(token), x_workspace_id, token=token
+            )
             auth_success_total.inc()
             return principal
         except InvalidToken as exc:
@@ -84,25 +86,50 @@ def get_principal(
         raise HTTPException(503, "Authentication unavailable") from exc
 
 
+def require_verified_user(principal: Principal = Depends(get_principal)) -> Principal:
+    if principal.auth_method == "user" and not principal.email_verified:
+        raise HTTPException(
+            403,
+            detail={
+                "code": "email_unverified",
+                "message": "Verify your email before making changes",
+            },
+        )
+    return principal
+
+
+def authorize_mutation(request: Request, principal: Principal) -> None:
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        require_verified_user(principal)
+        limit_write(request, principal.rate_identity)
+
+
 def require_permission(permission: str) -> Callable:
     def dependency(
         request: Request, principal: Principal = Depends(get_principal)
     ) -> Principal:
+        authorize_mutation(request, principal)
         if not principal.allows(permission):
             raise HTTPException(403, "Insufficient permission")
-        if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
-            limit_write(request, principal.id)
         return principal
 
     return dependency
 
 
-# Stable dependency names for existing clients/tests, one policy implementation.
+def require_platform_admin(
+    request: Request, principal: Principal = Depends(get_principal)
+) -> Principal:
+    require_verified_user(principal)
+    if principal.auth_method != "user" or not principal.platform_admin:
+        raise HTTPException(403, "Platform administrator required")
+    authorize_mutation(request, principal)
+    return principal
+
+
 require_read = require_permission("links:read")
 require_write = require_permission("links:create")
 require_edit = require_permission("links:edit_own")
 require_analytics = require_permission("analytics:read")
 require_keys = require_permission("keys:manage")
 require_admin = require_permission("review:manage")
-
 require = require_permission

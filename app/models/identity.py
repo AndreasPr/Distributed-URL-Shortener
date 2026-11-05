@@ -30,6 +30,7 @@ class User(Base):
     __tablename__ = "users"
     id: Mapped[str] = mapped_column(Uuid(as_uuid=False), primary_key=True)
     email_verified: Mapped[bool] = mapped_column(Boolean, server_default=false())
+    email_verification_checked_at: Mapped[datetime | None] = mapped_column(TIMESTAMP)
     email: Mapped[str] = mapped_column(String(320))
     display_name: Mapped[str | None] = mapped_column(String(200))
     avatar_url: Mapped[str | None] = mapped_column(String(2048))

@@ -191,3 +191,13 @@ Review fixture diffs before committing. PostgreSQL/Redis deployment behavior and
 real client UI confirmation need separate live smoke tests; these offline tests
 do not claim those guarantees. The new Redis counter Lua integration belongs in
 the planned real-Redis suite.
+
+## Auth alignment limitation
+
+The global `/admin/flagged`, review and `/admin/activity` API routes now require a
+verified human platform-admin bearer token. This MCP server currently sends API
+keys only, so its corresponding tools return explicit API failures (403), not an
+empty successful queue. Create, analytics and URL status retain scoped API-key
+access. A future human-token transport is required before the global demo prompts
+can succeed again. Authorized response-shape contract fixtures are not evidence
+that API keys can access platform endpoints.

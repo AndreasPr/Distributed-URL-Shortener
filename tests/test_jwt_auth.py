@@ -215,7 +215,7 @@ def test_startup_refuses_local_production():
         text=True,
     )
     assert result.returncode != 0
-    assert "Local authentication is forbidden in production" in result.stderr
+    assert "Production requires AUTH_MODE=supabase" in result.stderr
 
 
 def test_legacy_only_explicitly_enabled(identity, monkeypatch):

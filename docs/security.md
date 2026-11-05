@@ -19,7 +19,7 @@ require the corresponding key scope; a write-only key does not gain read access.
 | --- | --- |
 | viewer | Read links, lifecycle/status previews, analytics and workspace metadata |
 | member | Create links; modify/delete own links only |
-| admin | Manage all links and keys in the workspace, abuse review and activity |
+| admin | Manage all links and keys in the workspace; global abuse/activity access is separate |
 | owner | Manage members, create workspaces; billing and workspace deletion are reserved permissions, not implemented endpoints |
 
 Keys cannot become owner or platform administrator by requesting scopes. New
@@ -37,6 +37,7 @@ URL count. Neither is a private listing. Worker event persistence derives worksp
 from the stored URL, never a tenant ID supplied in event JSON. Tenant repositories
 require explicit workspace arguments; the two named public redirect lookups and
 trusted click-ingestion entry point are deliberate exceptions tested separately.
+Platform-admin global queue/activity lookups are separately guarded exceptions.
 
 ## Supabase identity boundary
 
@@ -45,7 +46,8 @@ columns. The API verifies signatures and claims before resolving database
 memberships; token role claims and user metadata never grant permissions.
 First login provisions a personal workspace atomically. Suspended/deleted users
 are rejected. See [authentication](auth.md) for modes, key rotation and local demo
-login. `platform_admin` remains false; review endpoints are workspace-only.
+login. `platform_admin` is derived only from a trusted verified email matching
+`PLATFORM_ADMIN_EMAILS`; global review/activity requires that flag.
 
 `GET /me` exposes safe principal metadata. `GET /workspaces` currently lists only
 the selected workspace (the API key's workspace or bearer membership context).
@@ -153,7 +155,8 @@ explicitly registered in `app/main.py`. Public redirect limiting runs in middlew
 Write limiting runs in the shared scope dependency after authentication, when the
 matched route is available; middleware adds resulting headers to the response.
 CORS wraps the limiter so browser clients can read errors and headers. Preflight,
-health, liveness, metrics and read/admin-list endpoints do not consume tokens.
+health, liveness, metrics and ordinary read/admin-list endpoints do not consume
+tokens. `/me` and `/auth/dev-login` have dedicated per-IP auth buckets.
 
 One atomic Redis Lua invocation reads server TIME, refills tokens, consumes one
 when available, and persists the remaining balance with an expiry. This shares
@@ -162,15 +165,16 @@ buckets to expire after a full-refill interval. No separate read/write race exis
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `WRITE_RATE_CAPACITY` | 20 | Initial/full write burst per key and route template |
+| `WRITE_RATE_CAPACITY` | 20 | Initial/full write burst per principal, IP and route template |
 | `WRITE_RATE_REFILL` | 1 | Write tokens restored per second |
 | `REDIRECT_RATE_CAPACITY` | 120 | Initial/full redirect burst per client IP |
 | `REDIRECT_RATE_REFILL` | 10 | Redirect tokens restored per second |
 | `TRUSTED_PROXIES` | empty | Exact IPs/CIDRs allowed to supply forwarding chains |
 
-Bucket identities combine the matched template with a hashed key-ID/IP identity;
+Write identities are `user:<uuid>:ip:<address>` or `key:<id>:ip:<address>`,
+hashed together with the matched route template;
 raw secrets are never stored in Redis. Every short code shares `/{code}` for a
-client IP. Deletes share `/urls/{code}` per key; changing the code does not bypass
+client IP. Deletes share `/urls/{code}` per principal/IP; changing the code does not bypass
 the bucket. POST and DELETE have separate template buckets. Clients behind one
 untrusted proxy/NAT share the socket-IP redirect bucket unless trust is configured.
 
@@ -181,7 +185,7 @@ and `{"detail":"Rate limit exceeded"}`. These are the widely used unprefixed
 rate-limit fields; Reset is a relative duration, not a UNIX timestamp.
 
 Redis connection/timeout failures, an open cache circuit, and invalid limiter
-responses **fail closed for writes with 503 and Retry-After: 1**. They are not
+responses **fail closed for writes and auth IP limits with 503 and Retry-After: 1**. They are not
 reported as a quota-exhaustion 429. Public redirects **fail open** and fall back to
 PostgreSQL as before. This preserves redirect availability without allowing
 unbounded mutations when the limiter cannot enforce a budget. The cache client's
@@ -242,8 +246,9 @@ before updating an existing deployment.
 
 ## Abuse review
 
-GET /admin/flagged and POST /admin/flagged/{code}/review require admin scope.
-Reviews record API-key ID and timestamp; write rate limits apply. Malicious or
+GET /admin/flagged, POST /admin/flagged/{code}/review and /admin/activity/{code}
+require a verified allowlisted human platform admin and operate globally. Workspace
+admins and all API keys receive 403. Reviews record the human user ID and timestamp; write rate limits apply. Malicious or
 manually blocked links return 451 even on cache hits. Suspicious and pending
 links remain redirectable. The async classifier is not proof of safety; see
 [the pipeline's boundaries and residual risks](abuse-pipeline.md).
@@ -252,5 +257,25 @@ links remain redirectable. The async classifier is not proof of safety; see
 
 [Authentication modes and verification](auth.md) document Supabase bearer tokens,
 local-only demo identities, membership-based authority, and JWKS rotation limits.
-API-key authentication remains the default. Do not expose local demo login to a
+API-key-only authentication remains the development default; production requires
+Supabase mode (which still accepts scoped API keys). Do not expose local demo login to a
 shared/public network; it deliberately permits passwordless demo-owner access.
+
+## Auth alignment safeguards
+
+Human mutations require verified email (`403`, `detail.code=email_unverified`).
+Verification comes only from authenticated Supabase `/auth/v1/user`, never token
+claims or user metadata. Attempts are persisted once per hour; outages preserve
+prior state. Anonymous sessions receive generic 401. See [auth](auth.md) for the
+configuration table, staleness tradeoff and loopback/acknowledgement startup guard.
+
+Key scopes cannot exceed the human creator's current membership. Delegated keys
+retain that creator; member removal revokes all their keys in that workspace in
+one transaction. Demotion rejects oversized keys at authentication. Key secrets
+remain creation-only; API keys are exempt from the human email-verification gate.
+
+Migration `0008` removes application object privileges for existing Supabase Data
+API roles and PUBLIC inheritance, and removes object-creator default grants. It
+is a no-op without those roles. RLS remains enabled; the backend owner still
+bypasses RLS. New creator roles, role inheritance and existing external grants need
+operator review; downgrade does not restore insecure privileges.

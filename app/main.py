@@ -16,6 +16,7 @@ from app.middleware.rate_limiter import rate_limit_middleware
 from app.observability.logging import configure_logging_with_tracing
 from app.observability.metrics import configure_metrics
 from app.observability.tracing import init_tracing, instrument_app, shutdown_tracing
+from app.services.auth_startup import validate_local_binding
 
 # Configure basic logging early so startup logs appear in platform logs
 configure_logging_with_tracing("api")
@@ -51,6 +52,7 @@ except Exception:
 
 @app.on_event("startup")
 async def _on_startup():
+    validate_local_binding()
     logging.getLogger().info("APP STARTUP event - initializing observability")
     # Initialize tracing and instrumentation (non-fatal on error)
     try:

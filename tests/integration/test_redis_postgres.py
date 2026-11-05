@@ -43,7 +43,7 @@ def test_migrations_empty_postgres_matches_models(pg_engine):
         )
         assert compare_metadata(context, Base.metadata) == []
         assert (
-            connection.scalar(text("SELECT version_num FROM alembic_version")) == "0006"
+            connection.scalar(text("SELECT version_num FROM alembic_version")) == "0008"
         )
         assert set(Base.metadata.tables) == {
             "urls",
@@ -285,7 +285,7 @@ def test_stopped_redis_redirect_falls_back_postgres(stack):
     )
 
 
-def test_abuse_outbox_worker_review_enforcement_with_fake(stack):
+def test_abuse_outbox_worker_review_enforcement_with_fake(stack, monkeypatch):
     from app.abuse.classifier import Classifier
     from app.llm.limits import Limits
     from app.llm.providers import FakeProvider
@@ -310,6 +310,16 @@ def test_abuse_outbox_worker_review_enforcement_with_fake(stack):
     assert provider.limits.used == 1
     assert stack.client.get("/" + code, follow_redirects=False).status_code == 451
     assert stack.redis.get(code) is None
+    assert stack.client.get("/admin/flagged").status_code == 403
+    monkeypatch.setattr(settings, "AUTH_MODE", "local")
+    monkeypatch.setattr(
+        settings, "PLATFORM_ADMIN_EMAILS", frozenset({"owner@example.test"})
+    )
+    token = stack.client.post("/auth/dev-login", json={"user": "owner"}).json()[
+        "access_token"
+    ]
+    stack.client.headers.pop("X-API-Key")
+    stack.client.headers["Authorization"] = "Bearer " + token
     flagged = stack.client.get("/admin/flagged").json()
     assert any(row["short_code"] == code for row in flagged)
     assert (

@@ -42,8 +42,8 @@ accuracy demonstration. There are 24 clean links, four suspicious review links a
 malicious fixtures. Destinations use reserved example domains; do not imply they are real
 phishing sites or working content pages. Never follow these URLs as part of verification.
 
-Open the frontend, dashboard and flagged page in advance. Paste the admin key into the
-frontend's in-memory key settings and click its apply button. Log into Grafana as `demo`
+Open the frontend, dashboard and flagged page in advance. The isolated demo
+automatically logs in as its verified, allowlisted local owner. Log into Grafana as `demo`
 with the printed password. Set its time range to the last 5 minutes. Preload Jaeger with
 service `api`, operation `GET /{code}` (or all operations if names differ), then Find Traces.
 The six startup clicks provide actual API/publish/worker/database tracing activity. Give
@@ -57,13 +57,15 @@ these variables privately. Headers use private temporary files rather than comma
 bash
 umask 077
 DEMO_AUTH=$(mktemp -d)
-trap 'rm -rf "$DEMO_AUTH"; unset ADMIN_KEY RW_KEY' EXIT
-read -rsp 'Admin key: ' ADMIN_KEY; printf '\n'
+trap 'rm -rf "$DEMO_AUTH"; unset RW_KEY' EXIT
 read -rsp 'Read/write key: ' RW_KEY; printf '\n'
-printf 'X-API-Key: %s\n' "$ADMIN_KEY" > "$DEMO_AUTH/admin"
 printf 'X-API-Key: %s\n' "$RW_KEY" > "$DEMO_AUTH/write"
-unset ADMIN_KEY RW_KEY
+unset RW_KEY
 BASE=http://localhost:18080
+curl -fsS -X POST "$BASE/auth/dev-login" -H 'Content-Type: application/json' \
+  -d '{"user":"owner"}' |
+  python3 -c 'import json,sys; print("Authorization: Bearer " + json.load(sys.stdin)["access_token"])' \
+  > "$DEMO_AUTH/admin"
 ```
 
 Do not enable `set -x`, verbose curl, or record key entry. Clear the terminal; pre-position
@@ -120,7 +122,8 @@ curl -sS -o /dev/null -w 'redirect=%{http_code}\n' "$BASE/demo-review-1"
 curl -fsS -H @"$DEMO_AUTH/write" "$BASE/analytics/demo-docs"
 ```
 
-Expect review **204**, redirect **451**. The frontend review buttons perform the same action;
+Expect review **204**, redirect **451**. The private admin header now holds a
+15-minute local owner bearer token; API keys cannot call global review endpoints. The frontend review buttons perform the same action;
 choose UI or command once per take. Live-model quality is not claimed by these fixtures.
 
 ### Worker degradation and recovery (1:40)
