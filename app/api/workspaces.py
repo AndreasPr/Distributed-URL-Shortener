@@ -1,5 +1,6 @@
 """Workspace management for authenticated human and API-key Principals."""
 
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -97,7 +98,14 @@ def workspaces(
     db: Session = Depends(get_db),
 ):
     # Both kinds of Principal carry an authenticated workspace context.
-    rows = db.scalars(select(Workspace).where(Workspace.id == principal.workspace_id))
+    query = select(Workspace)
+    if principal.user_id is not None:
+        query = query.join(WorkspaceMember).where(
+            WorkspaceMember.user_id == principal.user_id
+        )
+    else:
+        query = query.where(Workspace.id == principal.workspace_id)
+    rows = db.scalars(query.order_by(Workspace.created_at, Workspace.id))
     return [serialize_workspace(row) for row in rows]
 
 
@@ -258,4 +266,58 @@ def remove_member(
     db: Session = Depends(get_db),
 ):
     change_member(db, principal, workspace_id, user_id, None)
+    return Response(status_code=204)
+
+
+class AccountDeletion(BaseModel):
+    confirmation: Literal["DELETE"]
+
+
+@router.delete("/me", status_code=204)
+def delete_account(
+    payload: AccountDeletion,
+    principal: Principal = Depends(require_permission("workspaces:read")),
+    db: Session = Depends(get_db),
+):
+    if principal.user_id is None:
+        raise HTTPException(403, "User authentication required")
+    memberships = list(
+        db.scalars(
+            select(WorkspaceMember).where(WorkspaceMember.user_id == principal.user_id)
+        )
+    )
+    # Same workspace lock as member removal, deterministic order across workspaces.
+    for membership in sorted(memberships, key=lambda row: row.workspace_id):
+        db.scalar(
+            select(Workspace)
+            .where(Workspace.id == membership.workspace_id)
+            .with_for_update()
+        )
+        db.refresh(membership)
+        if membership.role == "owner":
+            owners = db.scalar(
+                select(func.count())
+                .select_from(WorkspaceMember)
+                .where(
+                    WorkspaceMember.workspace_id == membership.workspace_id,
+                    WorkspaceMember.role == "owner",
+                )
+            )
+            if owners == 1:
+                db.rollback()
+                raise HTTPException(
+                    409, "Transfer workspace ownership before deleting your account"
+                )
+    user = db.get(User, principal.user_id)
+    if user is None or user.deleted_at is not None:
+        raise HTTPException(401, "Invalid credentials")
+    user.deleted_at = utcnow()
+    db.execute(
+        update(APIKey)
+        .where(APIKey.created_by_user_id == principal.user_id)
+        .values(revoked_at=utcnow())
+    )
+    for membership in memberships:
+        db.delete(membership)
+    db.commit()
     return Response(status_code=204)

@@ -1,6 +1,6 @@
 import React from 'react'
 import Image from 'next/image'
-import ShortenForm from '../components/ShortenForm'
+import Link from 'next/link'
 
 export default function Home() {
   return (
@@ -19,17 +19,17 @@ export default function Home() {
             <li>Redis Lua token buckets enforce API rate limits in the real stack.</li>
             <li>OpenTelemetry connects request, event and worker spans.</li>
           </ul>
-          <p>These describe the local implementation; <a className="underline" href="https://github.com/AndreasPr/Distributed-URL-Shortener/blob/master/docs/claims.md">evidence and limitations</a>.</p>
+          <p>These describe the local implementation; <a rel="noopener noreferrer" className="underline" href="https://github.com/AndreasPr/Distributed-URL-Shortener/blob/master/docs/claims.md">evidence and limitations</a>.</p>
           <p className="flex flex-wrap gap-4">
-            <a className="underline" href="https://github.com/AndreasPr/Distributed-URL-Shortener">GitHub</a>
-            <a className="underline" href="https://github.com/AndreasPr/Distributed-URL-Shortener/blob/master/docs/design.md">Design docs</a>
-            <a className="underline" href="https://github.com/AndreasPr/Distributed-URL-Shortener/blob/master/docs/adr/README.md">ADRs</a>
+            <a rel="noopener noreferrer" className="underline" href="https://github.com/AndreasPr/Distributed-URL-Shortener">GitHub</a>
+            <a rel="noopener noreferrer" className="underline" href="https://github.com/AndreasPr/Distributed-URL-Shortener/blob/master/docs/design.md">Design docs</a>
+            <a rel="noopener noreferrer" className="underline" href="https://github.com/AndreasPr/Distributed-URL-Shortener/blob/master/docs/adr/README.md">ADRs</a>
             <span>Demo video: recording coming soon</span>
           </p>
           <p className="border-l-4 border-primary pl-4"><strong>Limits:</strong> the hosted demo runs on bundled data in your browser. Reloading resets changes; codes do not redirect. The real Kafka or Redis Streams, Redis and PostgreSQL stack runs locally with <code>make demo</code>. No live model, database or monitoring runs on this page.</p>
         </section>
         <div className="bg-card shadow rounded p-6">
-          <ShortenForm />
+          <div className="flex gap-4"><Link className="underline" href={process.env.NEXT_PUBLIC_LOCAL_AUTH === 'true' ? '/dashboard' : '/login'}>{process.env.NEXT_PUBLIC_LOCAL_AUTH === 'true' ? 'Open local workspace' : 'Sign in with GitHub'}</Link><Link className="underline" href="/demo">Explore the demo</Link></div>
         </div>
       </section>
     </main>

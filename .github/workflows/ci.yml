@@ -109,18 +109,22 @@ jobs:
         working-directory: frontend
         env:
           NEXT_TELEMETRY_DISABLED: '1'
-          NEXT_PUBLIC_API_URL: http://localhost:8000
-      - name: Build browser-only demo and scan public artifacts
+          NEXT_PUBLIC_API_URL: https://api.example.com
+      - name: Scan public artifacts
+        working-directory: frontend
+        run: npm run check:demo-build
+      - uses: ./.github/actions/python-env
+      - name: Browser auth and demo regression tests
         working-directory: frontend
         env:
-          NEXT_TELEMETRY_DISABLED: '1'
-          NEXT_PUBLIC_DEMO_MODE: 'true'
+          NEXT_PUBLIC_LOCAL_AUTH: 'false'
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:3199
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: fixture-public-anon
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:3199
+          NEXT_PUBLIC_EMAIL_AUTH: 'true'
+          NEXT_PUBLIC_TURNSTILE_SITE_KEY: fixture-site-key
         run: |
           npm run build
-          npm run check:demo-build
-      - name: Browser demo regression tests
-        working-directory: frontend
-        run: |
           npx playwright install --with-deps chromium
           npm run test:e2e
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

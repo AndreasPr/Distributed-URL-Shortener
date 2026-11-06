@@ -1,3 +1,4 @@
+import { headers } from 'next/headers'
 import './globals.css'
 import '@fontsource-variable/inter'
 import { Providers } from '../components/Providers'
@@ -14,11 +15,11 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image' },
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="font-sans" suppressHydrationWarning>
       <body>
-        <Providers><AppShell>{children}</AppShell></Providers>
+        <Providers nonce={(await headers()).get('x-nonce') || ''}><AppShell>{children}</AppShell></Providers>
       </body>
     </html>
   )
