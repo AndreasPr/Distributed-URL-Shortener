@@ -42,7 +42,11 @@ export function AuthForm({
       callback.searchParams.set("next", next);
       const { error } = await browserAuth().auth.signInWithOAuth({
         provider,
-        options: { redirectTo: callback.toString() },
+        options: {
+          redirectTo: callback.toString(),
+          // Signing out of Relaymark does not end the browser's Google session.
+          ...(provider === "google" ? { queryParams: { prompt: "select_account" } } : {}),
+        },
       });
       if (error) throw error;
     } catch {

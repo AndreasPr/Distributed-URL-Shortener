@@ -134,3 +134,8 @@ Profile rendering prefers `display_name`, then OAuth `full_name`/`name`, and fal
 back to “My account.” The Account form uses the same field order. Auth-state events
 update the header after sign-out/profile changes. Names are presentation only and
 never affect authorization; /demo does not initialize this session component.
+
+Google OAuth explicitly sends `prompt=select_account` so each new Google sign-in
+requests an account chooser, even when the browser retains its Google session.
+Relaymark sign-out does not sign out of Google itself. GitHub's OAuth parameters
+are unchanged. This is Google's [documented account-selection parameter](https://developers.google.com/identity/openid-connect/openid-connect).

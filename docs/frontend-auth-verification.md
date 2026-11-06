@@ -121,3 +121,14 @@ Playwright suite (`20 passed (10.0s)`). No live provider calls or private env fi
 were used in the isolated verification, and the active development server was not
 restarted. Backend code was unchanged; backend/MCP gates were not rerun for this
 frontend-only follow-up.
+
+## Follow-up: Google account chooser
+
+Google sign-in now supplies prompt=select_account through Supabase queryParams.
+Browser tests inspect the outgoing authorization URL and complete fake-provider
+PKCE login for both Google and GitHub; the latter has no added prompt parameter.
+Checks exited 0: ESLint, TypeScript, 20 unit tests, isolated build, 22 Playwright
+tests (`22 passed (8.3s)`). An initial temporary build had missing source files;
+refreshing that isolated copy resolved it. The first browser run exposed an
+existing header test racing sign-out navigation; it now waits for /login before
+navigating home. Live Google chooser UI was not accessed during verification.

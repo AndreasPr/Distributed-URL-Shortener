@@ -184,6 +184,18 @@ test('public header reflects sign-in, logo navigation and sign-out', async ({ pa
   await page.locator('header').getByRole('link', { name: 'Test owner', exact: true }).click();
   await expect(page.getByLabel('Display name')).toHaveValue('Test owner');
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await expect(page).toHaveURL(/login/);
   await page.goto('/');
   await expect(page.locator('header').getByRole('link', { name: 'Sign in', exact: true })).toBeVisible();
+});
+
+
+for (const provider of ['Google', 'GitHub']) test(`${provider} sends the appropriate account-selection parameters`, async ({ page }) => {
+  await page.goto('/login');
+  const authorization = page.waitForRequest(request => request.url().includes('/auth/v1/authorize'));
+  await page.getByRole('button', { name: `Continue with ${provider}` }).click();
+  const url = new URL((await authorization).url());
+  expect(url.searchParams.get('provider')).toBe(provider.toLowerCase());
+  expect(url.searchParams.get('prompt')).toBe(provider === 'Google' ? 'select_account' : null);
+  await expect(page).toHaveURL(/dashboard$/);
 });
