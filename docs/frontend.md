@@ -111,3 +111,19 @@ exception: `@supabase/auth-js` embeds its unused `http://localhost:9999` default
 The browser client rejects missing project configuration and always supplies an
 explicit URL, so this is not an application endpoint. Other private addresses and
 credential values still fail the gate; the exception has regression tests.
+
+## Login succeeds, but workspace loading fails
+
+Supabase login can succeed even if the separate backend API is unreachable. Check
+its CORS preflight for the exact browser origin (`localhost` and `127.0.0.1` differ).
+Editing the root `.env` does not update an existing container. After checking
+Compose's effective configuration, recreate only the API, for example:
+
+```bash
+docker compose --profile redis-streams up -d --no-deps --force-recreate api-redis
+```
+
+The Account page displays verification as unknown while `/me` loads, and unavailable
+if that request fails. Only a successful `/me` response with `email_verified=false`
+is evidence for the “Email not verified” label. No verification flag is changed to
+work around network errors.

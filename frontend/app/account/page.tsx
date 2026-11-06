@@ -6,6 +6,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 export default function Account() {
   const [identity, setIdentity] = useState<Identity | null>(null);
+  const [identityFailed, setIdentityFailed] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -15,7 +16,7 @@ export default function Account() {
     realClient
       .me()
       .then(setIdentity)
-      .catch((error) => setMessage(error.message));
+      .catch((error) => { setIdentityFailed(true); setMessage(error.message); });
     if (!local)
       browserAuth()
         .auth.getUser()
@@ -43,7 +44,7 @@ export default function Account() {
       <h1 className="text-3xl font-semibold">Account</h1>
       <p>
         {email} · {identity?.role} ·{" "}
-        {identity?.email_verified ? "Email verified" : "Email not verified"}
+        {identity ? (identity.email_verified ? "Email verified" : "Email not verified") : (identityFailed ? "Verification status unavailable — cannot reach the API." : "Checking email verification…")}
       </p>
       <form
         className="space-y-3"

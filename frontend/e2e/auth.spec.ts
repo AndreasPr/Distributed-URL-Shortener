@@ -161,3 +161,12 @@ test("password update and global sign-out use the provider contracts", async ({
   expect((await logout).url()).toContain("scope=global");
   await expect(page).toHaveURL(/login/);
 });
+
+
+test("API network failure does not claim the user's email is unverified", async ({ page }) => {
+  await login(page);
+  await page.route('http://127.0.0.1:3199/me', route => route.abort('failed'));
+  await page.goto('/account');
+  await expect(page.getByText('Verification status unavailable', { exact: false })).toBeVisible();
+  await expect(page.getByText('Email not verified', { exact: false })).toHaveCount(0);
+});

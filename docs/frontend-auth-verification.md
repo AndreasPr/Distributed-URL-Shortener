@@ -89,3 +89,21 @@ Global sign-out revokes refresh sessions, not already-issued JWTs. SSR cookies a
 JavaScript-readable; LocalAuth remains an explicit in-memory local exception.
 Installed dependencies reported eight moderate advisories; no claim of zero
 vulnerabilities is made. No audit suppression or forced dependency upgrade was added.
+
+## Follow-up: unavailable identity must not mean unverified email
+
+A local browser preflight from http://127.0.0.1:3000 returned 400 / Disallowed CORS
+origin. The running API still allowed only localhost:3000, although the updated
+Compose configuration included both. Recreating only api-redis loaded the new
+configuration; the same preflight returned 200 with the exact allow-origin header,
+and /health returned 200. No credentials or verification flags were changed.
+
+Account now distinguishes loading/unavailable identity from a successful false
+email_verified result. A Playwright regression aborts /me after successful login
+and asserts unavailable status, never "Email not verified".
+
+Follow-up checks, exit 0: ESLint, TypeScript, 19 frontend unit tests, isolated Next
+build and all 19 Playwright tests (`19 passed (11.3s)`). The first isolated build
+could not use an external node_modules symlink due to Turbopack's filesystem
+boundary; copying dependencies into the isolated tree resolved this. No private
+env files were copied and the user's active development build was left untouched.
