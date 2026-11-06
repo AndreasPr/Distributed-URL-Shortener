@@ -170,3 +170,20 @@ test("API network failure does not claim the user's email is unverified", async 
   await expect(page.getByText('Verification status unavailable', { exact: false })).toBeVisible();
   await expect(page.getByText('Email not verified', { exact: false })).toHaveCount(0);
 });
+
+
+test('public header reflects sign-in, logo navigation and sign-out', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('header').getByRole('link', { name: 'Sign in', exact: true })).toBeVisible();
+  await login(page);
+  await page.getByRole('link', { name: 'Relaymark', exact: true }).click();
+  await expect(page).toHaveURL('http://127.0.0.1:3100/');
+  await expect(page.locator('header').getByRole('link', { name: 'Test owner', exact: true })).toBeVisible();
+  await expect(page.locator('header').getByRole('link', { name: 'Sign in', exact: true })).toHaveCount(0);
+  await page.reload();
+  await page.locator('header').getByRole('link', { name: 'Test owner', exact: true }).click();
+  await expect(page.getByLabel('Display name')).toHaveValue('Test owner');
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await page.goto('/');
+  await expect(page.locator('header').getByRole('link', { name: 'Sign in', exact: true })).toBeVisible();
+});

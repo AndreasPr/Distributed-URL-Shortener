@@ -32,6 +32,7 @@ import {
   CommandGroup,
   CommandItem,
 } from "./ui/command";
+import { SessionLink } from "./SessionLink";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 const pages = [
   { href: "/dashboard", label: "Links", icon: Link2 },
@@ -62,7 +63,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
-  if (publicPage) return <><header className="flex items-center justify-between border-b p-4"><Link href="/" className="font-semibold">Relaymark</Link><Link href="/login">Sign in</Link></header><div id="main-content">{children}</div></>;
+  if (publicPage) return <><header className="flex items-center justify-between border-b p-4"><Link href="/" className="font-semibold">Relaymark</Link><SessionLink /></header><div id="main-content">{children}</div></>;
   const navigation = (
     <>
       <Link
@@ -176,7 +177,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </DialogContent>
           </Dialog>
           {!demo && <WorkspaceSwitcher />}
-          <Link href="/account">Account</Link>
+          {demo ? <Link href="/login">Sign in</Link> : <SessionLink />}
           <ThemeToggle />
           <Button asChild className="hidden sm:inline-flex">
             <Link href={pathFor("/dashboard")}>

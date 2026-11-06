@@ -107,3 +107,17 @@ build and all 19 Playwright tests (`19 passed (11.3s)`). The first isolated buil
 could not use an external node_modules symlink due to Turbopack's filesystem
 boundary; copying dependencies into the isolated tree resolved this. No private
 env files were copied and the user's active development build was left untouched.
+
+## Follow-up: session-aware header and profile names
+
+Replaced the unconditional public Sign in link with a cookie-session-aware account
+link, including auth-state updates and display_name/full_name/name fallbacks. The
+Account form uses the same presentation-only resolver. Added unit coverage for
+field priority/invalid values and a browser regression covering signed-out landing,
+login, logo navigation, reload, Account display name, and sign-out.
+
+Checks exited 0: ESLint, TypeScript, 20 unit tests, isolated Next build and full
+Playwright suite (`20 passed (10.0s)`). No live provider calls or private env files
+were used in the isolated verification, and the active development server was not
+restarted. Backend code was unchanged; backend/MCP gates were not rerun for this
+frontend-only follow-up.

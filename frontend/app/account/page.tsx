@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { displayName } from "../../lib/auth/display-name";
 import { browserAuth, signOut } from "../../lib/auth/browser";
 import { realClient, Identity } from "../../lib/api";
 import { Button } from "../../components/ui/button";
@@ -21,7 +22,7 @@ export default function Account() {
       browserAuth()
         .auth.getUser()
         .then(({ data }) => {
-          setName(data.user?.user_metadata.display_name || "");
+          setName(displayName(data.user?.user_metadata));
           setEmail(data.user?.email || "");
         });
   }, [local]);

@@ -127,3 +127,10 @@ The Account page displays verification as unknown while `/me` loads, and unavail
 if that request fails. Only a successful `/me` response with `email_verified=false`
 is evidence for the “Email not verified” label. No verification flag is changed to
 work around network errors.
+
+The public and workspace headers reflect the current Supabase session. Signed-in
+users see their display name linked to Account; signed-out users see Sign in.
+Profile rendering prefers `display_name`, then OAuth `full_name`/`name`, and falls
+back to “My account.” The Account form uses the same field order. Auth-state events
+update the header after sign-out/profile changes. Names are presentation only and
+never affect authorization; /demo does not initialize this session component.
