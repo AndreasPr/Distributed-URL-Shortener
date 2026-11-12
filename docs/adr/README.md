@@ -61,3 +61,5 @@ Current overview: [engineering design](../design.md).
 - [0038: Auth alignment](0038-auth-alignment.md)
 
 - [0039 — Frontend cookie authentication and route-scoped samples](0039-frontend-cookie-auth.md)
+
+- [0040: One-container hosted profile](0040-one-container-hosted-profile.md)

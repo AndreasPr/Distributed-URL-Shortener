@@ -3,7 +3,7 @@ from collections.abc import Iterator
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, text
@@ -21,6 +21,7 @@ from app.api.auth import (
 )
 from app.api.principal import Principal
 from app.cache.redis_client import read_cache, redis_client
+from app.core.config import settings
 from app.db.database import get_db
 from app.models.api_key import APIKey
 from app.models.url import URL
@@ -113,7 +114,7 @@ def get_health_db() -> Iterator[Session | None]:
 
 
 @router.get("/health")
-def health(db: Session | None = Depends(get_health_db)):
+def health(request: Request, db: Session | None = Depends(get_health_db)):
     db_status = "reachable"
     total_urls = 0
 
@@ -143,6 +144,19 @@ def health(db: Session | None = Depends(get_health_db)):
         "total_urls": int(total_urls),
     }
 
+    supervisor = getattr(request.app.state, "supervisor", None)
+    if settings.APP_ROLE in {"all", "worker"}:
+        workers = supervisor.snapshot() if supervisor else {}
+        body["workers"] = workers
+        body["migrations"] = (
+            "ready" if supervisor and supervisor.ready.is_set() else "pending"
+        )
+        if (
+            not workers
+            or body["migrations"] != "ready"
+            or not all(w["healthy"] for w in workers.values())
+        ):
+            body["status"] = overall_status = "degraded"
     if overall_status != "ok":
         return JSONResponse(status_code=503, content=body)
     return body

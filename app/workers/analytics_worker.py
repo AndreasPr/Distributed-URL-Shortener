@@ -49,6 +49,8 @@ class AnalyticsWorker:
         self.backoff = backoff
         self.buffer: list[Delivery] = []
         self.stop = StopEvent()
+        self.last_success = float("-inf")
+        self.lag_value = float("nan")
         self.last_flush = time.monotonic()
 
     def flush(self) -> None:
@@ -154,7 +156,12 @@ class AnalyticsWorker:
                     self._flush_due()
                     failures = 0
                     if time.monotonic() - last_lag >= 5:
-                        for kind, lag in self.bus.lag().items():
+                        lags = self.bus.lag()
+                        self.lag_value = lags.get(
+                            "uncommitted",
+                            lags.get("unread", float("nan")) + lags.get("pending", 0),
+                        )
+                        for kind, lag in lags.items():
                             consumer_lag.labels(settings.EVENT_BUS, kind).set(lag)
                         dlq_queue_size.labels(settings.EVENT_BUS).set(
                             self.bus.queue_size(settings.EVENT_DLQ_TOPIC)
@@ -163,6 +170,7 @@ class AnalyticsWorker:
                             time.time()
                         )
                         last_lag = time.monotonic()
+                    self.last_success = time.monotonic()
                 except Exception as exc:
                     failures += 1
                     logger.warning(

@@ -1,10 +1,28 @@
 import ipaddress
 import math
 import os
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
+
+
+def local_origin(origin: str) -> bool:
+    host = (urlsplit(origin).hostname or "").rstrip(".")
+    if host == "localhost" or host.endswith(".localhost"):
+        return True
+    try:
+        address = ipaddress.ip_address(host)
+        return address.is_loopback or (
+            isinstance(address, ipaddress.IPv6Address)
+            and address.ipv4_mapped is not None
+            and address.ipv4_mapped.is_loopback
+        )
+    except ValueError:
+        return False
 
 
 class Settings:
+    APP_ROLE = os.getenv("APP_ROLE", "api")
+    if APP_ROLE not in {"api", "worker", "all"}:
+        raise ValueError("APP_ROLE must be api, worker or all")
     ABUSE_TOPIC = os.getenv("ABUSE_TOPIC", "url-created")
     ABUSE_GROUP = os.getenv("ABUSE_GROUP", "abuse-group")
     ABUSE_DLQ_TOPIC = os.getenv("ABUSE_DLQ_TOPIC", "abuse-dlq")
@@ -108,11 +126,15 @@ class Settings:
     )
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9094")
-    EVENT_BUS = os.getenv("EVENT_BUS", "kafka")
+    EVENT_BUS = os.getenv(
+        "EVENT_BUS", "redis_streams" if APP_ROLE == "all" else "kafka"
+    )
     EVENT_TOPIC = os.getenv("EVENT_TOPIC", "url-events")
     EVENT_DLQ_TOPIC = os.getenv("EVENT_DLQ_TOPIC", "url-events-dlq")
     EVENT_CONSUMER_GROUP = os.getenv("EVENT_CONSUMER_GROUP", "analytics-group")
-    EVENT_BATCH_SIZE = int(os.getenv("EVENT_BATCH_SIZE", "100"))
+    EVENT_BATCH_SIZE = int(
+        os.getenv("EVENT_BATCH_SIZE", "10" if APP_ROLE == "all" else "100")
+    )
     EVENT_FLUSH_INTERVAL = float(os.getenv("EVENT_FLUSH_INTERVAL", "5"))
     EVENT_PUBLISH_ATTEMPTS = int(os.getenv("EVENT_PUBLISH_ATTEMPTS", "60"))
     EVENT_QUEUE_SIZE = int(os.getenv("EVENT_QUEUE_SIZE", "1000"))
@@ -188,6 +210,35 @@ class Settings:
             raise ValueError("CORS_ORIGINS must contain exact HTTP(S) origins")
     if ENVIRONMENT == "production" and not os.getenv("CORS_ORIGINS"):
         raise ValueError("Production requires explicit CORS_ORIGINS")
+
+    if ENVIRONMENT == "production":
+        if any(local_origin(origin) for origin in CORS_ORIGINS):
+            raise ValueError("Production CORS cannot contain localhost origins")
+        if not TRUSTED_PROXIES or any(
+            ipaddress.ip_network(value, strict=False).prefixlen == 0
+            for value in TRUSTED_PROXIES
+        ):
+            raise ValueError("Production requires explicit restricted TRUSTED_PROXIES")
+        for connection_url in (DB_URL, REDIS_URL):
+            password = unquote(urlsplit(connection_url).password or "")
+            if password and (
+                password.lower().startswith(("replace_", "replace-", "your_", "your-"))
+                or password.lower()
+                in {
+                    "pass",
+                    "password",
+                    "postgres",
+                    "redis",
+                    "admin",
+                    "changeme",
+                    "change-me",
+                    "replace-me",
+                    "your-password",
+                }
+            ):
+                raise ValueError("Production refuses default database/Redis passwords")
+        if LLM_PROVIDER == "fake" and not os.getenv("LLM_DAILY_BUDGET"):
+            raise ValueError("Production fake LLM requires explicit LLM_DAILY_BUDGET")
 
     if DB_URL.startswith("sqlite"):
         raise ValueError(

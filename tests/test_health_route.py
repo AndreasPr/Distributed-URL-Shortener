@@ -1,6 +1,6 @@
 from app.api import routes
 from app.models.url import URL
-from fastapi import HTTPException
+from fastapi import FastAPI, Request
 
 
 def test_health_endpoint_includes_total_urls(monkeypatch, db_session):
@@ -12,7 +12,7 @@ def test_health_endpoint_includes_total_urls(monkeypatch, db_session):
     monkeypatch.setattr(routes.redis_client, "ping", lambda: True)
     monkeypatch.setattr(routes.redis_client, "dbsize", lambda: 1)
 
-    result = routes.health(db_session)
+    result = routes.health(Request({"type": "http", "app": FastAPI()}), db_session)
 
     assert result["status"] == "ok"
     assert result["db"] == "reachable"

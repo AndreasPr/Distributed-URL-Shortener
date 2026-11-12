@@ -2,7 +2,11 @@
 
 import hashlib
 import ipaddress
+import math
+import time
+from collections import OrderedDict
 from dataclasses import dataclass
+from threading import Lock
 
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -55,6 +59,37 @@ class BucketResult:
         return headers
 
 
+class LocalBuckets:
+    """Bounded per-instance fallback; not a distributed security boundary."""
+
+    def __init__(self, clock=time.monotonic, max_entries: int = 10000):
+        self.clock, self.max_entries = clock, max_entries
+        self.lock = Lock()
+        self.entries: OrderedDict[str, tuple[float, float]] = OrderedDict()
+
+    def check(self, key: str, capacity: int, refill: float) -> BucketResult:
+        with self.lock:
+            now = self.clock()
+            tokens, updated = self.entries.pop(key, (float(capacity), now))
+            tokens = min(capacity, tokens + max(0, now - updated) * refill)
+            allowed = tokens >= 1
+            if allowed:
+                tokens -= 1
+            self.entries[key] = tokens, now
+            if len(self.entries) > self.max_entries:
+                self.entries.popitem(last=False)
+            return BucketResult(
+                allowed,
+                int(tokens),
+                0 if allowed else math.ceil((1 - tokens) / refill),
+                math.ceil((capacity - tokens) / refill),
+                capacity,
+            )
+
+
+local_buckets = LocalBuckets()
+
+
 def check_bucket(
     template: str, identity: str, capacity: int, refill: float
 ) -> BucketResult:
@@ -63,6 +98,8 @@ def check_bucket(
     result = cache.read_cache(
         lambda: cache.redis_client.eval(TOKEN_BUCKET_LUA, 1, key, capacity, refill)
     )
+    if result is None and settings.APP_ROLE == "all":
+        return local_buckets.check(key, capacity, refill)
     if result is None:
         raise ConnectionError("Rate limit store unavailable")
     allowed, remaining, retry, reset = result
@@ -127,6 +164,22 @@ async def rate_limit_middleware(request: Request, call_next):
         if match == Match.FULL:
             template = getattr(route, "path", None)
             break
+    supervisor = getattr(request.app.state, "supervisor", None)
+    if (
+        settings.APP_ROLE in {"all", "worker"}
+        and template
+        not in {
+            "/livez",
+            "/health",
+            "/metrics",
+        }
+        and (
+            settings.APP_ROLE == "worker"
+            or supervisor is None
+            or not supervisor.ready.is_set()
+        )
+    ):
+        return JSONResponse({"detail": "Service starting"}, status_code=503)
     headers = {}
     if template is not None and (request.method, template) in {
         ("POST", "/auth/dev-login"),

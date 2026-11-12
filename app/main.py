@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import os
+import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from prometheus_client import start_http_server
@@ -22,7 +24,31 @@ from app.services.auth_startup import validate_local_binding
 configure_logging_with_tracing("api")
 logging.getLogger().info("APP MODULE LOADED - PORT=%s", os.getenv("PORT", "not-set"))
 
-app = FastAPI(title="URL Shortener")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    started = time.monotonic()
+    supervisor = None
+    await _on_startup()
+    if settings.APP_ROLE in {"all", "worker"}:
+        from app.workers.supervisor import hosted_supervisor
+
+        supervisor = hosted_supervisor()
+        app.state.supervisor = supervisor
+        supervisor.start()
+    logging.getLogger().info(
+        "Startup complete duration_ms=%.1f", (time.monotonic() - started) * 1000
+    )
+    try:
+        yield
+    finally:
+        if supervisor is not None:
+            await asyncio.to_thread(supervisor.close)
+            del app.state.supervisor
+        await _on_shutdown()
+
+
+app = FastAPI(title="URL Shortener", lifespan=lifespan)
 
 install_error_handlers(app)
 app.middleware("http")(rate_limit_middleware)
@@ -50,7 +76,6 @@ except Exception:
     logging.getLogger().exception("configure_metrics failed")
 
 
-@app.on_event("startup")
 async def _on_startup():
     validate_local_binding()
     logging.getLogger().info("APP STARTUP event - initializing observability")
@@ -72,7 +97,7 @@ async def _on_startup():
         )
     publisher.start()
 
-    # Delay briefly to allow dependent services to become reachable in hostile envs
+    # Yield once; backing services never gate API-only startup.
     await asyncio.sleep(0)
 
 
@@ -82,10 +107,18 @@ app.include_router(router)
 instrument_app(app)
 
 
-@app.on_event("shutdown")
 async def _on_shutdown():
-    await asyncio.to_thread(publisher.close)
-    await asyncio.to_thread(shutdown_tracing)
+    if settings.APP_ROLE == "api":
+        await asyncio.to_thread(publisher.close)
+        await asyncio.to_thread(shutdown_tracing)
+    else:
+        await asyncio.to_thread(publisher.close, 1.0)
+        # Exporters may block on unavailable endpoints; do not delay SIGTERM.
+        from threading import Thread
+
+        shutdown = Thread(target=shutdown_tracing, daemon=True)
+        shutdown.start()
+        await asyncio.to_thread(shutdown.join, 0.5)
     if hasattr(app.state, "metrics_server"):
         await asyncio.to_thread(app.state.metrics_server.shutdown)
         app.state.metrics_server.server_close()

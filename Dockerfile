@@ -64,11 +64,11 @@ USER 10001:10001
 
 # Liveness does not depend on Redis/Postgres availability.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/livez', timeout=3).close()"
+  CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.getenv('PORT', '8000') + '/livez', timeout=3).close()"
 
 
 EXPOSE 8000
 
-# Standalone default: migrate before starting. Compose overrides this command
-# and uses its dedicated migration service to serialize migrations.
-CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --no-proxy-headers --host 0.0.0.0 --port 8000"]
+# Standalone API default unchanged; all/worker use the lifespan migration lock.
+# Compose/kind override this command and retain dedicated migration services.
+CMD ["sh", "-c", "if [ \"${APP_ROLE:-api}\" = api ]; then alembic upgrade head && exec uvicorn app.main:app --no-proxy-headers --host 0.0.0.0 --port 8000; else exec python -m app.hosted; fi"]

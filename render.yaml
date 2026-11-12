@@ -1,0 +1,39 @@
+# Opt-in hosted profile. No database/Redis resource is provisioned here.
+services:
+  - type: web
+    name: relaymark-api
+    runtime: docker
+    plan: free
+    region: virginia # Supabase us-east-1 (North Virginia)
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: python -m app.hosted
+    healthCheckPath: /livez
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: APP_ROLE
+        value: all
+      - key: ENVIRONMENT
+        value: production
+      - key: AUTH_MODE
+        value: supabase
+      - key: EVENT_BUS
+        value: redis_streams
+      - key: LLM_PROVIDER
+        value: fake
+      - key: LLM_DAILY_BUDGET
+        value: '0'
+      - key: OTEL_SDK_DISABLED
+        value: 'true'
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: TRUSTED_PROXIES
+        sync: false
