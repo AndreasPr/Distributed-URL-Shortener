@@ -37,6 +37,8 @@ class AbuseWorker:
         self.bus, self.db = bus, db
         self.classifier = classifier if classifier is not None else Classifier()
         self.stop = StopEvent()
+        self.last_success = float("-inf")
+        self.lag_value = float("nan")
 
     def relay(self) -> None:
         rows = (
@@ -114,6 +116,7 @@ class AbuseWorker:
         backlog = lag.get(
             "uncommitted", lag.get("unread", float("nan")) + lag.get("pending", 0)
         )
+        self.lag_value = backlog
         abuse_queue_size.labels("broker").set(backlog)
 
     def run(self) -> None:
@@ -133,6 +136,7 @@ class AbuseWorker:
                     if time.monotonic() - last_metrics > 5:
                         self.metrics()
                         last_metrics = time.monotonic()
+                    self.last_success = time.monotonic()
                 except Exception as exc:
                     self.db.rollback()
                     logger.warning(

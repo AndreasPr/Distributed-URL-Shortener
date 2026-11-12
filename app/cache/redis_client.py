@@ -20,6 +20,7 @@ from app.observability.metrics import (
     record_cache_error,
     record_cache_hit,
     record_cache_miss,
+    redis_degraded_total,
 )
 
 logger = logging.getLogger(__name__)
@@ -76,20 +77,39 @@ _READ_ERRORS = (
 )
 
 
+def is_quota_error(exc: Exception) -> bool:
+    return (
+        redis is not None
+        and isinstance(exc, redis.exceptions.ResponseError)
+        and any(
+            phrase in str(exc).lower()
+            for phrase in ("max requests limit exceeded", "quota", "maxmemory", "oom ")
+        )
+    )
+
+
 def read_cache(operation: Callable[[], T]) -> T | None:
     """All Redis operations share the breaker; programming errors propagate."""
     generation = breaker.permit()
     if generation is None:
         record_cache_error()
+        redis_degraded_total.inc()
         return None
     try:
         result = operation()
     except _READ_ERRORS:
         logger.exception("Redis read failed")
         record_cache_error()
-        breaker.failure(generation)
+        redis_degraded_total.inc()
+        breaker.failure(generation, immediate=settings.APP_ROLE == "all")
         return None
-    except Exception:
+    except Exception as exc:
+        if is_quota_error(exc):
+            record_cache_error()
+            redis_degraded_total.inc()
+            breaker.failure(generation, immediate=True)
+            logger.warning("Redis quota exhausted; using degraded operation")
+            return None
         # Do not strand the single half-open probe after a programming error.
         breaker.failure(generation)
         raise

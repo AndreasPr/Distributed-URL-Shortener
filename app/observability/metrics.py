@@ -158,3 +158,23 @@ auth_failure_total = Counter("auth_failure_total", "Failed authentications", ["r
 auth_email_verification_total = Counter(
     "auth_email_verification_total", "Trusted email verification results", ["result"]
 )
+
+
+redis_degraded_total = Counter(
+    "redis_degraded_total", "Redis operations bypassed or failed during degradation"
+)
+hosted_worker_alive = Gauge(
+    "hosted_worker_alive", "Consumer thread liveness", ["worker"]
+)
+hosted_worker_healthy = Gauge(
+    "hosted_worker_healthy", "Recent successful consumer loop", ["worker"]
+)
+hosted_worker_lag = Gauge(
+    "hosted_worker_lag", "Unread plus pending; NaN when unknown", ["worker"]
+)
+hosted_worker_restarts_total = Counter(
+    "hosted_worker_restarts_total", "Consumer restarts", ["worker"]
+)
+hosted_shutdown_timeouts_total = Counter(
+    "hosted_shutdown_timeouts_total", "Shutdown budget exhausted"
+)

@@ -279,3 +279,13 @@ API roles and PUBLIC inheritance, and removes object-creator default grants. It
 is a no-op without those roles. RLS remains enabled; the backend owner still
 bypasses RLS. New creator roles, role inheritance and existing external grants need
 operator review; downgrade does not restore insecure privileges.
+
+### Opt-in hosted Redis degradation
+
+`APP_ROLE=all` deliberately differs from the default API/Compose/kind profile:
+Redis quota, timeout and connection failures open the shared breaker and fall back
+to bounded per-instance token buckets for writes, authentication IP limits and
+redirects. Scope, verification and ownership checks still apply. This weakens
+cross-replica enforcement and resets bursts on process restart or bucket eviction.
+Other profiles retain the fail-closed write/auth policy above. See
+[hosted limits](hosted-limits.md) for quota accounting and recovery guarantees.

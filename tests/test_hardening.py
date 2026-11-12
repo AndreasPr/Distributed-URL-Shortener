@@ -98,7 +98,7 @@ def test_production_rejects_unsafe_cors(origins):
 
 
 def test_production_accepts_exact_origin():
-    env = dict(os.environ, ENVIRONMENT="production", AUTH_MODE="supabase", SUPABASE_URL="https://project.supabase.co", CORS_ORIGINS="https://example.com")
+    env = dict(os.environ, ENVIRONMENT="production", AUTH_MODE="supabase", SUPABASE_URL="https://project.supabase.co", CORS_ORIGINS="https://example.com", TRUSTED_PROXIES="10.42.0.0/24", LLM_DAILY_BUDGET="0", DATABASE_URL="postgresql://user@db.invalid/db")
     assert (
         subprocess.run(
             [sys.executable, "-c", "import app.core.config"],

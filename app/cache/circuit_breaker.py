@@ -51,12 +51,12 @@ class CircuitBreaker:
             self._state = 0
             circuit_breaker_state.set(0)
 
-    def failure(self, generation: int) -> None:
+    def failure(self, generation: int, *, immediate: bool = False) -> None:
         with self._lock:
             if generation != self._generation:
                 return
             self._failures += 1
-            if self._state == 2 or self._failures >= self.threshold:
+            if immediate or self._state == 2 or self._failures >= self.threshold:
                 self._state = 1
                 self._opened_at = self.clock()
                 self._generation += 1

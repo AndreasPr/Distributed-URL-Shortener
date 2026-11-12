@@ -1,4 +1,6 @@
-from typing import Any, Protocol, cast
+from collections.abc import Callable
+from functools import wraps
+from typing import Any, ParamSpec, Protocol, TypeVar, cast
 from uuid import uuid4
 
 from redis import Redis
@@ -6,9 +8,26 @@ from redis.backoff import NoBackoff
 from redis.exceptions import ResponseError
 from redis.retry import Retry
 
+from app.cache.redis_client import read_cache
 from app.core.config import settings
 from app.events.base import Delivery
 from app.events.models import Event
+
+P = ParamSpec("P")
+T = TypeVar("T")
+
+
+def hosted_operation(fn: Callable[P, T]) -> Callable[P, T]:
+    @wraps(fn)
+    def wrapped(*args: P.args, **kwargs: P.kwargs) -> T:
+        if settings.APP_ROLE != "all":
+            return fn(*args, **kwargs)
+        result = read_cache(lambda: (fn(*args, **kwargs),))
+        if result is None:
+            raise ConnectionError("Redis event bus degraded")
+        return result[0]
+
+    return wrapped
 
 
 class StreamClient(Protocol):
@@ -73,10 +92,12 @@ class RedisStreamsEventBus:
         self.consumer = uuid4().hex
         self.cursor = "0-0"
 
+    @hosted_operation
     def publish(self, topic: str, event: Event) -> None:
         # No automatic trim: trimming pending records can lose unprocessed events.
         self.client.xadd(topic, {"event": event.model_dump_json()})
 
+    @hosted_operation
     def subscribe(self, topic: str, group: str) -> None:
         self.topic, self.group = topic, group
         try:
@@ -91,6 +112,7 @@ class RedisStreamsEventBus:
             for receipt, fields in records
         ]
 
+    @hosted_operation
     def poll(self, timeout: float, limit: int) -> list[Delivery]:
         claimed = self.client.xautoclaim(
             self.topic,
@@ -112,10 +134,12 @@ class RedisStreamsEventBus:
         )
         return [message for _, batch in records for message in self._decode(batch)]
 
+    @hosted_operation
     def ack(self, messages: list[Delivery]) -> None:
         if messages:
             self.client.xack(self.topic, self.group, *(m.receipt for m in messages))
 
+    @hosted_operation
     def lag(self) -> dict[str, float]:
         pending = self.client.xpending(self.topic, self.group)
         result = {
@@ -134,6 +158,7 @@ class RedisStreamsEventBus:
                 )
         return result
 
+    @hosted_operation
     def queue_size(self, topic: str) -> float:
         return float(self.client.xlen(topic))
 
