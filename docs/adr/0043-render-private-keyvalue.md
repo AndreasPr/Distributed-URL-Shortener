@@ -32,3 +32,13 @@ Noeviction makes memory exhaustion visible but cannot prevent restart loss.
 Upstash TLS is a possible unprovisioned alternative, but its Free 500K monthly
 command allowance can be consumed by polling workers. No paid upgrade is selected.
 Local Compose and kind keep their current independent Redis services.
+
+## CI follow-up: local profile boundary
+
+The Kubernetes base serves local and kind overlays, not the hosted production
+profile. Its API now explicitly uses `ENVIRONMENT=development`, matching its
+cluster-local plaintext Redis and API-key authentication. It previously declared
+production while lacking the required Supabase and transport configuration.
+Production guards remain unchanged; converting these manifests to a public
+production deployment requires a separate hardened overlay. A startup regression
+test loads the literal manifest settings without cloud credentials.

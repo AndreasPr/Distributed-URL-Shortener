@@ -125,3 +125,27 @@ def test_kubernetes_metrics_use_internal_port_and_network_policy():
     ]
     assert "api-metrics" not in backends
     assert "prometheus" not in backends
+
+
+def test_local_kubernetes_api_settings_start_without_hosted_credentials():
+    """The base used by local/kind must not opt into hosted production guards."""
+    import sys
+    import yaml
+
+    deployment = next(doc for doc in yaml.safe_load_all((ROOT / "k8s/base/api/deployment.yaml").read_text()) if doc["kind"] == "Deployment")
+    values = {
+        item["name"]: item["value"]
+        for item in deployment["spec"]["template"]["spec"]["containers"][0]["env"]
+        if "value" in item
+    }
+    env = {
+        "PATH": os.environ["PATH"],
+        **values,
+        "DATABASE_URL": "postgresql://fixture@postgres/fixture",
+        "REDIS_URL": "redis://redis:6379/0",
+    }
+    result = subprocess.run(
+        [sys.executable, "-c", "from app.core.config import settings; assert settings.AUTH_MODE == 'apikey_only'"],
+        env=env, capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr

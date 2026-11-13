@@ -199,3 +199,18 @@ for (const provider of ['Google', 'GitHub']) test(`${provider} sends the appropr
   expect(url.searchParams.get('prompt')).toBe(provider === 'Google' ? 'select_account' : null);
   await expect(page).toHaveURL(/dashboard$/);
 });
+
+
+test("reset button is fully opaque immediately when enabled", async ({ page }) => {
+  await page.goto("/reset-password");
+  const button = page.getByRole("button", { name: "Update password" });
+  await expect(button).toBeEnabled();
+  const opacity = await button.evaluate(async (element: HTMLButtonElement) => {
+    element.disabled = true;
+    getComputedStyle(element).opacity;
+    await Promise.all(element.getAnimations().map((animation) => animation.finished));
+    element.disabled = false;
+    return getComputedStyle(element).opacity;
+  });
+  expect(opacity).toBe("1");
+});

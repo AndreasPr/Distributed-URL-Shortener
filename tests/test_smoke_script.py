@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_smoke_checks_auth_and_throttling(bad_auth, bad_limit, success):
     class Handler(BaseHTTPRequestHandler):
         writes = 0
+        creations = 0
 
         def log_message(self, *args):
             pass
@@ -47,13 +48,19 @@ def test_smoke_checks_auth_and_throttling(bad_auth, bad_limit, success):
                 self.respond(404, {})
 
         def do_POST(self):
-            self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            payload = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
             if not self.headers.get("X-API-Key"):
                 self.respond(200 if bad_auth else 401, {})
             else:
                 Handler.writes += 1
-                if Handler.writes <= 2:
+                if Handler.writes == 1:
+                    Handler.creations += 1
                     self.respond(200, {"short_code": "sample"})
+                elif payload.get("custom_alias") != "sample":
+                    Handler.creations += 1
+                    self.respond(429, {"code": "daily_limit"})
+                elif Handler.writes == 2:
+                    self.respond(409, {"detail": "Alias already exists"})
                 else:
                     self.respond(503 if bad_limit else 429, {}, {"Retry-After": "1"})
 
@@ -78,6 +85,7 @@ def test_smoke_checks_auth_and_throttling(bad_auth, bad_limit, success):
         assert "test-only-placeholder" not in result.stdout + result.stderr
         if success:
             assert "auth=401; rate-limit=429" in result.stdout
+            assert Handler.creations == 1
     finally:
         server.shutdown()
         server.server_close()
