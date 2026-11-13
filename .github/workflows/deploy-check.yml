@@ -1,0 +1,63 @@
+name: Deploy check
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main, master]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: hosted-production
+  cancel-in-progress: false # Never interrupt synthetic cleanup or overlapping deploys.
+jobs:
+  deploy-and-check:
+    if: >-
+      vars.HOSTED_DEPLOY_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: production
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          # Trusted default-branch code only; never execute PR artifacts with secrets.
+          ref: ${{ github.event.repository.default_branch }}
+      - uses: ./.github/actions/python-env
+      - name: CI-gated Render deployment
+        if: github.event_name == 'workflow_run'
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          EXPECTED_REVISION: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          .venv/bin/python - <<'PY'
+          import os, sys
+          from urllib.parse import urlsplit, parse_qsl, urlencode, urlunsplit
+          import requests
+          try:
+              raw = os.environ['RENDER_DEPLOY_HOOK_URL']
+              u = urlsplit(raw)
+              if u.scheme != 'https' or u.hostname != 'api.render.com' or u.username:
+                  raise ValueError()
+              query = dict(parse_qsl(u.query))
+              query['ref'] = os.environ['EXPECTED_REVISION']
+              hook = urlunsplit((u.scheme, u.netloc, u.path, urlencode(query), ''))
+              response = requests.post(hook, timeout=15, allow_redirects=False)
+              if not 200 <= response.status_code < 300:
+                  raise ValueError()
+              print('Deploy requested; waiting for the CI-tested revision.')
+          except Exception:
+              print('FAIL: Render hook configuration/request; inspect privately, no URL logged')
+              sys.exit(1)
+          PY
+      - name: Verify deployed revision and production behavior
+        env:
+          API_ORIGIN: ${{ vars.API_ORIGIN }}
+          SMOKE_SHORT_BASE_URL: ${{ vars.SMOKE_SHORT_BASE_URL }}
+          SMOKE_API_KEY: ${{ secrets.SMOKE_API_KEY }}
+          SMOKE_EXPECTED_REVISION: ${{ github.event.workflow_run.head_sha || vars.SMOKE_EXPECTED_REVISION }}
+        run: .venv/bin/python scripts/smoke_prod.py

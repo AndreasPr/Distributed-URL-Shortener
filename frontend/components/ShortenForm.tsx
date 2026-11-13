@@ -2,6 +2,7 @@
 
 import { useDemoMode } from '../lib/auth/demo-route'
 import React, { useState } from 'react'
+import { shortLink } from '../lib/short-link'
 import { apiClient } from '../lib/api'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -71,12 +72,12 @@ export default function ShortenForm() {
       {short && (
         <div className="p-4 bg-accent border border-border rounded">
           <div className="text-sm font-medium text-accent-foreground mb-2">{demo ? "Created in this tab only. This is not a working redirect link." : "Success!"}</div>
-          <div className="text-sm text-accent-foreground mb-2">Short code:</div>
-          <div className="text-lg font-mono font-semibold text-accent-foreground break-all">{short}</div>
+          <div className="text-sm text-accent-foreground mb-2">{demo ? "Short code:" : "Short link:"}</div>
+          <div className="text-lg font-mono font-semibold text-accent-foreground break-all">{demo ? short : shortLink(short)}</div>
           <button type="button" className="border rounded px-3 py-2 mt-3" onClick={async () => {
-            try { await navigator.clipboard.writeText(short); setCopied(true); window.dispatchEvent(new CustomEvent('onboarding', { detail: 'copy' })) }
+            try { await navigator.clipboard.writeText(demo ? short : shortLink(short)); setCopied(true); window.dispatchEvent(new CustomEvent('onboarding', { detail: 'copy' })) }
             catch { setError('Copy unavailable; select the code to copy it manually.') }
-          }}>{copied ? 'Copied!' : 'Copy code'}</button>
+          }}>{copied ? 'Copied!' : demo ? 'Copy code' : 'Copy short link'}</button>
         </div>
       )}
     </form>

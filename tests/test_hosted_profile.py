@@ -368,24 +368,38 @@ def test_hosted_pool_configuration():
     assert result.stdout.strip() == "5 2 300 True"
 
 
-def test_render_blueprint_is_one_free_service_with_private_settings():
+def test_render_blueprint_has_free_web_and_private_keyvalue():
     from pathlib import Path
     import yaml
 
     blueprint = yaml.safe_load(Path("render.yaml").read_text())
     assert set(blueprint) == {"services"}
-    assert len(blueprint["services"]) == 1
+    assert len(blueprint["services"]) == 2
+    kv = blueprint["services"][1]
+    assert kv == {
+        "type": "keyvalue",
+        "name": "relaymark-keyvalue",
+        "plan": "free",
+        "region": "virginia",
+        "ipAllowList": [],
+        "maxmemoryPolicy": "noeviction",
+        "persistenceMode": "off",
+    }
     service = blueprint["services"][0]
     assert service["plan"] == "free"
     assert service["region"] == "virginia"
-    assert service["autoDeployTrigger"] == "checksPass"
+    assert service["autoDeployTrigger"] == "off"
     assert service["healthCheckPath"] == "/livez"
     assert service["dockerCommand"] == "python -m app.hosted"
     env = {entry["key"]: entry for entry in service["envVars"]}
     assert env["APP_ROLE"]["value"] == "all"
+    assert env["REDIS_URL"]["fromService"] == {
+        "type": "keyvalue",
+        "name": kv["name"],
+        "property": "connectionString",
+    }
     for name in (
         "DATABASE_URL",
-        "REDIS_URL",
         "SUPABASE_URL",
         "SUPABASE_ANON_KEY",
         "TRUSTED_PROXIES",
@@ -475,3 +489,70 @@ def test_loopback_origin_forms(origin):
 
     assert local_origin(origin)
     assert not local_origin("https://example.com")
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "rediss://user:opaque@external.example:6380/0",
+        "redis://red-abc123:6379",
+        "redis://user:opaque@red-abc123/0",
+    ],
+)
+def test_production_redis_allowed(url):
+    from app.core.config import validate_production_redis_url
+
+    validate_production_redis_url(url)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "redis://localhost:6379",
+        "redis://external.example:6379",
+        "redis://red-abc.example:6379",
+        "redis://red-abc.:6379",
+        "redis://red-:6379",
+        "redis://red-abc:6380",
+        "rediss:///0",
+        "rediss://host?ssl_cert_reqs=none",
+        "http://red-abc:6379",
+        "redis://user:private-value@external.example:6379",
+        "redis://[invalid",
+    ],
+)
+def test_production_redis_refused_without_credential_disclosure(url):
+    from app.core.config import validate_production_redis_url
+
+    with pytest.raises(ValueError, match="Production REDIS_URL") as error:
+        validate_production_redis_url(url)
+    assert "private-value" not in str(error.value)
+
+
+def test_production_settings_apply_redis_guard():
+    result = subprocess.run(
+        [sys.executable, "-c", "from app.core.config import settings"],
+        env=production_env() | {"REDIS_URL": "redis://external.example:6379"},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "Production REDIS_URL requires" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "environment,url",
+    [
+        ("production", "redis://red-abc123:6379"),
+        ("production", "rediss://external.example:6380/0"),
+        ("development", "redis://localhost:6379/0"),
+    ],
+)
+def test_redis_settings_start_for_supported_profiles(environment, url):
+    result = subprocess.run(
+        [sys.executable, "-c", "from app.core.config import settings"],
+        env=production_env() | {"ENVIRONMENT": environment, "REDIS_URL": url},
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr

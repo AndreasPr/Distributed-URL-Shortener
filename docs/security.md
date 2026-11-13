@@ -295,3 +295,18 @@ Other profiles retain the fail-closed write/auth policy above. See
 Creation now requires an active, verified human or an API key owned by one. Stored user status and membership are checked again before consuming the transactional plan quota; token metadata does not establish verification. Ownerless legacy keys cannot create links. Free defaults are 20 successful creations/user/UTC day and 200 non-deleted links/workspace.
 
 Platform-admin moderation, warning acknowledgement, CAPTCHA-protected reports, audit history and 30-day backend erasure are described in [trust controls](trust-controls.md). Configure every product/API hostname to prevent self-redirect chains. Public legal pages are templates, not a compliance claim. CAPTCHA dashboard configuration and external-provider erasure remain manual responsibilities.
+
+
+## Hosted Key Value transport boundary
+
+Production requires `rediss://` except for Render private single-label hosts fully
+matching `red-[a-z0-9]{1,59}`, on port 6379 or the implicit default. No query options
+or fragments are accepted; credentials are not included in configuration errors.
+The pattern follows [Render's connectionString documentation](https://render.com/docs/blueprint-spec#connectionstring).
+It is a hostname allowlist, not proof of private DNS routing. The Blueprint uses
+only the platform service reference, same workspace/region and `ipAllowList: []`.
+Other services in that private workspace are within the trust boundary; internal
+authentication is optional at Render, not enabled by this blueprint.
+Free restart loss resets rate buckets and erases pending analytics/abuse events;
+PostgreSQL creation quotas remain. No durable queue guarantee is made for hosted
+Free. See [ADR 0043](adr/0043-render-private-keyvalue.md).

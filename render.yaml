@@ -1,4 +1,4 @@
-# Opt-in hosted profile. No database/Redis resource is provisioned here.
+# Opt-in: one free web service and one private, ephemeral free Key Value instance.
 services:
   - type: web
     name: relaymark-api
@@ -9,7 +9,7 @@ services:
     dockerContext: .
     dockerCommand: python -m app.hosted
     healthCheckPath: /livez
-    autoDeployTrigger: checksPass
+    autoDeployTrigger: "off" # CI-gated deploy hook in deploy-check.yml; avoids a check/deploy cycle.
     envVars:
       - key: APP_ROLE
         value: all
@@ -28,7 +28,10 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: REDIS_URL
-        sync: false
+        fromService:
+          type: keyvalue
+          name: relaymark-keyvalue
+          property: connectionString
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY
@@ -37,3 +40,20 @@ services:
         sync: false
       - key: TRUSTED_PROXIES
         sync: false
+      - key: PUBLIC_WEB_URL
+        sync: false
+      - key: PRODUCT_HOSTS
+        sync: false
+      - key: TURNSTILE_SECRET_KEY
+        sync: false
+      - key: TURNSTILE_HOSTNAMES
+        sync: false
+      - key: PLATFORM_ADMIN_EMAILS
+        sync: false
+  - type: keyvalue
+    name: relaymark-keyvalue
+    plan: free
+    region: virginia
+    ipAllowList: [] # No external connections; same-workspace private network only.
+    maxmemoryPolicy: noeviction
+    persistenceMode: "off" # Free instances lose all data on restart.

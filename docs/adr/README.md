@@ -65,3 +65,7 @@ Current overview: [engineering design](../design.md).
 - [0040: One-container hosted profile](0040-one-container-hosted-profile.md)
 
 - [0041: Trust controls and retention](0041-trust-controls-and-retention.md)
+
+- [0042: CI-gated hosted deployment](0042-ci-gated-hosted-deployment.md)
+
+- [0043: Private Render Free Key Value](0043-render-private-keyvalue.md)

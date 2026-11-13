@@ -1,4 +1,6 @@
 import logging
+import os
+import re
 from collections.abc import Iterator
 from datetime import datetime, timezone
 from typing import Literal
@@ -175,8 +177,11 @@ def health(request: Request, db: Session | None = Depends(get_health_db)):
 
 
 @router.get("/livez")
-def livez():
+def livez(response: Response):
     """Process liveness; deliberately independent of backing services."""
+    revision = os.getenv("RENDER_GIT_COMMIT", "")
+    if re.fullmatch(r"[0-9a-f]{40}", revision):
+        response.headers["X-Deployment-Revision"] = revision
     return {"status": "ok"}
 
 
