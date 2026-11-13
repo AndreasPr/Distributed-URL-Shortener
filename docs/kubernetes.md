@@ -5,6 +5,11 @@ The supported entry points are `k8s/overlays/local` and `k8s/overlays/ci`, shari
 The [diagnosis](kubernetes-diagnosis.md) and [verification](kubernetes-verification.md)
 distinguish reproduced failures from the historical baseline.
 
+These are local test profiles: the API uses `ENVIRONMENT=development` and the
+API-key auth default, with private cluster Redis over plaintext. They are not
+public production overlays. Hosted production retains its Supabase, HTTPS/CORS
+and Redis transport guards; do not disable those guards to deploy publicly.
+
 | Overlay | Broker | API replicas | Exposure / scaling |
 | --- | --- | --- | --- |
 | local | Kafka 8.3.0 KRaft; no ZooKeeper | 2 initially | nginx Ingress (`api.local`, `grafana.local`), HPA 2–5 |

@@ -1,6 +1,7 @@
 import ipaddress
 import math
 import os
+import re
 from urllib.parse import unquote, urlsplit
 
 
@@ -17,6 +18,32 @@ def local_origin(origin: str) -> bool:
         )
     except ValueError:
         return False
+
+
+def validate_production_redis_url(value: str) -> None:
+    """Allow TLS or Render's documented single-label private connection host.
+
+    https://render.com/docs/blueprint-spec#connectionstring
+    Query options are forbidden so callers cannot disable TLS verification.
+    """
+    try:
+        parsed = urlsplit(value)
+        host = parsed.hostname or ""
+        port = parsed.port
+        allowed = bool(host) and parsed.scheme == "rediss"
+        if parsed.scheme == "redis":
+            allowed = bool(re.fullmatch(r"red-[a-z0-9]{1,59}", host)) and port in {
+                None,
+                6379,
+            }
+        if allowed and not parsed.query and not parsed.fragment:
+            return
+    except ValueError:
+        pass
+    raise ValueError(
+        "Production REDIS_URL requires rediss:// or a Render private "
+        "redis://red-<alphanumeric-id>:6379 host; query options are forbidden"
+    )
 
 
 class Settings:
@@ -240,6 +267,7 @@ class Settings:
         raise ValueError("Production requires explicit CORS_ORIGINS")
 
     if ENVIRONMENT == "production":
+        validate_production_redis_url(REDIS_URL)
         if any(local_origin(origin) for origin in CORS_ORIGINS):
             raise ValueError("Production CORS cannot contain localhost origins")
         if not TRUSTED_PROXIES or any(

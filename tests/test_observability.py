@@ -18,6 +18,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import SpanKind
 
+import app.models.trust  # Register redirect policy tables before db_session creates them.
 from app.core.config import settings
 from app.events.memory import InMemoryEventBus
 from app.events.models import ClickEvent
@@ -298,3 +299,12 @@ def test_init_instruments_existing_engine_and_uses_configured_otlp(monkeypatch):
     )
     assert factories["RedisInstrumentor"].return_value.instrument.called
     assert factories["RequestsInstrumentor"].return_value.instrument.called
+
+
+@pytest.mark.parametrize("suffix", ["-" + "a" * 600, " " * 600 + "\n"])
+def test_event_traceparent_rejects_oversized_untrusted_values(suffix):
+    """CVE-2026-126360: JSON event carriers can preserve whitespace/newlines."""
+    parent = "01-" + "1" * 32 + "-" + "2" * 16 + "-01"
+    assert trace.get_current_span(extract_context({"traceparent": parent})).get_span_context().is_valid
+    carrier = json.loads(json.dumps({"traceparent": parent + suffix}))
+    assert not trace.get_current_span(extract_context(carrier)).get_span_context().is_valid

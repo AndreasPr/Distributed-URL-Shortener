@@ -47,9 +47,9 @@ through event-ID deduplication when redelivered.
 
 The blueprint is one free web service in **Virginia**, selected for the project's
 Supabase `us-east-1` region. No databases or paid resources are provisioned.
-It uses `autoDeployTrigger: checksPass`; connect the GitHub repository and keep CI
-checks required. Render accepts skipped/neutral checks as passing, so review branch
-protection and do not skip required gates. See the official
+It uses `autoDeployTrigger: "off"`; the opt-in CI-gated deployment hook in
+[the hosting runbook](hosting-runbook.md) replaces automatic deployment. Keep CI
+checks required and protect the default branch. See the official
 [Blueprint reference](https://render.com/docs/blueprint-spec),
 [CI deploy semantics](https://render.com/docs/deploys), and
 [regions](https://render.com/docs/regions).
@@ -61,7 +61,7 @@ Set these values privately in Render; nothing real belongs in Git:
 | `APP_ROLE` | `all` |
 | `ENVIRONMENT`, `AUTH_MODE` | `production`, `supabase` |
 | `DATABASE_URL` | PostgreSQL transaction-pooler URI with `sslmode=require`; backend/migration owner role, never anon/authenticated |
-| `REDIS_URL` | TLS `rediss://` URI; server must support Streams, consumer groups and XAUTOCLAIM |
+| `REDIS_URL` | Blueprint private Key Value connectionString (external alternatives require `rediss://`); Streams, consumer groups and XAUTOCLAIM required |
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Existing Auth project settings |
 | `CORS_ORIGINS` | Explicit exact frontend origins; no wildcard or localhost |
 | `TRUSTED_PROXIES` | Explicit immediate-proxy CIDRs verified for your deployment; never `0.0.0.0/0` or `::/0` |
@@ -95,3 +95,17 @@ The backend profile is implemented and locally tested as recorded in
 [hosted-verification.md](hosted-verification.md). No Render deployment, real provider
 TLS connection, platform proxy correctness or hosted availability is claimed.
 See [hosted-limits.md](hosted-limits.md) before deciding to deploy.
+
+## Deployment pipeline update (15.6)
+
+Render auto-deploy is now off in the blueprint. The opt-in GitHub production workflow invokes a secret deploy hook only after successful default-branch CI and verifies the deployed revision. See [hosting runbook](hosting-runbook.md) for exact setup, private Render Key Value Free and its restart-loss limitation, secret rotation and manual rollback. Earlier checksPass-only setup is superseded by this hook gate.
+
+
+### Private Key Value baseline (step 15.6a)
+
+The blueprint also provisions one Free Key Value instance in Virginia, in the API's
+workspace, with no external IP access. REDIS_URL is injected by service reference.
+External Redis still requires TLS; the narrowly permitted private hostname format
+and the loss of Streams/counters on restart are documented in the
+[hosting runbook](hosting-runbook.md#3-render-key-value-private-free-ephemeral).
+Local Compose and kind retain their existing Redis configuration.

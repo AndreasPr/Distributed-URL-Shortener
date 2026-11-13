@@ -33,3 +33,14 @@ available in a fresh clone. Record hardware, configuration and failures beside e
 ### Trust controls (step 15.5)
 
 PARTIAL — verified-owner creation, transactional plan caps, warning/report moderation, audit records and scheduled backend erasure are implemented. Evidence: [policy/tests](trust-controls.md), `tests/test_trust_controls.py`, `tests/integration/test_trust.py`, `frontend/e2e/trust.spec.ts`. Gate results are recorded in [trust-controls verification](trust-controls-verification.md). No claim of live CAPTCHA configuration, legal compliance, complete third-party erasure or production abuse prevention is made. Legal pages are templates; contact/CAPTCHA configuration remains manual.
+
+
+### Render Free Key Value scope
+
+| Claim | Status | Evidence and reproduction |
+|---|---|---|
+| Hosted profile uses private Free Key Value, with production transport validation | PARTIAL | `render.yaml`, `app/core/config.py`, `tests/test_hosted_profile.py`; `make check`. Blueprint and guards are local evidence; no live Render deployment/network test. |
+| Local Valkey 8 supports required Streams and token-bucket commands | VERIFIED | `tests/integration/test_valkey_compatibility.py`; run `.venv/bin/python -m pytest --run-integration tests/integration/test_valkey_compatibility.py -s -q`. Results in [verification](render-keyvalue-verification.md); local compatibility does not establish hosted persistence or availability. |
+
+Free hosted Streams lose queued events on restart. Historical local broker/chaos
+results do not establish durable delivery on Render Free.

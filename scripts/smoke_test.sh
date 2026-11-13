@@ -29,15 +29,18 @@ grep -q '^http_requests_total' "$TMP/metrics"
 # Auth failures and expected throttling are explicit checks, not load-test successes.
 STATUS=$(curl --silent --show-error --max-time 10 -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -d '{"long_url":"https://example.com/"}' "$BASE_URL/shorten")
 [[ "$STATUS" == 401 ]] || { echo "Expected unauthenticated HTTP 401, got $STATUS" >&2; exit 1; }
+# Conflicting aliases consume rate-limit tokens without exhausting the user's
+# daily creation allowance before the subsequent load gate.
+"$PYTHON" -c 'import json,sys; print(json.dumps({"long_url":"https://example.com/", "custom_alias":sys.argv[1]}))' "$CODE" > "$TMP/conflict"
 LIMITED=false
 for _ in $(seq 1 100); do
-  STATUS=$(curl --silent --show-error --max-time 10 -o /dev/null -D "$TMP/limit-headers" -w '%{http_code}' -H @"$TMP/auth" -H 'Content-Type: application/json' -d '{"long_url":"https://example.com/"}' "$BASE_URL/shorten")
+  STATUS=$(curl --silent --show-error --max-time 10 -o /dev/null -D "$TMP/limit-headers" -w '%{http_code}' -H @"$TMP/auth" -H 'Content-Type: application/json' --data-binary @"$TMP/conflict" "$BASE_URL/shorten")
   if [[ "$STATUS" == 429 ]]; then
     grep -qi '^retry-after:' "$TMP/limit-headers"
     LIMITED=true
     break
   fi
-  [[ "$STATUS" == 200 ]] || { echo "Unexpected write HTTP $STATUS" >&2; exit 1; }
+  [[ "$STATUS" == 409 ]] || { echo "Expected alias conflict HTTP 409, got $STATUS" >&2; exit 1; }
 done
 [[ "$LIMITED" == true ]] || { echo "No HTTP 429 within 100 writes" >&2; exit 1; }
 printf 'PASS: health; shorten; redirect 307; analytics=1; metrics; auth=401; rate-limit=429\n'

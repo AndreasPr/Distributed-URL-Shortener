@@ -78,7 +78,7 @@ def test_ci_checks_are_independent_and_actions_are_immutable():
                 assert re.search(r"@[a-f0-9]{40}$", action), action
         doc = yaml.safe_load(text)
         assert doc["permissions"] == {"contents": "read"}
-        assert doc["concurrency"]["cancel-in-progress"] is True
+        assert doc["concurrency"]["cancel-in-progress"] is (path.name != "deploy-check.yml")
 
 
 def test_runtime_image_uses_allowlisted_sources_and_removes_build_tools():

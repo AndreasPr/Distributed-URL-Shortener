@@ -23,6 +23,40 @@ No backend, API key or LLM is needed. Run `make demo` for the real local stack.
 See [deployment settings and verification](docs/deployment-demo.md); deployment of this branch
 must complete before the production URL serves these changes.
 
+## Hosted app and topology
+
+[Open the live frontend](https://distributed-url-shortener-two.vercel.app/).
+This link is not proof that a hosted backend is deployed. Follow the
+[hosting runbook](docs/hosting-runbook.md) and record the production smoke result.
+The blueprint uses private Render Key Value Free. Restarts lose queued events and
+rate counters; live private connectivity remains an operator verification step.
+
+```mermaid
+flowchart LR
+    Browser --> Vercel[Next.js on Vercel]
+    Browser --> Auth[Supabase Auth]
+    Vercel -->|optional /s proxy| Render[Render: API + analytics + abuse consumers]
+    Browser -->|authenticated API calls| Render
+    Render --> DB[(Supabase PostgreSQL)]
+    Render --> Redis[(Private Render Key Value: cache, limits, Streams)]
+    Render -. optional OTLP traces .-> Cloud[Grafana Cloud]
+    Monitor[Uptime checks] --> Render
+    CI[Successful GitHub CI] -->|secret deploy hook| Render
+```
+
+| Component | Hosted profile | Local Compose | kind CI |
+|---|---|---|---|
+| Frontend | Vercel | Host or isolated demo container | Outside cluster |
+| API and consumers | One Render process | Separate containers | Separate deployments |
+| PostgreSQL | Supabase | PostgreSQL container | Stateful workload |
+| Cache/event bus | Private Render Key Value (ephemeral Streams) | Redis + Streams or Kafka profile | Redis Streams |
+| Observability | Optional Grafana Cloud traces/synthetic checks | Prometheus, Grafana, Jaeger | Prometheus, Grafana, Jaeger manifests |
+
+Hosted limits: cold starts and worker pauses during sleep, free-tier resource and
+creation quotas, shared proxy-IP buckets, no Kafka, no multi-region/high-availability
+claim. A /livez response alone does not establish readiness. Production smoke
+checks health, exact redirects, analytics and cleanup; migration rollback stays manual.
+
 ## Architecture
 
 ```mermaid
