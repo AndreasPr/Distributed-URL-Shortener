@@ -89,10 +89,10 @@ def test_missing_and_invalid_keys_are_401(client, method, path, header):
     assert response.headers["www-authenticate"] == "APIKey"
 
 
-def test_scope_enforcement_and_creator(client, db_session):
-    read, read_raw = create_key(db_session, "reader", ["read"])
-    write, write_raw = create_key(db_session, "writer", ["write"])
-    admin, admin_raw = create_key(db_session, "admin", ["admin"])
+def test_scope_enforcement_and_creator(client, db_session, owned_key):
+    read, read_raw = owned_key(db_session, "reader", ["read"])
+    write, write_raw = owned_key(db_session, "writer", ["write"])
+    admin, admin_raw = owned_key(db_session, "admin", ["admin"])
     assert (
         client.post(
             "/shorten",
@@ -169,12 +169,12 @@ def test_auth_database_failure_is_503(client, db_session, monkeypatch):
 
 
 def test_write_limits_and_key_isolation(
-    client, db_session, isolated_cache, monkeypatch
+    client, db_session, isolated_cache, monkeypatch, owned_key
 ):
     monkeypatch.setattr(settings, "WRITE_RATE_CAPACITY", 2)
     isolated_cache.clock = lambda: 100.0
-    _, raw1 = create_key(db_session, "one", ["write"])
-    _, raw2 = create_key(db_session, "two", ["write"])
+    _, raw1 = owned_key(db_session, "one", ["write"])
+    _, raw2 = owned_key(db_session, "two", ["write"])
     for _ in range(2):
         response = client.post(
             "/shorten",
@@ -201,7 +201,7 @@ def test_write_limits_and_key_isolation(
 
 
 def test_delete_uses_template_bucket_not_code(
-    client, db_session, isolated_cache, monkeypatch
+    client, db_session, isolated_cache, monkeypatch, owned_key
 ):
     monkeypatch.setattr(settings, "WRITE_RATE_CAPACITY", 1)
     isolated_cache.clock = lambda: 100.0

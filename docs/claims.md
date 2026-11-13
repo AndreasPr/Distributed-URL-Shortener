@@ -29,3 +29,7 @@ Docker Desktop socket diagnosis. [Final audit](final-audit.md) records successes
 Do not cherry-pick synthetic FakeProvider precision as live-model accuracy, describe successful
 redirects as proof of analytics freshness, or describe an ignored local result archive as
 available in a fresh clone. Record hardware, configuration and failures beside each result.
+
+### Trust controls (step 15.5)
+
+PARTIAL — verified-owner creation, transactional plan caps, warning/report moderation, audit records and scheduled backend erasure are implemented. Evidence: [policy/tests](trust-controls.md), `tests/test_trust_controls.py`, `tests/integration/test_trust.py`, `frontend/e2e/trust.spec.ts`. Gate results are recorded in [trust-controls verification](trust-controls-verification.md). No claim of live CAPTCHA configuration, legal compliance, complete third-party erasure or production abuse prevention is made. Legal pages are templates; contact/CAPTCHA configuration remains manual.

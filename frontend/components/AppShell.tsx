@@ -47,7 +47,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const demo = pathname === '/demo' || pathname.startsWith('/demo/');
-  const publicPage = pathname === '/' || ['/login', '/signup', '/forgot-password', '/reset-password'].includes(pathname);
+  const publicPage = pathname === '/' || ['/login', '/signup', '/forgot-password', '/reset-password', '/terms', '/privacy', '/abuse'].includes(pathname) || pathname.startsWith('/warn/') || pathname.startsWith('/report/');
   const pathFor = (href: string) => demo ? '/demo' + (href === '/' ? '' : href) : href;
   const [generation, setGeneration] = useState(0);
   useEffect(() => { const change = () => setGeneration(v => v + 1); window.addEventListener("workspace-changed", change); return () => window.removeEventListener("workspace-changed", change) }, []);

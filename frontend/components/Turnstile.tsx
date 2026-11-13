@@ -13,8 +13,10 @@ declare global {
 export function Turnstile({
   nonce,
   onToken,
+  action,
 }: {
   nonce: string;
+  action?: string;
   onToken: (token: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -25,12 +27,13 @@ export function Turnstile({
     const widget = window.turnstile;
     const id = widget.render(ref.current, {
       sitekey: key,
+      ...(action ? { action } : {}),
       callback: onToken,
       "expired-callback": () => onToken(""),
       "error-callback": () => onToken(""),
     });
     return () => widget.remove(id);
-  }, [ready, key, onToken]);
+  }, [ready, key, onToken, action]);
   if (!key)
     return (
       <p role="status">

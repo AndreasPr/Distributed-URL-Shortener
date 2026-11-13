@@ -4,6 +4,7 @@ from sqlalchemy import create_engine, pool
 
 from alembic import context
 from app.core.config import settings
+import app.models.trust  # register trust-control tables
 from app.models.analytics import Analytics
 from app.models.api_key import APIKey
 from app.models.url import Base

@@ -79,7 +79,8 @@ Choose **one** mode; both bind the same host ports. Existing stacks can block st
 ```bash
 LLM_PROVIDER=fake make up PROFILE=redis-streams
 docker compose --profile redis-streams exec api-redis \
-  python -m app.cli keys create --name browser --scopes read write
+  python -m app.cli keys create --name automation --scopes read write \
+    --workspace "$WORKSPACE_ID" --user "$USER_ID"
 ```
 
 ### Full event stack: Kafka
@@ -87,11 +88,12 @@ docker compose --profile redis-streams exec api-redis \
 ```bash
 LLM_PROVIDER=fake make up PROFILE=kafka
 docker compose --profile kafka exec api \
-  python -m app.cli keys create --name browser --scopes read write
+  python -m app.cli keys create --name automation --scopes read write \
+    --workspace "$WORKSPACE_ID" --user "$USER_ID"
 ```
 
-Wait for `/health` to return HTTP 200 before creating the key. A successful `make up`
-only starts containers; Grafana may need additional startup time before its UI responds. The CLI prints its full value **once**; keep it private. Use it in Swagger's authorization dialog or the frontend's in-memory key field. Keys for admin review require the `admin` scope; create a separate operator key with the same CLI when needed.
+Before the key command, sign in as a verified user using the [auth setup](docs/auth.md), then set `USER_ID` and `WORKSPACE_ID` from `/me`. For automatic disposable local identities, use `make demo`. Ownerless keys cannot create links. Wait for `/health` to return HTTP 200 before creating the key. A successful `make up`
+only starts containers; Grafana may need additional startup time before its UI responds. The CLI prints its full value **once**; keep it private. Use it in Swagger's authorization dialog or programmatic clients. The frontend uses human sign-in; global moderation requires a verified platform-admin human, not an API key. See [trust controls](docs/trust-controls.md) for caps, warnings and reports.
 
 To inspect logs or stop a mode, for example:
 

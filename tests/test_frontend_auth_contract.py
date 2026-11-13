@@ -66,6 +66,10 @@ def test_delete_account_revokes_keys_and_tombstones(db_session, monkeypatch):
 
 def test_delete_last_owner_is_rejected(db_session, monkeypatch):
     client, user = setup_client(db_session, monkeypatch, "owner")
+    other = str(uuid4())
+    db_session.add(User(id=other, email="other@example.test", email_verified=True))
+    db_session.add(WorkspaceMember(workspace_id=DEFAULT_WORKSPACE_ID, user_id=other, role="member"))
+    db_session.commit()
     assert (
         client.request("DELETE", "/me", json={"confirmation": "DELETE"}).status_code
         == 409

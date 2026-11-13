@@ -30,12 +30,12 @@ FIXTURE = (
 
 
 @pytest.fixture
-def client(db_session, monkeypatch):
+def client(db_session, monkeypatch, auth_key):
     application = FastAPI()
     application.include_router(routes.router)
     application.dependency_overrides[get_db] = lambda: db_session
     for dep in (require_admin, require_read, require_write, require_edit, require_analytics, require_keys):
-        application.dependency_overrides[dep] = lambda: Principal(api_key_id=1, workspace_id=DEFAULT_WORKSPACE_ID, role="admin", scopes=frozenset({"admin"}), auth_method="api_key")
+        application.dependency_overrides[dep] = lambda: Principal(api_key_id=auth_key[0].id, workspace_id=DEFAULT_WORKSPACE_ID, role="admin", scopes=frozenset({"admin"}), auth_method="api_key")
     # These are authorized response-shape contracts. The MCP API-key transport
     # now receives 403 on platform-only endpoints (covered separately).
     application.dependency_overrides[require_platform_admin] = lambda: Principal(

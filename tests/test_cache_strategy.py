@@ -351,3 +351,9 @@ def test_postgresql_stampede_executes_one_select(postgres, monkeypatch):
         assert len(selects) == 1
     finally:
         event.remove(postgres, "before_cursor_execute", track)
+
+
+@pytest.fixture(autouse=True)
+def isolate_destination_policy(monkeypatch):
+    # These tests isolate cache concurrency; denylist behavior has its own DB tests.
+    monkeypatch.setattr("app.services.trust.destination_denied", lambda *args: False)

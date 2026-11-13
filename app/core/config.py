@@ -20,6 +20,33 @@ def local_origin(origin: str) -> bool:
 
 
 class Settings:
+    FREE_DAILY_LINKS = int(os.getenv("FREE_DAILY_LINKS", "20"))
+    FREE_WORKSPACE_LINKS = int(os.getenv("FREE_WORKSPACE_LINKS", "200"))
+    TURNSTILE_SECRET_KEY = os.getenv("TURNSTILE_SECRET_KEY", "")
+    TURNSTILE_HOSTNAMES = tuple(
+        h.strip().lower()
+        for h in os.getenv("TURNSTILE_HOSTNAMES", "").split(",")
+        if h.strip()
+    )
+    PUBLIC_WEB_URL = os.getenv("PUBLIC_WEB_URL", "http://localhost:3000").rstrip("/")
+    PRODUCT_HOSTS = tuple(
+        h.strip().lower().rstrip(".")
+        for h in os.getenv("PRODUCT_HOSTS", "localhost,127.0.0.1").split(",")
+        if h.strip()
+    )
+    if min(FREE_DAILY_LINKS, FREE_WORKSPACE_LINKS) < 1:
+        raise ValueError("Plan limits must be positive")
+    parsed_web = urlsplit(PUBLIC_WEB_URL)
+    if (
+        parsed_web.scheme not in {"http", "https"}
+        or not parsed_web.hostname
+        or parsed_web.username
+        or parsed_web.password
+        or parsed_web.path
+        or parsed_web.query
+        or parsed_web.fragment
+    ):
+        raise ValueError("PUBLIC_WEB_URL must be an exact HTTP(S) origin")
     APP_ROLE = os.getenv("APP_ROLE", "api")
     if APP_ROLE not in {"api", "worker", "all"}:
         raise ValueError("APP_ROLE must be api, worker or all")
@@ -35,6 +62,7 @@ class Settings:
         raise ValueError("Invalid abuse gray-zone thresholds")
     if ABUSE_VERDICT_TTL <= 0 or not 64 <= ABUSE_LLM_INPUT_LIMIT <= 2048:
         raise ValueError("Invalid abuse cache/input limits")
+    LLM_EXPLICIT = bool(os.getenv("LLM_PROVIDER"))
     LLM_PROVIDER = os.getenv("LLM_PROVIDER", "fake")
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
     GEMINI_MIN_INTERVAL_SECONDS = float(os.getenv("GEMINI_MIN_INTERVAL_SECONDS", "5"))

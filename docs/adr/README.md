@@ -63,3 +63,5 @@ Current overview: [engineering design](../design.md).
 - [0039 — Frontend cookie authentication and route-scoped samples](0039-frontend-cookie-auth.md)
 
 - [0040: One-container hosted profile](0040-one-container-hosted-profile.md)
+
+- [0041: Trust controls and retention](0041-trust-controls-and-retention.md)

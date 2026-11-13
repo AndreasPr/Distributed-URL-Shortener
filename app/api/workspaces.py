@@ -15,6 +15,8 @@ from app.db.database import get_db
 from app.models.api_key import APIKey
 from app.models.identity import User, Workspace, WorkspaceInvite, WorkspaceMember
 from app.services.api_keys import utcnow
+from app.services.data_rights import disable_user_links
+from app.services.trust import audit
 
 router = APIRouter()
 
@@ -219,6 +221,21 @@ def change_member(
         if owners == 1:
             raise HTTPException(409, "Cannot remove or demote the last owner")
     if role is None:
+        for key in db.scalars(
+            select(APIKey).where(
+                APIKey.workspace_id == principal.workspace_id,
+                APIKey.created_by_user_id == str(user_id),
+                APIKey.revoked_at.is_(None),
+            )
+        ):
+            audit(
+                db,
+                principal.workspace_id,
+                "key.revoked",
+                principal.user_id,
+                str(key.id),
+                str(user_id),
+            )
         db.execute(
             update(APIKey)
             .where(
@@ -231,6 +248,14 @@ def change_member(
         db.delete(row)
     else:
         row.role = role
+    audit(
+        db,
+        principal.workspace_id,
+        "member.removed" if role is None else "member.role_changed",
+        principal.user_id,
+        str(user_id),
+        str(user_id),
+    )
     db.commit()
 
 
@@ -281,6 +306,13 @@ def delete_account(
 ):
     if principal.user_id is None:
         raise HTTPException(403, "User authentication required")
+    # Creation and suspension also lock user before workspace: avoid lock inversion.
+    db.scalar(
+        select(User)
+        .where(User.id == principal.user_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     memberships = list(
         db.scalars(
             select(WorkspaceMember).where(WorkspaceMember.user_id == principal.user_id)
@@ -303,7 +335,12 @@ def delete_account(
                     WorkspaceMember.role == "owner",
                 )
             )
-            if owners == 1:
+            member_count = db.scalar(
+                select(func.count())
+                .select_from(WorkspaceMember)
+                .where(WorkspaceMember.workspace_id == membership.workspace_id)
+            )
+            if owners == 1 and member_count != 1:
                 db.rollback()
                 raise HTTPException(
                     409, "Transfer workspace ownership before deleting your account"
@@ -312,6 +349,8 @@ def delete_account(
     if user is None or user.deleted_at is not None:
         raise HTTPException(401, "Invalid credentials")
     user.deleted_at = utcnow()
+    disable_user_links(db, user.id, user.id)
+    audit(db, principal.workspace_id, "account.deleted", user.id, user.id, user.id)
     db.execute(
         update(APIKey)
         .where(APIKey.created_by_user_id == principal.user_id)

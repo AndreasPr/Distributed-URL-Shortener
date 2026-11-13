@@ -41,6 +41,11 @@ def user_principal(
     if claims.get("is_anonymous") is True:
         raise InvalidToken("anonymous_session")
     subject = claims["sub"]
+    from app.models.trust import DeletedIdentity
+    from app.services.data_rights import subject_hash
+
+    if db.get(DeletedIdentity, subject_hash(subject)) is not None:
+        raise InvalidToken("disabled_user")
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     created = insert_once(
         db,

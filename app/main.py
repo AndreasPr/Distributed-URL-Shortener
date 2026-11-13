@@ -10,6 +10,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.api.dev_auth import router as dev_auth_router
 from app.api.routes import router
+from app.api.trust import router as trust_router
 from app.api.workspaces import router as workspaces_router
 from app.core.config import settings
 from app.events.publisher import publisher
@@ -103,6 +104,7 @@ async def _on_startup():
 
 app.include_router(dev_auth_router)
 app.include_router(workspaces_router)
+app.include_router(trust_router)
 app.include_router(router)
 instrument_app(app)
 

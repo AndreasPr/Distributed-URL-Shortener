@@ -11,6 +11,7 @@ import app.services.url_service as module
 
 @pytest.mark.parametrize("cached", [False, True])
 def test_url_spans_only_include_origin_and_code(monkeypatch, cached):
+    monkeypatch.setattr("app.services.trust.destination_denied", lambda *args: False)
     exporter = InMemorySpanExporter()
     provider = TracerProvider()
     provider.add_span_processor(SimpleSpanProcessor(exporter))

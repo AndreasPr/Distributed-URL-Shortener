@@ -58,7 +58,9 @@ def database(pg_engine):
     with pg_engine.begin() as connection:
         connection.execute(
             text(
-                "TRUNCATE analytics, abuse_outbox, url_verdicts, urls, api_keys "
+                "TRUNCATE daily_creations, audit_log, abuse_reports, denied_domains, "
+                "deleted_identities, analytics, abuse_outbox, "
+                "url_verdicts, urls, api_keys "
                 "RESTART IDENTITY CASCADE"
             )
         )
@@ -132,8 +134,20 @@ def stack(database, redis_service, monkeypatch):
     main.app.dependency_overrides[get_db] = get_session
     main.app.dependency_overrides[routes.get_health_db] = get_session
     with database() as session:
+        from app.services.user_auth import DEMO_USERS, seed_demo_users
+
+        seed_demo_users(session)
+        from datetime import timedelta
+
+        from app.models.identity import User
+        from app.services.api_keys import utcnow
+
+        session.get(User, DEMO_USERS["owner"]).created_at = utcnow() - timedelta(days=2)
+        session.commit()
         keys = {
-            scope: create_key(session, scope, [scope])[1]
+            scope: create_key(
+                session, scope, [scope], created_by_user_id=DEMO_USERS["owner"]
+            )[1]
             for scope in ("read", "write", "admin")
         }
     workers = []

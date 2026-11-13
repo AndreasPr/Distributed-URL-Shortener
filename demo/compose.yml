@@ -4,6 +4,7 @@ services:
     ports: !override ['127.0.0.1:18080:8000']
     environment:
       CORS_ORIGINS: http://localhost:13000
+      PUBLIC_WEB_URL: http://localhost:13000
       WRITE_RATE_CAPACITY: '5'
       WRITE_RATE_REFILL: '1'
       EVENT_FLUSH_INTERVAL: '1'

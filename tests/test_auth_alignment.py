@@ -213,12 +213,13 @@ def test_unverified_humans_read_but_cannot_mutate(
     assert response.json()["detail"]["code"] == "email_unverified"
 
 
-def test_api_keys_unaffected_by_email_gate(client, db_session):
+def test_ownerless_api_keys_cannot_create_links(client, db_session):
     _, raw = create_key(db_session, "writer", ["read", "write"])
     response = client.post(
         "/shorten", headers={"X-API-Key": raw}, json={"long_url": "https://example.com"}
     )
-    assert response.status_code == 200
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "verified_owner_required"
 
 
 def test_platform_boundary_and_global_queue(client, db_session):
