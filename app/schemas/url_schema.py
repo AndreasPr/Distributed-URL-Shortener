@@ -22,6 +22,13 @@ RESERVED_CODES = frozenset(
         "me",
         "workspaces",
         "api-keys",
+        "warnings",
+        "warn",
+        "reports",
+        "report",
+        "abuse",
+        "terms",
+        "privacy",
     }
 )
 

@@ -62,6 +62,7 @@ def main() -> None:
     dlq = sub.add_parser("dlq")
     dlq.add_argument("action", choices=["list", "replay"])
     dlq.add_argument("--limit", type=int, default=100)
+    sub.add_parser("purge", help="Purge accounts deleted at least 30 days ago")
     keys = sub.add_parser("keys", help="Local operator key management")
     actions = keys.add_subparsers(dest="action", required=True)
     create = actions.add_parser("create")
@@ -72,6 +73,7 @@ def main() -> None:
         choices=["read", "write", "admin"],
         default=["read", "write"],
     )
+    create.add_argument("--user", type=UUID, help="Verified human owner UUID")
     listing = actions.add_parser("list")
     revoke = actions.add_parser("revoke")
     revoke.add_argument("id", type=int)
@@ -80,13 +82,25 @@ def main() -> None:
             "--workspace", type=UUID, default=UUID(DEFAULT_WORKSPACE_ID)
         )
     args = parser.parse_args()
+    if args.command == "purge":
+        from app.services.data_rights import purge_due
+
+        if SessionLocal is None:
+            raise RuntimeError("Database not configured")
+        with SessionLocal() as db:
+            print(json.dumps({"purged": purge_due(db)}))
+        return
     if args.command == "keys":
         if SessionLocal is None:
             raise RuntimeError("Database not configured")
         with SessionLocal() as db:
             if args.action == "create":
                 key, raw = create_key(
-                    db, args.name, args.scopes, workspace_id=str(args.workspace)
+                    db,
+                    args.name,
+                    args.scopes,
+                    workspace_id=str(args.workspace),
+                    created_by_user_id=str(args.user) if args.user else None,
                 )
                 print(
                     json.dumps(

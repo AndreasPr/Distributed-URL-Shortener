@@ -289,3 +289,9 @@ redirects. Scope, verification and ownership checks still apply. This weakens
 cross-replica enforcement and resets bursts on process restart or bucket eviction.
 Other profiles retain the fail-closed write/auth policy above. See
 [hosted limits](hosted-limits.md) for quota accounting and recovery guarantees.
+
+## Creation and abuse trust controls
+
+Creation now requires an active, verified human or an API key owned by one. Stored user status and membership are checked again before consuming the transactional plan quota; token metadata does not establish verification. Ownerless legacy keys cannot create links. Free defaults are 20 successful creations/user/UTC day and 200 non-deleted links/workspace.
+
+Platform-admin moderation, warning acknowledgement, CAPTCHA-protected reports, audit history and 30-day backend erasure are described in [trust controls](trust-controls.md). Configure every product/API hostname to prevent self-redirect chains. Public legal pages are templates, not a compliance claim. CAPTCHA dashboard configuration and external-provider erasure remain manual responsibilities.

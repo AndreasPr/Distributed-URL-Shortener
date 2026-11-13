@@ -35,7 +35,17 @@ class AbuseWorker:
         self, bus: EventBus, db: Session, classifier: Classifier | None = None
     ):
         self.bus, self.db = bus, db
-        self.classifier = classifier if classifier is not None else Classifier()
+        self.classifier = (
+            classifier
+            if classifier is not None
+            else Classifier(
+                variant=(
+                    "combined"
+                    if settings.LLM_EXPLICIT and settings.LLM_DAILY_BUDGET > 0
+                    else "heuristics"
+                )
+            )
+        )
         self.stop = StopEvent()
         self.last_success = float("-inf")
         self.lag_value = float("nan")
@@ -122,10 +132,16 @@ class AbuseWorker:
     def run(self) -> None:
         pending: Delivery | None = None
         last_metrics = float("-inf")
+        last_purge = float("-inf")
         try:
             self.bus.subscribe(settings.ABUSE_TOPIC, settings.ABUSE_GROUP)
             while not self.stop.is_set():
                 try:
+                    if time.monotonic() - last_purge >= 3600:
+                        from app.services.data_rights import purge_due
+
+                        purge_due(self.db)
+                        last_purge = time.monotonic()
                     self.relay()
                     if pending is None:
                         messages = self.bus.poll(0.2, 1)

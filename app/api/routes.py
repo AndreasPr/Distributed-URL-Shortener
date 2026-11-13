@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
-from app.abuse.persistence import LinkBlockedError, flagged, review
+from app.abuse.persistence import LinkBlockedError, LinkWarningError, flagged, review
 from app.abuse.schemas import ReviewRequest
 from app.api.auth import (
     require_analytics,
@@ -54,6 +54,18 @@ def create_short_url(
     key: Principal = Depends(require_write),
     db: Session = Depends(get_db),
 ):
+    from app.services.trust import consume_creation, creation_user, destination_denied
+
+    owner = creation_user(db, key)
+    if destination_denied(db, str(req.long_url)):
+        raise HTTPException(
+            422,
+            detail={
+                "code": "destination_denied",
+                "message": "This destination is not allowed",
+            },
+        )
+    consume_creation(db, owner, key.workspace_id)
     try:
         code = service.shorten(
             db,
@@ -62,7 +74,7 @@ def create_short_url(
             req.expires_at,
             created_by=str(key.id),
             workspace_id=key.workspace_id,
-            created_by_user_id=key.user_id,
+            created_by_user_id=owner.id,
         )
     except AliasTakenError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -258,7 +270,7 @@ def admin_keys(
 def admin_revoke(
     key_id: int, key: Principal = Depends(require_keys), db: Session = Depends(get_db)
 ):
-    if not revoke_key(db, key_id, workspace_id=key.workspace_id):
+    if not revoke_key(db, key_id, workspace_id=key.workspace_id, actor_id=key.user_id):
         raise HTTPException(404, "Key not found")
     return Response(status_code=204)
 
@@ -358,6 +370,8 @@ def activity(
 def redirect(code: str, db: Session = Depends(get_db)):
     try:
         long_url = service.resolve(db, code)
+    except LinkWarningError:
+        return RedirectResponse(url=settings.PUBLIC_WEB_URL + "/warn/" + code)
     except LinkBlockedError as exc:
         raise HTTPException(status_code=451, detail=str(exc)) from exc
     except LinkExpiredError as exc:

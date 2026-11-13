@@ -40,7 +40,7 @@ def client(db_session):
 
 
 @pytest.fixture
-def tenants(db_session):
+def tenants(db_session, owned_key):
     other = str(uuid4())
     db_session.add(Workspace(id=other, name="Other", slug="other"))
     db_session.flush()
@@ -61,8 +61,8 @@ def tenants(db_session):
             )
         )
     db_session.commit()
-    _, ours = create_key(db_session, "ours", ["admin"])
-    other_key, theirs = create_key(db_session, "theirs", ["admin"], workspace_id=other)
+    _, ours = owned_key(db_session, "ours", ["admin"])
+    other_key, theirs = owned_key(db_session, "theirs", ["admin"], workspace_id=other)
     return other, ours, other_key.id, theirs
 
 
@@ -343,9 +343,9 @@ def test_worker_derives_tenant_from_stored_url(db_session, tenants):
     assert db_session.get(URLVerdict, "theirs").workspace_id == tenants[0]
 
 
-def test_machine_actor_ownership_and_no_user_header_impersonation(client, db_session):
-    first, first_raw = create_key(db_session, "first", ["read", "write"])
-    _, second_raw = create_key(db_session, "second", ["read", "write"])
+def test_machine_actor_ownership_and_no_user_header_impersonation(client, db_session, owned_key):
+    first, first_raw = owned_key(db_session, "first", ["read", "write"])
+    _, second_raw = owned_key(db_session, "second", ["read", "write"])
     code = client.post(
         "/shorten",
         headers={"X-API-Key": first_raw},

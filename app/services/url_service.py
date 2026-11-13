@@ -121,13 +121,22 @@ class URLService:
                     workspace_id=workspace_id,
                     created_by_user_id=created_by_user_id,
                 )
+                if created_by_user_id:
+                    from app.models.identity import User
+                    from app.services.trust import probation
+
+                    user = db.get(User, created_by_user_id)
+                    if user:
+                        probation(db, code, long_url_str, user, workspace_id)
                 db.commit()
                 loads.invalidate(code)
                 delete_cache(code)
                 span.set_attribute("url.code", code)
                 return code
 
-    def resolve(self, db: Session, code: str) -> str | None:
+    def resolve(
+        self, db: Session, code: str, *, acknowledged: bool = False
+    ) -> str | None:
         """Coalesce overlapping requests without retaining an in-process cache."""
         with tracer.start_as_current_span("url.resolve") as span:
             span.set_attribute("url.code", code)
@@ -135,7 +144,12 @@ class URLService:
             if destination.long_url is None:
                 return None
             self._check_expiry(destination.expires_at)
-            enforce(db, code)
+            from app.abuse.persistence import LinkBlockedError
+            from app.services.trust import destination_denied
+
+            if destination_denied(db, destination.long_url):
+                raise LinkBlockedError("Destination blocked")
+            enforce(db, code, acknowledged=acknowledged)
             self._record_click(code)
             self._check_expiry(destination.expires_at)
             _record_url_origin(span, destination.long_url)

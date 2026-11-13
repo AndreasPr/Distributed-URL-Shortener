@@ -58,13 +58,15 @@ for _ in $(seq 1 30); do
   if curl -fsS --max-time 2 http://127.0.0.1:18000/livez >/dev/null 2>&1 && curl -fsS --max-time 2 http://127.0.0.1:18002/metrics >/dev/null 2>&1; then break; fi
   sleep 1
 done
-KEY_JSON=$(kubectl -n url-shortener exec deployment/api -- python -m app.cli keys create --name kind-smoke --scopes read write)
+# The disposable smoke identity is verified; ownerless machine keys cannot create links.
+kubectl -n url-shortener exec deployment/api -- python -c 'from app.db.database import SessionLocal; from app.services.user_auth import seed_demo_users; db=SessionLocal(); seed_demo_users(db); db.close()'
+KEY_JSON=$(kubectl -n url-shortener exec deployment/api -- python -m app.cli keys create --name kind-smoke --scopes read write --user 00000000-0000-0000-0000-000000000010)
 export API_KEY
 API_KEY=$(printf '%s' "$KEY_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin)["key"])')
 bash scripts/smoke_test.sh 2>&1 | tee "$RESULTS_DIR/smoke.log"
 if [[ "${RUN_K6:-false}" == true ]]; then
   # Separate key: the smoke test deliberately exhausts its write bucket.
-  LOAD_KEY_JSON=$(kubectl -n url-shortener exec deployment/api -- python -m app.cli keys create --name kind-load --scopes read write)
+  LOAD_KEY_JSON=$(kubectl -n url-shortener exec deployment/api -- python -m app.cli keys create --name kind-load --scopes read write --user 00000000-0000-0000-0000-000000000010)
   API_KEY=$(printf '%s' "$LOAD_KEY_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin)["key"])')
   export API_KEY BASE_URL=http://127.0.0.1:18000 DURATION=30s
   k6 run --out "json=$RESULTS_DIR/k6-points.json" --summary-export "$RESULTS_DIR/k6-summary.json" scripts/smoke_load_test.js 2>&1 | tee "$RESULTS_DIR/k6.log"

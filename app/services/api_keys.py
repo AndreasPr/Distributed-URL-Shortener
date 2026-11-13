@@ -9,7 +9,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.models.api_key import APIKey
-from app.models.identity import DEFAULT_WORKSPACE_ID, Workspace, WorkspaceMember
+from app.models.identity import DEFAULT_WORKSPACE_ID, User, Workspace, WorkspaceMember
 
 SCOPES = {"read", "write", "admin"}
 ROLE_SCOPES = {
@@ -67,6 +67,17 @@ def create_key(
         scopes=sorted(set(scopes)),
     )
     db.add(key)
+    db.flush()
+    from app.services.trust import audit
+
+    audit(
+        db,
+        workspace_id,
+        "key.created",
+        created_by_user_id,
+        str(key.id),
+        created_by_user_id,
+    )
     db.commit()
     db.refresh(key)
     return key, raw
@@ -80,6 +91,9 @@ def authenticate(db: Session, raw: str) -> APIKey | None:
     if not valid or key is None or key.revoked_at is not None:
         return None
     if key.created_by_user_id is not None:
+        user = db.get(User, key.created_by_user_id)
+        if user is None or user.suspended_at is not None or user.deleted_at is not None:
+            return None
         member = db.scalar(
             select(WorkspaceMember).where(
                 WorkspaceMember.workspace_id == key.workspace_id,
@@ -120,7 +134,11 @@ def list_keys(db: Session, *, workspace_id: str = DEFAULT_WORKSPACE_ID) -> list[
 
 
 def revoke_key(
-    db: Session, key_id: int, *, workspace_id: str = DEFAULT_WORKSPACE_ID
+    db: Session,
+    key_id: int,
+    *,
+    workspace_id: str = DEFAULT_WORKSPACE_ID,
+    actor_id: str | None = None,
 ) -> bool:
     key = db.scalar(
         select(APIKey).where(APIKey.id == key_id, APIKey.workspace_id == workspace_id)
@@ -129,5 +147,15 @@ def revoke_key(
         return False
     if key.revoked_at is None:
         key.revoked_at = utcnow()
+        from app.services.trust import audit
+
+        audit(
+            db,
+            workspace_id,
+            "key.revoked",
+            actor_id,
+            str(key.id),
+            key.created_by_user_id,
+        )
         db.commit()
     return True

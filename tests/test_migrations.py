@@ -42,7 +42,7 @@ def test_migrations_on_empty_sqlite():
             assert_matches_models(connection)
             assert (
                 connection.scalar(text("SELECT version_num FROM alembic_version"))
-                == "0008"
+                == "0009"
             )
     finally:
         engine.dispose()
@@ -147,3 +147,23 @@ def test_legacy_schema_can_be_stamped_and_upgraded(postgres):
         command.upgrade(cfg, "head")
         assert_matches_models(connection)
         assert connection.scalar(text("SELECT short_code FROM urls")) == "old"
+
+
+def test_trust_tables_upgrade_and_downgrade_preserve_prior_schema():
+    engine = create_engine("sqlite://")
+    try:
+        with engine.begin() as connection:
+            command.upgrade(config(connection), "0008")
+            previous = set(inspect(connection).get_table_names())
+            command.upgrade(config(connection), "0009")
+            assert set(inspect(connection).get_table_names()) - previous == {
+                "daily_creations",
+                "denied_domains",
+                "deleted_identities",
+                "abuse_reports",
+                "audit_log",
+            }
+            command.downgrade(config(connection), "0008")
+            assert set(inspect(connection).get_table_names()) == previous
+    finally:
+        engine.dispose()

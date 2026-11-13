@@ -1,0 +1,11 @@
+import Link from "next/link";
+export default function Page() {
+  return <main className="mx-auto max-w-2xl space-y-4 p-8"><h1 className="text-2xl font-bold">Privacy notice</h1>
+    <p><strong>Template, not legal advice. Deployment-specific processors, contacts and retention must be confirmed by the operator.</strong></p>
+    <p>The backend stores account email and profile metadata, workspace memberships, destination URLs, API-key hashes and metadata, click timestamps and counts, abuse verdicts and category-only reports, and security audit events. It does not store raw visitor IPs in click analytics. Rate-limit identifiers are hashed in short-lived Redis keys; the hosting and identity providers may independently process IP addresses in their logs.</p>
+    <p>Authentication cookies are essential. There are no advertising or tracking scripts. A theme preference may be stored locally. The Turnstile security widget is loaded only for forms that need it.</p>
+    <p>Depending on the operator&apos;s deployment, processors may include Vercel (frontend), Render (API), Supabase (identity/database), Redis Cloud (cache/broker), Grafana Cloud (telemetry), and Cloudflare (Turnstile). These names describe deployment options, not a claim that every service is enabled. If Gemini is explicitly enabled, Google receives a capped domain/path without query or fragment; free-tier inputs may be used by that provider. Do not submit sensitive URL data.</p>
+    <p>Deleted accounts lose access immediately. The purge job removes their backend profile and links after 30 days, when the worker or operator runs it. Reports and audit events are retained for up to 90 days plus scheduling delay; quota counters for 31 days. A one-way subject digest remains to prevent deleted identities from automatically recreating an account. Active links and analytics remain until deletion; broker copies, backups and provider identity records require the operator&apos;s separate retention and erasure procedures.</p>
+    <p>Signed-in users can export their data with GET /me/export and request deletion from Account. Shared-workspace owners must transfer ownership first. Contact the operator via <Link className="underline" href="/abuse">the abuse/contact page</Link> for provider-side deletion and privacy requests.</p>
+  </main>;
+}

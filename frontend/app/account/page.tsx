@@ -26,6 +26,16 @@ export default function Account() {
           setEmail(data.user?.email || "");
         });
   }, [local]);
+  async function exportData() {
+    try {
+      const data = await realClient.request<unknown>("/me/export");
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url; link.download = "relaymark-data.json"; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setMessage("Your export has been downloaded.");
+    } catch (error) { setMessage((error as Error).message); }
+  }
   async function logout(global: boolean) {
     try {
       if (local) {
@@ -42,6 +52,7 @@ export default function Account() {
   }
   return (
     <main className="mx-auto max-w-2xl p-8 space-y-6">
+      <Button onClick={exportData}>Export my data</Button>
       <h1 className="text-3xl font-semibold">Account</h1>
       <p>
         {email} · {identity?.role} ·{" "}
@@ -85,9 +96,10 @@ export default function Account() {
       <section className="border rounded p-4 space-y-3">
         <h2 className="text-xl font-semibold">Delete application account</h2>
         <p>
-          Deactivates your Relaymark account and revokes your keys. Shared
-          workspace links remain. Transfer ownership first if you are a
-          workspace’s last owner. Your Supabase identity is not deleted.
+          Disables your Relaymark account, owned links and keys immediately.
+          Your profile and links are purged after 30 days when cleanup runs.
+          Transfer ownership first if you are the last owner of a shared
+          workspace. Your Supabase identity is not deleted.
         </p>
         <label htmlFor="delete-confirmation">Type DELETE to confirm</label>
         <Input

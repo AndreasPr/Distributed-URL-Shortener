@@ -118,7 +118,14 @@ def isolated_cache(monkeypatch):
 @pytest.fixture
 def auth_key(db_session):
     from app.services.api_keys import create_key
-    return create_key(db_session, "test client", ["read", "write"])
+    from app.services.user_auth import seed_demo_users, DEMO_USERS
+    from app.models.identity import User
+    from datetime import datetime, timedelta
+    seed_demo_users(db_session)
+    owner = db_session.get(User, DEMO_USERS["owner"])
+    owner.created_at = datetime.utcnow() - timedelta(days=2)
+    db_session.commit()
+    return create_key(db_session, "test client", ["read", "write"], created_by_user_id=owner.id)
 
 
 def pytest_addoption(parser):
@@ -136,3 +143,20 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "integration" in item.keywords:
                 item.add_marker(skip)
+
+
+@pytest.fixture
+def owned_key(db_session):
+    """Real verified-owner API keys for endpoint tests (legacy keys remain testable)."""
+    from datetime import datetime, timedelta
+    from app.models.identity import User, WorkspaceMember, DEFAULT_WORKSPACE_ID
+    from app.services.api_keys import create_key
+
+    def create(db, name, scopes, *, workspace_id=DEFAULT_WORKSPACE_ID):
+        subject = str(uuid.uuid4())
+        db.add(User(id=subject, email="fixture@example.test", email_verified=True,
+                    created_at=datetime.utcnow() - timedelta(days=2)))
+        db.add(WorkspaceMember(workspace_id=workspace_id, user_id=subject, role="owner"))
+        db.commit()
+        return create_key(db, name, scopes, workspace_id=workspace_id, created_by_user_id=subject)
+    return create

@@ -16,6 +16,12 @@ services:
       kafka:
         condition: service_started
     environment: &api_environment
+      FREE_DAILY_LINKS: ${FREE_DAILY_LINKS:-20}
+      FREE_WORKSPACE_LINKS: ${FREE_WORKSPACE_LINKS:-200}
+      PUBLIC_WEB_URL: ${PUBLIC_WEB_URL:-http://localhost:3000}
+      PRODUCT_HOSTS: ${PRODUCT_HOSTS:-localhost,127.0.0.1}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      TURNSTILE_HOSTNAMES: ${TURNSTILE_HOSTNAMES:-}
       AUTH_MODE: ${AUTH_MODE:-apikey_only}
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
       PLATFORM_ADMIN_EMAILS: ${PLATFORM_ADMIN_EMAILS:-}

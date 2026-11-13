@@ -11,15 +11,16 @@ from app.models.identity import DEFAULT_WORKSPACE_ID
 KEY = Principal(api_key_id=123, workspace_id=DEFAULT_WORKSPACE_ID, role="admin", scopes=frozenset({"admin"}), auth_method="api_key")
 
 
-def test_create_short_url_returns_service_code(monkeypatch):
+def test_create_short_url_returns_service_code(monkeypatch, db_session, auth_key):
     monkeypatch.setattr(routes.service, "shorten", MagicMock(return_value="abc"))
-    db = MagicMock()
+    db = db_session
+    key = Principal(api_key_id=auth_key[0].id, workspace_id=DEFAULT_WORKSPACE_ID, role="admin", scopes=frozenset({"admin"}), auth_method="api_key")
     req = URLCreate(long_url="https://example.com")
 
-    result = routes.create_short_url(req, key=KEY, db=db)
+    result = routes.create_short_url(req, key=key, db=db)
 
     assert result == {"short_code": "abc"}
-    routes.service.shorten.assert_called_once_with(db, str(req.long_url), None, None, created_by="123", workspace_id=DEFAULT_WORKSPACE_ID, created_by_user_id=None)
+    routes.service.shorten.assert_called_once_with(db, str(req.long_url), None, None, created_by=str(auth_key[0].id), workspace_id=DEFAULT_WORKSPACE_ID, created_by_user_id=auth_key[0].created_by_user_id)
 
 
 def test_redirect_returns_redirect_response(monkeypatch):

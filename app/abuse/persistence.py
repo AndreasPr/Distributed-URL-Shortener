@@ -36,7 +36,11 @@ def enqueue_created(
     )
 
 
-def enforce(db: Session, code: str) -> None:
+class LinkWarningError(ValueError):
+    pass
+
+
+def enforce(db: Session, code: str, *, acknowledged: bool = False) -> None:
     # Query every redirect, including Redis hits and single-flight waiters.
     # Never authorize a redirect based on a stale cached verdict.
     row = db.query(URLVerdict).populate_existing().filter_by(short_code=code).first()
@@ -46,6 +50,13 @@ def enforce(db: Session, code: str) -> None:
     ):
         invalidate_cache(code)
         raise LinkBlockedError("Link blocked by abuse review")
+    if (
+        row is not None
+        and row.verdict == "suspicious"
+        and row.review_decision != "allow"
+        and not acknowledged
+    ):
+        raise LinkWarningError("Review the warning before continuing")
 
 
 def store(db: Session, code: str, result: Assessment) -> bool:
@@ -100,6 +111,16 @@ def review(
     row.reviewed_by = reviewer
     row.reviewed_at = datetime.now(timezone.utc).replace(tzinfo=None)
     row.review_decision = decision
+    from app.services.trust import audit
+
+    audit(
+        db,
+        workspace_id,
+        "link.disabled" if decision == "block" else "link.allowed",
+        reviewer,
+        code,
+        url.created_by_user_id,
+    )
     db.commit()
     invalidate_cache(code)
     return True

@@ -78,3 +78,9 @@ previous state. Token theft works until expiry/local suspension; XSS can steal
 in-memory credentials. The browser OAuth UI is not built. Local mode is explicitly
 passwordless; startup requires a recognized loopback listener or acknowledgement,
 logs a CRITICAL warning and is always prohibited in production.
+
+## Trust-control update
+
+Verified-owner creation and transactional user/workspace quotas constrain abuse, including creation through API keys. Account takeover still grants the victim's remaining permissions: provider MFA and operational session revocation remain important. Suspension disables owned links and keys. Public report CAPTCHA and IP limits reduce automated abuse; reports are not proof, and malicious reports can still create false warnings. Global moderation requires a verified platform admin; audit reads remain workspace-scoped.
+
+Warning pages reveal only the destination host/reasons before Continue. Continue accepts a code, never a caller-supplied destination, and rechecks blocks and lifecycle state. Product-host denial prevents configured self-loops; operators must configure every alias. Random codes reduce enumeration but do not provide authorization or secrecy; public warning/status/report paths are still enumerable. No destination is fetched by the heuristics. See [trust controls](trust-controls.md) and [ADR 0041](adr/0041-trust-controls-and-retention.md) for retention and residual risks.

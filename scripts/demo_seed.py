@@ -64,8 +64,14 @@ def seed(db: Session, anchor: datetime) -> dict:
         raise ValueError(
             "Demo seed requires an empty database; run make demo-down first"
         )
-    admin, admin_raw = create_key(db, "demo-admin", ["admin"])
-    writer, writer_raw = create_key(db, "demo-read-write", ["read", "write"])
+    from app.services.user_auth import DEMO_USERS, seed_demo_users
+
+    seed_demo_users(db)
+    owner = DEMO_USERS["owner"]
+    admin, admin_raw = create_key(db, "demo-admin", ["admin"], created_by_user_id=owner)
+    writer, writer_raw = create_key(
+        db, "demo-read-write", ["read", "write"], created_by_user_id=owner
+    )
     classifier = Classifier(
         variant="heuristics", use_cache=False, gray_low=0.15, gray_high=0.65
     )
@@ -78,6 +84,7 @@ def seed(db: Session, anchor: datetime) -> dict:
                 long_url=destination,
                 created_at=created,
                 created_by=str(writer.id),
+                created_by_user_id=owner,
             )
         )
         db.flush()
