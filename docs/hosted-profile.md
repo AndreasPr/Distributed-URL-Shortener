@@ -64,15 +64,16 @@ Set these values privately in Render; nothing real belongs in Git:
 | `REDIS_URL` | Blueprint private Key Value connectionString (external alternatives require `rediss://`); Streams, consumer groups and XAUTOCLAIM required |
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Existing Auth project settings |
 | `CORS_ORIGINS` | Explicit exact frontend origins; no wildcard or localhost |
-| `TRUSTED_PROXIES` | Explicit immediate-proxy CIDRs verified for your deployment; never `0.0.0.0/0` or `::/0` |
+| `CLIENT_IP_MODE` | Blueprint explicitly sets `peer_only`; no visitor-IP attribution |
+| `TRUSTED_PROXIES` | Unset in peer-only; required restricted CIDRs in production trusted_proxies mode; `/0` always refused |
 | `EVENT_BUS` | Defaults to `redis_streams` only in `all` |
 | `LLM_PROVIDER`, `LLM_DAILY_BUDGET` | Blueprint uses `fake`, `0`: no live inference; gray-zone budget failure stays suspicious |
 | `OTEL_SDK_DISABLED` | Blueprint uses `true`; enable only with an explicitly configured reachable collector |
 
-Do not guess proxy CIDRs from Render's outbound egress addresses. Obtain/verify the
-immediate peer range for the deployed listener and confirm spoofed forwarded
-headers are ignored. Deployment is intentionally blocked until this is supplied.
-The proxy setting validates restricted CIDRs, not platform ownership.
+The Blueprint opts into peer-only mode rather than guessing proxy CIDRs. Anonymous
+IP buckets are not enforced, avoiding shared lockouts; Turnstile and authenticated
+principal quotas remain. Uvicorn keeps proxy-header rewriting disabled. See the
+[hosting runbook](hosting-runbook.md) for setup and residual limitations.
 
 The hosted pool has five connections and at most two overflow connections,
 pre-ping and 300-second recycling. Migration uses one temporary separate connection.

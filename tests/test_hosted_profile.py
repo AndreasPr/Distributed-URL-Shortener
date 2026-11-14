@@ -393,6 +393,8 @@ def test_render_blueprint_has_free_web_and_private_keyvalue():
     assert service["dockerCommand"] == "python -m app.hosted"
     env = {entry["key"]: entry for entry in service["envVars"]}
     assert env["APP_ROLE"]["value"] == "all"
+    assert env["CLIENT_IP_MODE"]["value"] == "peer_only"
+    assert "TRUSTED_PROXIES" not in env
     assert env["REDIS_URL"]["fromService"] == {
         "type": "keyvalue",
         "name": kv["name"],
@@ -402,7 +404,6 @@ def test_render_blueprint_has_free_web_and_private_keyvalue():
         "DATABASE_URL",
         "SUPABASE_URL",
         "SUPABASE_ANON_KEY",
-        "TRUSTED_PROXIES",
         "CORS_ORIGINS",
     ):
         assert env[name] == {"key": name, "sync": False}

@@ -53,7 +53,7 @@ flowchart LR
 | Observability | Optional Grafana Cloud traces/synthetic checks | Prometheus, Grafana, Jaeger | Prometheus, Grafana, Jaeger manifests |
 
 Hosted limits: cold starts and worker pauses during sleep, free-tier resource and
-creation quotas, shared proxy-IP buckets, no Kafka, no multi-region/high-availability
+creation quotas, no per-visitor IP attribution or anonymous IP limiting, no Kafka, no multi-region/high-availability
 claim. A /livez response alone does not establish readiness. Production smoke
 checks health, exact redirects, analytics and cleanup; migration rollback stays manual.
 

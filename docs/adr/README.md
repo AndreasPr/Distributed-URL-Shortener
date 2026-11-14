@@ -69,3 +69,5 @@ Current overview: [engineering design](../design.md).
 - [0042: CI-gated hosted deployment](0042-ci-gated-hosted-deployment.md)
 
 - [0043: Private Render Free Key Value](0043-render-private-keyvalue.md)
+
+- [0044: Explicit peer-only client IP mode](0044-explicit-peer-ip-mode.md)

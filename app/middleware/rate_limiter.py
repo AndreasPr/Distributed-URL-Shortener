@@ -108,6 +108,8 @@ def check_bucket(
 
 def client_ip(request: Request) -> str:
     peer = request.client.host if request.client else "unknown"
+    if settings.CLIENT_IP_MODE == "peer_only":
+        return peer
     trusted = [
         ipaddress.ip_network(network, strict=False)
         for network in settings.TRUSTED_PROXIES
@@ -138,13 +140,21 @@ def client_ip(request: Request) -> str:
 
 
 def limit_write(request: Request, identity: str) -> None:
+    limit_principal(
+        request, identity, settings.WRITE_RATE_CAPACITY, settings.WRITE_RATE_REFILL
+    )
+
+
+def limit_principal(
+    request: Request, identity: str, capacity: int, refill: float
+) -> None:
     template = request.scope["route"].path
     try:
         result = check_bucket(
             template,
             f"{identity}:ip:{client_ip(request)}",
-            settings.WRITE_RATE_CAPACITY,
-            settings.WRITE_RATE_REFILL,
+            capacity,
+            refill,
         )
     except Exception as exc:
         raise HTTPException(
@@ -181,10 +191,15 @@ async def rate_limit_middleware(request: Request, call_next):
     ):
         return JSONResponse({"detail": "Service starting"}, status_code=503)
     headers = {}
-    if template is not None and (request.method, template) in {
-        ("POST", "/auth/dev-login"),
-        ("GET", "/me"),
-    }:
+    if (
+        settings.CLIENT_IP_MODE == "trusted_proxies"
+        and template is not None
+        and (request.method, template)
+        in {
+            ("POST", "/auth/dev-login"),
+            ("GET", "/me"),
+        }
+    ):
         try:
             result = await run_in_threadpool(
                 check_bucket,
@@ -204,7 +219,11 @@ async def rate_limit_middleware(request: Request, call_next):
             return JSONResponse(
                 {"detail": "Rate limit exceeded"}, status_code=429, headers=headers
             )
-    if request.method == "GET" and template == "/{code}":
+    if (
+        settings.CLIENT_IP_MODE == "trusted_proxies"
+        and request.method == "GET"
+        and template == "/{code}"
+    ):
         try:
             result = await run_in_threadpool(
                 check_bucket,
