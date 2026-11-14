@@ -3,7 +3,7 @@
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
@@ -81,7 +81,19 @@ def serialize_workspace(workspace: Workspace) -> dict:
 
 
 @router.get("/me")
-def me(principal: Principal = Depends(get_principal)):
+def me(request: Request, principal: Principal = Depends(get_principal)):
+    # Peer-only cannot safely enforce a shared pre-authentication IP bucket.
+    # Once authenticated, retain the auth quota separately for each principal.
+    from app.core.config import settings
+    from app.middleware.rate_limiter import limit_principal
+
+    if settings.CLIENT_IP_MODE == "peer_only":
+        limit_principal(
+            request,
+            principal.rate_identity,
+            settings.AUTH_IP_RATE_CAPACITY,
+            settings.AUTH_IP_RATE_REFILL,
+        )
     return {
         "user_id": principal.user_id,
         "api_key_id": principal.api_key_id,

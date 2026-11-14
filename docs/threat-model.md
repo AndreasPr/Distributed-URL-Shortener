@@ -84,3 +84,21 @@ logs a CRITICAL warning and is always prohibited in production.
 Verified-owner creation and transactional user/workspace quotas constrain abuse, including creation through API keys. Account takeover still grants the victim's remaining permissions: provider MFA and operational session revocation remain important. Suspension disables owned links and keys. Public report CAPTCHA and IP limits reduce automated abuse; reports are not proof, and malicious reports can still create false warnings. Global moderation requires a verified platform admin; audit reads remain workspace-scoped.
 
 Warning pages reveal only the destination host/reasons before Continue. Continue accepts a code, never a caller-supplied destination, and rechecks blocks and lifecycle state. Product-host denial prevents configured self-loops; operators must configure every alias. Random codes reduce enumeration but do not provide authorization or secrecy; public warning/status/report paths are still enumerable. No destination is fetched by the heuristics. See [trust controls](trust-controls.md) and [ADR 0041](adr/0041-trust-controls-and-retention.md) for retention and residual risks.
+
+
+## Hosted peer-only IP boundary
+
+The Render Blueprint explicitly selects `CLIENT_IP_MODE=peer_only`. The application
+uses socket peers and ignores X-Forwarded-For, Forwarded, X-Real-IP and vendor IP
+headers. The startup warning makes reduced attribution visible. No guessed proxy
+CIDRs or trust-all networks are accepted. Production still defaults to the stricter
+trusted_proxies configuration unless peer_only is explicitly selected.
+
+To prevent shared-bucket denial of service, anonymous IP buckets are not enforced
+in peer-only mode. Authenticated user/key write quotas and database creation caps
+remain; `/me` uses a post-auth principal bucket. Public reports require Turnstile,
+and no anonymous creation is enabled. Residual risks: no visitor-IP attribution,
+no anonymous per-visitor rate limiting, resource exhaustion from public traffic,
+CAPTCHA farming, and identity buckets distributed across changing proxy peers.
+This does not claim protection against all denial-of-service attacks. Local/kind
+retain default trusted-proxy behavior. [Decision](adr/0044-explicit-peer-ip-mode.md).

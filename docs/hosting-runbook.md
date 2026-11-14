@@ -70,7 +70,7 @@ Use the same workspace for both resources; review section 3 first.
 1. Render dashboard → **New → Blueprint** → connect GitHub → select this repository/default branch → review `render.yaml`.
 2. Confirm one Docker web service and one Key Value instance, both **Free**, **Virginia**; for the web service confirm Docker command `python -m app.hosted`, health path `/livez`. Do not provision paid database/cache/worker resources. Leave REDIS_URL managed by the Blueprint service reference. Render hosts API and both supervised consumers in one process.
 3. Fill each `sync: false` environment value using the matrix. Set `PUBLIC_WEB_URL` to the frontend HTTPS origin and `PRODUCT_HOSTS` to every API/short-domain hostname, including aliases.
-4. Obtain the platform's actual immediate proxy addresses/CIDRs from authoritative platform configuration/support and verify the socket peer. Set restricted `TRUSTED_PROXIES`. Do not use `0.0.0.0/0`, guess private ranges, or confuse Render outbound IP ranges with inbound proxies. If this cannot be established, deployment is not fully configured; shared-IP rate limits are not per-user-IP proof.
+4. In **Environment**, confirm `CLIENT_IP_MODE=peer_only` (the Blueprint sets it explicitly). Leave `TRUSTED_PROXIES` unset or empty; remove any guessed ranges. Save and redeploy. This mode ignores all forwarded IP headers and uses the socket peer; Uvicorn proxy-header rewriting stays off. Startup emits one warning: visitors behind a platform proxy share its address, so anonymous IP buckets are not enforced. Redirects, report submission and warning continuation cannot be locked out by another visitor exhausting that shared bucket. `/reports` still requires server-verified Turnstile; link creation still requires a verified human or verified-owner API key. Authenticated write limits and database creation caps remain; `/me` is limited after authentication by principal. **This baseline provides no per-visitor IP attribution or anonymous per-visitor rate limiting.** Only choose `trusted_proxies` if you have verified restricted immediate-proxy CIDRs; that remains the application default and requires `TRUSTED_PROXIES` in production. Neither mode accepts `0.0.0.0/0` or `::/0`.
 5. Create the service. Watch **Events → Deploy logs**: migrations must finish; `/health` must become healthy. `/livez` only proves process liveness, not migration/worker readiness.
 6. **Settings → Build & Deploy → Auto-Deploy** must remain **Off**. CI triggers the secret deploy hook later; this avoids a circular dependency where Render waits for the post-deploy check before deploying.
 7. **Settings → Deploy Hook**: copy its URL directly into the GitHub production environment secret `RENDER_DEPLOY_HOOK_URL`. Never put it into files, logs or a browser-public variable. The workflow appends `ref=<CI-tested SHA>` and waits for that SHA in `/livez`'s `X-Deployment-Revision` header. Render supplies `RENDER_GIT_COMMIT` automatically. [Deploy hooks](https://render.com/docs/deploy-hooks).
@@ -94,7 +94,7 @@ Free Render can sleep after inactivity; worker processing and purge scheduling a
    ```
 
    Set `API_ORIGIN` to your real Render origin first; no value is committed. If unset the script explicitly **SKIPs**, not PASSes. It checks direct API and Vercel without following redirects. These GETs create clicks. If both preserve exact 307/Location, set `NEXT_PUBLIC_SHORT_BASE_URL` to the frontend `/s` base and redeploy. If not, retain the direct API base and record the observed status/header difference. This step has only mocked local preservation evidence, not live Vercel evidence.
-7. The proxy's 10-second fetch timeout can fail during Render cold starts; direct API links are the fallback. It deliberately does not forward spoofable IP headers, so requests through it may share a proxy-IP bucket. Do not claim equivalent client-IP attribution. Suspicious links redirect to `/warn`, and are not suitable for the clean-link smoke check.
+7. The proxy's 10-second fetch timeout can fail during Render cold starts; direct API links are the fallback. It deliberately does not forward spoofable IP headers, so no per-visitor client-IP attribution is claimed. In hosted peer-only mode anonymous proxy-IP buckets are not enforced. Suspicious links redirect to `/warn`, and are not suitable for the clean-link smoke check.
 
 ## 7. GitHub: deploy and smoke gates
 
@@ -132,7 +132,8 @@ Placeholders are examples only; never paste them as production credentials. Orig
 | SUPABASE_JWT_ALGORITHMS | Render | Public | `RS256,ES256` |
 | CORS_ORIGINS / PUBLIC_WEB_URL | Render | Public | `https://frontend.example.invalid` |
 | PRODUCT_HOSTS | Render | Public | `frontend.example.invalid,api.example.invalid` |
-| TRUSTED_PROXIES | Render | Public security configuration | `VERIFIED_PLATFORM_PROXY_CIDRS` |
+| CLIENT_IP_MODE | Render Blueprint → API | Public security configuration | `peer_only` (explicit hosted choice; application default `trusted_proxies`) |
+| TRUSTED_PROXIES | Render, only for `trusted_proxies` mode | Public security configuration | Unset/empty in hosted peer-only mode; verified restricted IPs/CIDRs otherwise; never `/0` |
 | PLATFORM_ADMIN_EMAILS | Render | Private identity list | `operator@example.invalid` |
 | TURNSTILE_SECRET_KEY | Render and Supabase Auth settings | Secret | `TURNSTILE_SECRET` |
 | TURNSTILE_HOSTNAMES | Render | Public | `frontend.example.invalid` |

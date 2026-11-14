@@ -156,7 +156,7 @@ Write limiting runs in the shared scope dependency after authentication, when th
 matched route is available; middleware adds resulting headers to the response.
 CORS wraps the limiter so browser clients can read errors and headers. Preflight,
 health, liveness, metrics and ordinary read/admin-list endpoints do not consume
-tokens. `/me` and `/auth/dev-login` have dedicated per-IP auth buckets.
+tokens. In trusted-proxy mode, `/me` and `/auth/dev-login` have dedicated per-IP auth buckets; peer-only mode uses an authenticated principal bucket for `/me`.
 
 One atomic Redis Lua invocation reads server TIME, refills tokens, consumes one
 when available, and persists the remaining balance with an expiry. This shares
@@ -169,7 +169,8 @@ buckets to expire after a full-refill interval. No separate read/write race exis
 | `WRITE_RATE_REFILL` | 1 | Write tokens restored per second |
 | `REDIRECT_RATE_CAPACITY` | 120 | Initial/full redirect burst per client IP |
 | `REDIRECT_RATE_REFILL` | 10 | Redirect tokens restored per second |
-| `TRUSTED_PROXIES` | empty | Exact IPs/CIDRs allowed to supply forwarding chains |
+| `CLIENT_IP_MODE` | trusted_proxies | Explicit peer_only ignores forwarded headers; hosted Blueprint opts in |
+| `TRUSTED_PROXIES` | empty | Restricted IPs/CIDRs; required in production trusted_proxies mode; `/0` always rejected |
 
 Write identities are `user:<uuid>:ip:<address>` or `key:<id>:ip:<address>`,
 hashed together with the matched route template;
@@ -195,7 +196,7 @@ may consume a token.
 
 ## Proxy trust
 
-The immediate socket peer must belong to `TRUSTED_PROXIES` before X-Forwarded-For
+In default `trusted_proxies` mode, the immediate socket peer must belong to `TRUSTED_PROXIES` before X-Forwarded-For
 is considered. The chain is walked right-to-left, removing only trusted hops and
 stopping at the first untrusted address; attacker-supplied leftmost entries are
 ignored. Invalid chains fall back to the socket address. IPv4 and IPv6 CIDRs work.
@@ -310,3 +311,27 @@ authentication is optional at Render, not enabled by this blueprint.
 Free restart loss resets rate buckets and erases pending analytics/abuse events;
 PostgreSQL creation quotas remain. No durable queue guarantee is made for hosted
 Free. See [ADR 0043](adr/0043-render-private-keyvalue.md).
+
+
+### Explicit peer-only hosted mode
+
+`CLIENT_IP_MODE=peer_only` deliberately trusts no forwarding headers, even when
+TRUSTED_PROXIES contains restricted entries. Production defaults to trusted_proxies;
+there is no automatic fallback. Unrestricted networks are rejected in every mode
+and environment. A startup warning records the loss of per-visitor attribution.
+
+Anonymous IP enforcement is disabled for redirects, report submissions, warning
+continuations and the pre-auth `/me`/dev-login bucket, because a shared peer bucket
+would let one visitor lock out others. Production forbids dev-login independently.
+`/me` retains a post-auth principal bucket; mutation buckets remain keyed by
+user/key identity plus socket peer. Different identities cannot exhaust each other's
+buckets, but changing platform peers can distribute an identity's traffic across
+buckets. PostgreSQL daily/workspace creation caps remain unchanged.
+
+There is no anonymous quick-shorten: `/shorten` requires authentication and an active,
+verified human owner (including owned API keys). Reports still require server-side
+Turnstile, failing closed on missing/invalid tokens or provider failure. Turnstile
+is not a substitute for volumetric protection: valid CAPTCHA farming, anonymous
+read floods and repeated invalid authentication can consume resources. Platform
+edge controls and resource limits remain important, with no DDoS guarantee.
+See [ADR 0044](adr/0044-explicit-peer-ip-mode.md).

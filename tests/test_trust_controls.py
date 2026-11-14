@@ -202,9 +202,11 @@ def test_old_account_not_probation_flagged(trust_client, db_session, monkeypatch
     assert db_session.get(URLVerdict, code) is None
 
 
+@pytest.mark.parametrize("mode", ["trusted_proxies", "peer_only"])
 def test_report_requires_captcha_and_enters_queue(
-    trust_client, db_session, monkeypatch
+    trust_client, db_session, monkeypatch, mode
 ):
+    monkeypatch.setattr(settings, "CLIENT_IP_MODE", mode)
     from fastapi import HTTPException
 
     client, _, _ = trust_client

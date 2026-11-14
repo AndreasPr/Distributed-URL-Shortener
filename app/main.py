@@ -30,6 +30,13 @@ logging.getLogger().info("APP MODULE LOADED - PORT=%s", os.getenv("PORT", "not-s
 async def lifespan(app: FastAPI):
     started = time.monotonic()
     supervisor = None
+    if settings.CLIENT_IP_MODE == "peer_only":
+        logging.getLogger(__name__).warning(
+            "CLIENT_IP_MODE=peer_only: anonymous per-IP limits are shared across "
+            "visitors behind the platform proxy and are not enforced to avoid "
+            "shared lockouts; no per-visitor IP attribution. Authenticated "
+            "limits and report CAPTCHA remain required."
+        )
     await _on_startup()
     if settings.APP_ROLE in {"all", "worker"}:
         from app.workers.supervisor import hosted_supervisor

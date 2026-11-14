@@ -16,6 +16,7 @@ from app.api.auth import get_principal, require_permission, require_platform_adm
 from app.api.principal import Principal
 from app.api.workspaces import workspace_for
 from app.cache.redis_client import invalidate_cache
+from app.core.config import settings
 from app.db.database import get_db
 from app.middleware.rate_limiter import check_bucket, client_ip
 from app.models.identity import User
@@ -32,6 +33,10 @@ router = APIRouter()
 
 
 def public_limit(request: Request) -> None:
+    # A platform peer identifies many visitors; exhausting its bucket must not
+    # lock them all out. Report CAPTCHA verification remains mandatory below.
+    if settings.CLIENT_IP_MODE == "peer_only":
+        return
     try:
         result = check_bucket(
             request.scope["route"].path, "ip:" + client_ip(request), 10, 1 / 60

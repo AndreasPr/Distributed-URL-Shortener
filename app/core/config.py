@@ -220,6 +220,9 @@ class Settings:
     WRITE_RATE_REFILL = float(os.getenv("WRITE_RATE_REFILL", "1"))
     REDIRECT_RATE_CAPACITY = int(os.getenv("REDIRECT_RATE_CAPACITY", "120"))
     REDIRECT_RATE_REFILL = float(os.getenv("REDIRECT_RATE_REFILL", "10"))
+    CLIENT_IP_MODE = os.getenv("CLIENT_IP_MODE", "trusted_proxies")
+    if CLIENT_IP_MODE not in {"trusted_proxies", "peer_only"}:
+        raise ValueError("CLIENT_IP_MODE must be trusted_proxies or peer_only")
     TRUSTED_PROXIES = [
         value.strip()
         for value in os.getenv("TRUSTED_PROXIES", "").split(",")
@@ -227,7 +230,8 @@ class Settings:
     ]
     METRICS_PORT = int(os.getenv("METRICS_PORT", "0"))
     for network in TRUSTED_PROXIES:
-        ipaddress.ip_network(network, strict=False)
+        if ipaddress.ip_network(network, strict=False).prefixlen == 0:
+            raise ValueError("TRUSTED_PROXIES cannot contain unrestricted networks")
     for rate in (
         AUTH_IP_RATE_CAPACITY,
         AUTH_IP_RATE_REFILL,
@@ -270,10 +274,7 @@ class Settings:
         validate_production_redis_url(REDIS_URL)
         if any(local_origin(origin) for origin in CORS_ORIGINS):
             raise ValueError("Production CORS cannot contain localhost origins")
-        if not TRUSTED_PROXIES or any(
-            ipaddress.ip_network(value, strict=False).prefixlen == 0
-            for value in TRUSTED_PROXIES
-        ):
+        if CLIENT_IP_MODE == "trusted_proxies" and not TRUSTED_PROXIES:
             raise ValueError("Production requires explicit restricted TRUSTED_PROXIES")
         for connection_url in (DB_URL, REDIS_URL):
             password = unquote(urlsplit(connection_url).password or "")

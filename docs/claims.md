@@ -44,3 +44,11 @@ PARTIAL — verified-owner creation, transactional plan caps, warning/report mod
 
 Free hosted Streams lose queued events on restart. Historical local broker/chaos
 results do not establish durable delivery on Render Free.
+
+
+### Hosted IP policy
+
+| Claim | Status | Evidence |
+|---|---|---|
+| Explicit peer-only mode ignores spoofed forwarding headers and avoids shared anonymous bucket lockouts | PARTIAL | `app/core/config.py`, `app/middleware/rate_limiter.py`, `app/api/trust.py`, `render.yaml`, `tests/test_peer_ip_mode.py`; local checks in [verification](peer-ip-mode-verification.md), no live Render test |
+| Hosted per-visitor IP attribution or anonymous per-visitor rate limiting | NOT YET | Deliberately not provided in peer_only mode; principal quotas, verified-owner creation and report CAPTCHA remain |
