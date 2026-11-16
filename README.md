@@ -23,7 +23,7 @@ No backend, API key or LLM is needed. Run `make demo` for the real local stack.
 See [deployment settings and verification](docs/deployment-demo.md); deployment of this branch
 must complete before the production URL serves these changes.
 
-## Hosted app and topology
+## Hosted App and Topology
 
 [Open the live frontend](https://distributed-url-shortener-two.vercel.app/).
 This link is not proof that a hosted backend is deployed. Follow the
