@@ -39,3 +39,35 @@
 - Cooperative shutdown has a bounded deadline; stuck I/O can leave daemon threads
   unfinished. Do not interpret bounded termination as guaranteed final flush under
   an arbitrary database/network hang. Transactions/acks preserve replay safety.
+
+## Hosted OTLP telemetry
+
+Traces and a small metric set can be pushed directly to Grafana Cloud. The metric
+exporter starts only in the production API process; local Jaeger remains trace-only. Logs remain
+Render stdout; no hosted log export is implemented. The startup probe validates
+trace-endpoint acceptance only; metric permissions, dashboards and alert email
+require manual verification. Disabled telemetry sends neither signal. Export
+errors are sanitized and logged at most once per ten minutes across both signals.
+
+The metric set is requests/latency by route template and status class; global
+redirect cache hits/misses, Redis degraded operations, auth failures, committed
+signups and links; two hosted consumer lags; pool used/idle; and a heartbeat.
+No code, user, workspace, IP, host or arbitrary error reason labels are exported.
+The tested upper bound is **1,877 series per resource/process**: 41 possible route
+values (40 templates plus `other`) × 5 status classes × 9 counter/histogram series,
+plus 32 reserved series for other metrics/metadata. New routes beyond the bound
+collapse to `other`; tests require deliberate review. Restarts, replicas, Cloud
+resource promotion, retention and other services can increase account-wide series.
+This bound is not a measured Cloud quota guarantee. Exports run every 60 seconds.
+Counter state resets at restart; last-minute events can be lost on termination.
+
+Redirect head sampling records 10% statistically, not exactly every tenth request.
+Writes are always sampled even with an unsampled incoming parent. Errors (HTTP
+4xx/5xx) get separate always-sampled summary spans; their unsampled request trees
+cannot be recovered. `/livez` and `/health` spans and metric requests are excluded.
+Metrics themselves are not sampled. Probe traffic therefore does not distort the
+request ratios, and the heartbeat identifies missing telemetry while idle.
+
+Render sleep yields missing metrics/traces and can trigger the 10-minute no-data
+alert; it can also time out an hourly synthetic check. This is best effort, not
+an always-on SLO or free-tier capacity claim. No live Cloud delivery was tested.

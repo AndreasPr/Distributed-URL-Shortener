@@ -1,0 +1,73 @@
+{
+  "uid": "hosted-5xx",
+  "title": "Hosted 5xx rate",
+  "folderUID": "REPLACE_FOLDER_UID",
+  "ruleGroup": "relaymark-hosted",
+  "condition": "C",
+  "for": "5m",
+  "noDataState": "OK",
+  "execErrState": "Error",
+  "annotations": {
+    "summary": "Hosted 5xx rate",
+    "description": "More than 1% of observed requests failed for 5 minutes; inspect Render stdout and traces."
+  },
+  "labels": {
+    "project": "relaymark",
+    "severity": "warning"
+  },
+  "isPaused": false,
+  "data": [
+    {
+      "refId": "A",
+      "relativeTimeRange": {
+        "from": 600,
+        "to": 0
+      },
+      "datasourceUid": "REPLACE_PROMETHEUS_UID",
+      "model": {
+        "refId": "A",
+        "expr": "sum(rate(relaymark_requests_total{status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(relaymark_requests_total[5m])), 0.001)",
+        "instant": true,
+        "range": false,
+        "intervalMs": 60000,
+        "maxDataPoints": 43200
+      }
+    },
+    {
+      "refId": "C",
+      "relativeTimeRange": {
+        "from": 0,
+        "to": 0
+      },
+      "datasourceUid": "__expr__",
+      "model": {
+        "refId": "C",
+        "type": "threshold",
+        "expression": "A",
+        "conditions": [
+          {
+            "type": "query",
+            "query": {
+              "params": [
+                "C"
+              ]
+            },
+            "reducer": {
+              "type": "last",
+              "params": []
+            },
+            "evaluator": {
+              "type": "gt",
+              "params": [
+                0.01
+              ]
+            },
+            "operator": {
+              "type": "and"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

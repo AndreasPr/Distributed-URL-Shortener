@@ -1,0 +1,10 @@
+{
+  "uid": "relaymark-email",
+  "name": "relaymark-email",
+  "type": "email",
+  "settings": {
+    "addresses": "REPLACE_WITH_YOUR_EMAIL",
+    "singleEmail": true
+  },
+  "disableResolveMessage": false
+}

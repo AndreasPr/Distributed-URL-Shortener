@@ -16,6 +16,7 @@ from app.core.config import settings
 from app.events.publisher import publisher
 from app.middleware.hardening import BodyLimitMiddleware, install_error_handlers
 from app.middleware.rate_limiter import rate_limit_middleware
+from app.observability.cloud_metrics import CloudRequestMetrics
 from app.observability.logging import configure_logging_with_tracing
 from app.observability.metrics import configure_metrics
 from app.observability.tracing import init_tracing, instrument_app, shutdown_tracing
@@ -91,7 +92,9 @@ async def _on_startup():
     try:
         init_tracing(service_name="api")
     except Exception as exc:  # pragma: no cover - defensive
-        logging.getLogger().exception("init_tracing failed: %s", exc)
+        logging.getLogger().warning(
+            "Tracing initialization failed (%s)", type(exc).__name__
+        )
 
     # Configure logging with tracing (best-effort)
     try:
@@ -113,6 +116,10 @@ app.include_router(dev_auth_router)
 app.include_router(workspaces_router)
 app.include_router(trust_router)
 app.include_router(router)
+app.add_middleware(
+    CloudRequestMetrics,
+    routes=tuple(getattr(route, "path", "other") for route in app.routes),
+)
 instrument_app(app)
 
 

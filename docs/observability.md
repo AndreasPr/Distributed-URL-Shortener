@@ -11,7 +11,7 @@ recreating it loses traces. Prometheus/Grafana remain separate from tracing.
    `docker compose --profile redis-streams up --build -d` or
    `docker compose --profile kafka up --build -d`.
 2. Create a short link using your existing API key, or choose an existing active
-   code. Make one request: `curl -I http://localhost:8000/CODE` is **not** suitable
+   code. Make several requests (redirect head sampling is 10%): `curl -I http://localhost:8000/CODE` is **not** suitable
    because HEAD is not the redirect route; use
    `curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8000/CODE`.
    Do not use `-L` if you only want to exercise the shortener.
@@ -70,10 +70,10 @@ disabled in favor of a correlated response-status log without paths or headers.
 
 A shared `PrivacySpanProcessor` filters spans **before export/batching**. It keeps
 only an allowlist of method/status, route template, database operation/system,
-messaging operation/system, and URL scheme/host/short-code attributes. SQL text,
+messaging operation/system, and URL scheme/host attributes (short codes are discarded). SQL text,
 parameters, full URLs, query strings, headers, exception events/descriptions and
 unknown attributes are discarded. Span names and permitted text are also
-redacted. Resource attributes are limited to service identity/version.
+redacted. Resource attributes are limited to service identity/version and deployment environment.
 
 The logging boundary removes full HTTP(S) URLs, queries, credential-labelled
 values, bearer tokens and long token-shaped strings. Raw exception/stack payloads
@@ -82,14 +82,12 @@ detail and can redact harmless long identifiers. **Do not log request/event
 payloads or secrets:** textual redaction is defense in depth, not permission to
 emit arbitrary sensitive data or a guarantee against every encoding.
 
-There is no abuse worker yet. Its future entrypoint must call
-`configure_logging_with_tracing("abuse-worker")` and
-`init_tracing("abuse-worker")`, and use `event_span` for event handling. The same
-privacy boundary is tested for that service name; no nonexistent worker is claimed.
+The abuse worker uses the same event context and privacy boundary. In the hosted
+single-process mode both consumers share service `api`; separate local processes
+use `worker` and `abuse-worker`.
 
-Kubernetes does not currently deploy Jaeger. Configure a reachable OTLP endpoint
-and narrowly extend the default-deny NetworkPolicies for its collector before
-expecting cluster traces. This change does not open cluster-wide egress.
+Kubernetes includes Jaeger in the base manifests. Cloud export is separate and
+requires explicitly allowed egress; this change does not open cluster-wide egress.
 
 ## Verification
 
@@ -99,3 +97,6 @@ and redirect → actual publisher thread → in-memory bus → worker → SQL in
 `tests/test_trace_privacy.py` also exercises real Redis/Requests instrumentation
 with fake I/O. These tests do not prove broker delivery or Jaeger ingestion.
 See [verification output](tracing-verification.md) for checks actually performed.
+
+Hosted sampling, error summaries, metric export and privacy limits are detailed in
+[OpenTelemetry](OPENTELEMETRY.md#hosted-cloud-export). No hosted log shipping is implemented.

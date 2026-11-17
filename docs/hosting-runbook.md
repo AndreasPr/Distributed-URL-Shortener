@@ -108,12 +108,66 @@ Free Render can sleep after inactivity; worker processing and purge scheduling a
 
 ## 8. Grafana Cloud and uptime monitoring
 
-1. Create/sign in to Grafana Cloud → choose **Free** → create/open your stack. Review its usage limits; do not enable paid overages.
-2. In the stack's connection/setup UI choose **OpenTelemetry / OTLP** → generate a narrowly scoped write access-policy token. Store the generated OTLP HTTP base endpoint and Authorization header in Render's environment, not Vercel. Use `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` in SDK format, and set `OTEL_SDK_DISABLED=false`; redeploy.
-3. Generate a clean redirect and open **Explore → Traces**. Hosted workers share the API process/provider; do not expect three independent process resources as in local Compose. This repo exports traces through OTLP; it does **not** automatically remote-write Prometheus metrics or ship stdout logs to Grafana Cloud. Local dashboards are not evidence of hosted metric ingestion. [OTLP connection guide](https://grafana.com/docs/grafana-cloud/send-data/otlp/send-data-otlp/).
-4. Open **Testing & synthetics → Synthetic Monitoring**, initialize it if prompted, then **New check → HTTP**. Name `relaymark-health`, target the API `/health`, expect 200, select one public probe and a low frequency such as hourly. Use the displayed execution calculator to remain inside the free allowance; do not select a paid plan.
-5. Save → inspect **Check results**. Under **Alerting → Contact points**, configure your own notification address; create a rule for repeated check failures. Repeat with a frontend landing-page check if within the allowance. No API key is needed for health checks. [Synthetic setup](https://grafana.com/docs/grafana-cloud/observe-and-act/testing/synthetic-monitoring/set-up/grafana-cloud/) and [usage calculator](https://grafana.com/docs/grafana-cloud/platform/pricing-and-usage/synthetic-monitoring/).
-6. Treat a timeout separately from sustained dependency failure; external checks can time out sooner than the smoke's 90-second cold-start window. Monitoring itself wakes Render and affects measured sleep behavior. Do not use frequent requests solely to evade free-tier sleep. No always-on uptime guarantee is claimed.
+1. Create/sign in → choose **Free** → open your stack. Review usage limits and do
+   not enable paid overages. In Connections / OpenTelemetry (OTLP), copy the HTTP
+   **base** endpoint (usually ending `/otlp`, not `/v1/traces`).
+2. Create a Cloud access-policy token scoped to this stack/realm, with
+   **`traces:write` and `metrics:write`**. No logs scope is needed. Use the OTLP
+   gateway's **instance ID** displayed in this setup, not an unrelated data-source
+   user ID, a Grafana login, or a Grafana service-account token.
+3. In Render → Environment set these privately (the Blueprint uses `sync: false`
+   for all three, so sync does not overwrite dashboard values):
+   - `OTEL_SDK_DISABLED=false` (set `true` to stop exports).
+   - `OTEL_EXPORTER_OTLP_ENDPOINT` = the copied base endpoint.
+   - `OTEL_EXPORTER_OTLP_HEADERS` = `Authorization=Basic%20<base64(instanceID:token)>`.
+     The angle-bracket portion is a placeholder, not literal text. Base64-encode
+     the single `instanceID:token` string without a trailing newline. Percent-encode
+     any `+` in that result as `%2B`; do not replace it with a space. Never paste
+     credentials into a terminal command that will be retained in shell history,
+     this repository, Vercel public variables, screenshots or chat.
+4. Redeploy. One background startup self-check sends an empty protobuf request to
+   `/v1/traces` with a 1s connect/1s read timeout, no redirect following or retry.
+   A failure logs one `category=unauthorized`, `unreachable` or `disabled` warning,
+   never response bodies, headers or endpoints. Successful acceptance is **not**
+   proof that real spans/metrics arrived. Exporter failures are sanitized and
+   limited to one log per ten minutes across both signals. Metrics use `/v1/metrics`
+   on a 60s interval, a 5s export timeout, and the same generic header setting.
+5. Generate writes and several redirects. Explore → Traces: service `api`, resource
+   `deployment.environment=production`. Hosted consumers share that resource.
+   Redirects are head-sampled at 10%; writes at 100%. Every HTTP 4xx/5xx (except
+   excluded probes) emits an independent `http.error` summary. A head sampler cannot
+   recover the full trace of an unsampled failed request. `/livez` and `/health`
+   spans are excluded. Backend spans export no short codes, user/workspace IDs,
+   request headers, full URLs, SQL text or tokens.
+6. Explore → Metrics: verify `relaymark_heartbeat` and `relaymark_requests_total`.
+   Import [cloud dashboards/alert templates](../grafana/cloud/README.md), configure
+   your email contact point and notification policy, and test delivery. These
+   assets have only offline verification; ingestion and notifications require your
+   manual check. No Prometheus scrape/remote-write setup is required for this small
+   OTLP metric set. `/metrics` remains for local use. **No hosted logs are shipped**;
+   stdout is inspected in Render.
+7. Testing & synthetics → Synthetic Monitoring → New check → HTTP: API `/health`,
+   expected status 200, **hourly**, **one probe**. Check the displayed usage against
+   the free allowance before saving. If hourly is unavailable, record the UI
+   limitation instead of silently selecting frequent checks. Configure failure
+   notifications through your email contact point; verify a test notification.
+8. Render sleeping stops telemetry and may time out the health check on cold start.
+   A no-data alert after ten minutes can mean sleep, not application failure.
+   Checks themselves wake Render; do not use them to evade sleep. This is a
+   **best-effort hosted baseline**, not evidence of 99.9% always-on availability.
+
+| Symptom | Check / action |
+|---|---|
+| 401 / startup unauthorized | Correct OTLP instance ID and token pair; token not expired/revoked; correct stack realm. Recreate narrowly scoped token if needed. |
+| 401 after copying header | Use `Authorization=Basic%20...`, not `Authorization: ...`; no quotes/newline in value; encode `+` as `%2B`; no double Base64 encoding. |
+| Traces work, metrics fail with 401/403 | Add `metrics:write` to a replacement stack-scoped access-policy token. The startup trace-only probe cannot validate metric scope. |
+| Wrong credential type | Cloud OTLP access-policy token is distinct from Grafana provisioning service-account token and Prometheus query credentials. |
+| Unreachable / 3xx / 404 | Verify base endpoint/region and TLS connectivity; do not append `/v1/traces` yourself. Redirects are refused by the self-check. |
+| Disabled / no data | Set `OTEL_SDK_DISABLED=false`, redeploy, generate traffic and wait at least 60s. Check Render sleep and the ten-minute log throttle. |
+
+References for operator setup: [OTLP](https://grafana.com/docs/grafana-cloud/send-data/otlp/send-data-otlp/),
+[synthetic setup](https://grafana.com/docs/grafana-cloud/observe-and-act/testing/synthetic-monitoring/set-up/grafana-cloud/).
+No live services were contacted to validate this implementation.
 
 ## Environment matrix
 
@@ -141,7 +195,7 @@ Placeholders are examples only; never paste them as production credentials. Orig
 | LLM_PROVIDER / LLM_DAILY_BUDGET | Render | Public | `fake` / `0` (heuristics only) |
 | OTEL_SDK_DISABLED | Render | Public | `true` until telemetry configured |
 | OTEL_EXPORTER_OTLP_ENDPOINT | Render | Public endpoint | `https://OTLP_HOST/otlp` |
-| OTEL_EXPORTER_OTLP_HEADERS | Render | Secret token-bearing header | `Authorization=ENCODED_AUTH_HEADER` |
+| OTEL_EXPORTER_OTLP_HEADERS | Render | Secret token-bearing header | `Authorization=Basic%20BASE64_INSTANCE_ID_COLON_TOKEN` |
 | API_ORIGIN | Vercel server, GitHub repository variable, operator terminal | Public, no default | `https://api.example.invalid` |
 | NEXT_PUBLIC_API_URL | Vercel build | Public | `https://api.example.invalid` |
 | NEXT_PUBLIC_SHORT_BASE_URL | Vercel build | Public | API origin first; frontend `/s` after verification |
@@ -178,7 +232,7 @@ Placeholders are examples only; never paste them as production credentials. Orig
 | Turnstile secret | Widget settings → rotate/regenerate secret; update Render and Supabase CAPTCHA promptly, redeploy Render and verify reports/signup. If replacing the widget also update the public site key and rebuild Vercel. |
 | Synthetic/application API key | Verified owner creates a replacement with the same minimal scopes, update GitHub secret, run smoke, revoke old key through the app. On compromise revoke first. |
 | Render deploy hook | Service Settings → Regenerate Hook; replace GitHub secret. The old hook must stop working. |
-| Grafana OTLP token | Access Policies → create scoped replacement, update Render header, redeploy/test traces, delete old token. Never put it in the frontend. |
+| Grafana OTLP token | Access Policies → create scoped replacement, update Render header, redeploy/test traces and metrics, delete old token. Never put it in the frontend. |
 | Google/GitHub OAuth client secret | Rotate in the provider console, update that provider in Supabase, verify a fresh login, revoke old secret. Existing browser sessions may outlive the rotation. |
 | Supabase signing key | JWT Keys → create standby asymmetric key → rotate active key → allow session/JWKS transition or revoke immediately after compromise. Backend caches JWKS for its configured TTL; restart it for immediate cache removal. Revoke old key explicitly when ready. |
 | Supabase legacy anon/service-role/JWT secret | Do not assume independent legacy rotation. Migrate to publishable keys/asymmetric signing following current Supabase guidance, update backend/frontend public keys and redeploy, then revoke legacy keys. This app needs no service-role key. |

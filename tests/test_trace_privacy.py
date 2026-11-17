@@ -10,7 +10,7 @@ import app.services.url_service as module
 
 
 @pytest.mark.parametrize("cached", [False, True])
-def test_url_spans_only_include_origin_and_code(monkeypatch, cached):
+def test_url_spans_only_include_origin(monkeypatch, cached):
     monkeypatch.setattr("app.services.trust.destination_denied", lambda *args: False)
     exporter = InMemorySpanExporter()
     provider = TracerProvider()
@@ -48,7 +48,6 @@ def test_url_spans_only_include_origin_and_code(monkeypatch, cached):
             assert {k: v for k, v in attrs.items() if k.startswith("url.")} == {
                 "url.scheme": "https",
                 "url.host": "example.com",
-                "url.code": "abc",
             }
     finally:
         provider.shutdown()
