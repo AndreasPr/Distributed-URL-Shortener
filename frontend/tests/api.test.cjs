@@ -13,7 +13,7 @@ function clientUnderTest(env = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
   const context = {
-    require: (name) => { if (name === './demo-api') return { DemoAPIClient: class {} }; if (name === './auth/browser') return { accessToken: async () => '', signOut: async () => {} }; throw new Error(name) },
+    require: (name) => { if (name === './reliability') return { unavailableMessage: 'The server is taking longer than expected.' }; if (name === './demo-api') return { DemoAPIClient: class {} }; if (name === './auth/browser') return { accessToken: async () => '', signOut: async () => {} }; throw new Error(name) },
     AbortSignal, exports: {}, process: { env },
     fetch: async (url, options = {}) => {
       requests.push({ url, options })

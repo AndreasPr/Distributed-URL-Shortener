@@ -1,3 +1,4 @@
+import { readiness, unavailableMessage } from "./reliability";
 import { DemoAPIClient } from "./demo-api";
 import { accessToken, signOut } from "./auth/browser";
 export function isDemoRoute() {
@@ -130,6 +131,8 @@ export class APIClient {
     options: RequestInit = {},
     authenticated = true,
   ): Promise<T> {
+    // Wake using a safe health probe before auth/provisioning or a mutation.
+    if (typeof window !== "undefined") await readiness(this.baseUrl).ensure(this.baseUrl);
     const response = await timedFetch(this.baseUrl + path, {
       ...options,
       headers: {
@@ -137,6 +140,13 @@ export class APIClient {
         ...(authenticated ? await this.authHeaders() : {}),
         ...options.headers,
       },
+    }).catch(async () => {
+      if (typeof window !== "undefined") {
+        readiness(this.baseUrl).reset();
+        await readiness(this.baseUrl).ensure(this.baseUrl);
+      }
+      // The request may have committed. Do not automatically resend writes.
+      throw new Error(unavailableMessage + " Check the result before resubmitting changes.");
     });
     if (!response.ok) {
       if (response.status === 401) {
@@ -168,6 +178,9 @@ export class APIClient {
         throw new Error(
           `Too many requests. ${retry ? `Retry after ${retry}.` : "Please wait and retry."}`,
         );
+      }
+      if (response.status >= 500 && body?.detail?.code) {
+        throw new Error("Changes are temporarily paused. Existing links remain available.");
       }
       if (response.status >= 500)
         throw new Error(

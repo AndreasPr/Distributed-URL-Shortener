@@ -240,3 +240,12 @@ Placeholders are examples only; never paste them as production credentials. Orig
 | Hosting/GitHub personal access tokens | None required. Review/revoke provider GitHub-App authorizations in account settings if compromised; reconnect with least privileges. |
 
 Public URLs, Turnstile site keys and Supabase publishable keys are not private bearer credentials, but updates must still be coordinated across builds/allowlists. Auth access tokens expire; use account sign-out/global sign-out for refresh-session revocation, and suspension for immediate application denial. [Supabase rotation guidance](https://supabase.com/kb/troubleshooting/rotating-anon-service-and-jwt-secrets-1Jq6yd).
+
+## Free-tier reliability follow-up
+
+Follow [uptime.md](uptime.md) to enable the five-minute primary/backup monitor,
+quota issues and server-only kill switches; follow [backups.md](backups.md) for the
+nightly encrypted session-pooler dump and local recovery. Workflows are opt-in and
+need the default branch. No secret/private identity goes into a public variable.
+The public age recipient is intentionally committed; its private counterpart is
+never requested or uploaded. Provider billing limits still require dashboard review.

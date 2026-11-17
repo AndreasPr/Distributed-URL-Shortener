@@ -35,6 +35,7 @@ from app.services.activity_signals import signals
 from app.services.analytics_service import AnalyticsService, URLNotFoundError
 from app.services.api_keys import KeyScopeError, create_key, list_keys, revoke_key
 from app.services.url_service import LinkExpiredError, URLService
+from app.services.usage import require_usage_admin, usage_snapshot
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -174,6 +175,18 @@ def health(request: Request, db: Session | None = Depends(get_health_db)):
     if overall_status != "ok":
         return JSONResponse(status_code=503, content=body)
     return body
+
+
+@router.get("/admin/usage")
+def admin_usage(principal=Depends(require_usage_admin), db: Session = Depends(get_db)):
+    return JSONResponse(usage_snapshot(db), headers={"Cache-Control": "no-store"})
+
+
+@router.get("/status")
+def reliability_status():
+    from app.services.reliability import public_controls
+
+    return JSONResponse(public_controls(), headers={"Cache-Control": "no-store"})
 
 
 @router.get("/livez")

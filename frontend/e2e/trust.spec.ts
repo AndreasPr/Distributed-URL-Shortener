@@ -23,7 +23,7 @@ test("public report sends CAPTCHA and category without authentication", async ({
   });
   await page.goto("/report/test-code");
   await page.getByRole("button", { name: "Submit report" }).click();
-  await expect(page.getByRole("status")).toContainText("Report received");
+  await expect(page.getByRole("status").filter({ hasText: "Report received" })).toBeVisible();
   expect(received).toBe(true);
 });
 

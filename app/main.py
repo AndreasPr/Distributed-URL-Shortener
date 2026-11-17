@@ -21,6 +21,7 @@ from app.observability.logging import configure_logging_with_tracing
 from app.observability.metrics import configure_metrics
 from app.observability.tracing import init_tracing, instrument_app, shutdown_tracing
 from app.services.auth_startup import validate_local_binding
+from app.services.reliability import ReliabilityControls
 
 # Configure basic logging early so startup logs appear in platform logs
 configure_logging_with_tracing("api")
@@ -62,6 +63,7 @@ app = FastAPI(title="URL Shortener", lifespan=lifespan)
 install_error_handlers(app)
 app.middleware("http")(rate_limit_middleware)
 app.add_middleware(BodyLimitMiddleware, limit=settings.MAX_REQUEST_BODY_BYTES)
+app.add_middleware(ReliabilityControls)
 
 # Add CORS middleware FIRST (so it executes FIRST in middleware stack)
 app.add_middleware(

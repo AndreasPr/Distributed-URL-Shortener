@@ -68,3 +68,11 @@ chaos/results/*
 # Browser test artifacts
 frontend/test-results/
 frontend/playwright-report/
+
+# Backup material: only the public recipients.txt belongs in Git.
+*.dump
+*.dump.age
+*.age.partial
+backups/*.age
+backups/*identity*
+backups/*key.txt

@@ -20,7 +20,7 @@ test('HTTP errors are distinct and a 401 clears the cookie session', async () =>
  const context = {
   exports: {}, URL, AbortSignal, process: { env: {} },
   window: { location: { origin: 'https://app.example.test', pathname: '/dashboard', assign: url => { destination = url } } },
-  require: name => name === './demo-api' ? { DemoAPIClient: class {} } : { accessToken: async () => 'fixture-token', signOut: async () => { signedOut++ } },
+  require: name => name === './reliability' ? { readiness: () => ({ ensure: async () => {}, reset: () => {} }), unavailableMessage: 'Please retry' } : name === './demo-api' ? { DemoAPIClient: class {} } : { accessToken: async () => 'fixture-token', signOut: async () => { signedOut++ } },
   fetch: async () => ({ ok: false, status, headers: { get: () => '7' }, json: async () => ({}) }),
  }
  vm.runInNewContext(ts.transpileModule(fs.readFileSync(require.resolve('../lib/api.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, context)

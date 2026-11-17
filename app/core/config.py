@@ -123,6 +123,29 @@ class Settings:
     OTEL_EXPORTER_OTLP_ENDPOINT = os.getenv(
         "OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318"
     )
+    SIGNUPS_ENABLED = os.getenv("SIGNUPS_ENABLED", "true").lower() == "true"
+    LINK_CREATION_ENABLED = os.getenv("LINK_CREATION_ENABLED", "true").lower() == "true"
+    LLM_ENABLED = os.getenv("LLM_ENABLED", "true").lower() == "true"
+    READ_ONLY_MODE = os.getenv("READ_ONLY_MODE", "false").lower() == "true"
+    USAGE_DATABASE_LIMIT_BYTES = int(
+        os.getenv("USAGE_DATABASE_LIMIT_BYTES", "500000000")
+    )
+    USAGE_REDIS_LIMIT_BYTES = int(os.getenv("USAGE_REDIS_LIMIT_BYTES", "25000000"))
+    # Zero means no configured command/global link quota, not proof of unlimited use.
+    USAGE_REDIS_DAILY_COMMAND_LIMIT = int(
+        os.getenv("USAGE_REDIS_DAILY_COMMAND_LIMIT", "0")
+    )
+    USAGE_TOTAL_LINK_LIMIT = int(os.getenv("USAGE_TOTAL_LINK_LIMIT", "0"))
+    if (
+        min(
+            USAGE_DATABASE_LIMIT_BYTES,
+            USAGE_REDIS_LIMIT_BYTES,
+            USAGE_REDIS_DAILY_COMMAND_LIMIT,
+            USAGE_TOTAL_LINK_LIMIT,
+        )
+        < 0
+    ):
+        raise ValueError("Usage limits must be nonnegative")
     ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
     AUTH_MODE = os.getenv("AUTH_MODE", "apikey_only")
     SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
