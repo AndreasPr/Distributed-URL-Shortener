@@ -19,6 +19,7 @@ from app.models.identity import DEFAULT_WORKSPACE_ID
 from app.observability.metrics import (
     cache_fallback_total,
     cache_lock_wait_total,
+    links_created_total,
     negative_cache_hits_total,
     track_shorten_latency,
 )
@@ -129,9 +130,9 @@ class URLService:
                     if user:
                         probation(db, code, long_url_str, user, workspace_id)
                 db.commit()
+                links_created_total.inc()
                 loads.invalidate(code)
                 delete_cache(code)
-                span.set_attribute("url.code", code)
                 return code
 
     def resolve(
@@ -139,7 +140,6 @@ class URLService:
     ) -> str | None:
         """Coalesce overlapping requests without retaining an in-process cache."""
         with tracer.start_as_current_span("url.resolve") as span:
-            span.set_attribute("url.code", code)
             destination = loads.run(code, lambda: self._load(db, code))
             if destination.long_url is None:
                 return None

@@ -47,6 +47,7 @@ def test_middleware_and_metrics(client):
         "PrometheusInstrumentatorMiddleware",
         "BaseHTTPMiddleware",
         "BodyLimitMiddleware",
+        "CloudRequestMetrics",
     }
     cors = next(m for m in middleware if m.cls is CORSMiddleware)
     assert cors.kwargs == dict(

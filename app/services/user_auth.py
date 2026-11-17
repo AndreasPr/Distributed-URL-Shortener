@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.api.principal import Principal
 from app.core.config import settings
 from app.models.identity import DEFAULT_WORKSPACE_ID, User, Workspace, WorkspaceMember
+from app.observability.metrics import signups_total
 from app.services.email_verification import confirmed_email
 from app.services.jwt_auth import InvalidToken
 
@@ -85,6 +86,8 @@ def user_principal(
         # The user/workspace provisioning above remains one atomic transaction.
         user.email_verification_checked_at = now
     db.commit()
+    if created:
+        signups_total.inc()
     if refresh_email:
         result = confirmed_email(subject, str(token))
         if result is not None:

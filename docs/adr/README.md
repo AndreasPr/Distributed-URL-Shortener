@@ -71,3 +71,5 @@ Current overview: [engineering design](../design.md).
 - [0043: Private Render Free Key Value](0043-render-private-keyvalue.md)
 
 - [0044: Explicit peer-only client IP mode](0044-explicit-peer-ip-mode.md)
+
+- [0045 — Hosted cloud observability](0045-hosted-cloud-observability.md)

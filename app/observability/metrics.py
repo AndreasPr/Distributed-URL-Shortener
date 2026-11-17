@@ -178,3 +178,7 @@ hosted_worker_restarts_total = Counter(
 hosted_shutdown_timeouts_total = Counter(
     "hosted_shutdown_timeouts_total", "Shutdown budget exhausted"
 )
+
+
+signups_total = Counter("signups_total", "Committed first-login user provisioning")
+links_created_total = Counter("links_created_total", "Committed link creations")

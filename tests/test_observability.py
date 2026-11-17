@@ -282,6 +282,9 @@ def test_init_instruments_existing_engine_and_uses_configured_otlp(monkeypatch):
     monkeypatch.setattr(
         settings, "OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4318/"
     )
+    monkeypatch.setattr(module, "sdk_disabled", lambda: False)
+    monkeypatch.setattr(module, "Thread", Mock())
+    monkeypatch.setattr(module, "init_cloud_metrics", Mock())
     module.init_tracing("worker")
     factories["OTLPSpanExporter"].assert_called_once_with(
         endpoint="http://collector:4318/v1/traces", timeout=5

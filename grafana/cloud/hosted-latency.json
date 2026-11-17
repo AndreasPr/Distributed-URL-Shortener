@@ -1,0 +1,73 @@
+{
+  "uid": "hosted-latency",
+  "title": "Hosted redirect p95",
+  "folderUID": "REPLACE_FOLDER_UID",
+  "ruleGroup": "relaymark-hosted",
+  "condition": "C",
+  "for": "5m",
+  "noDataState": "OK",
+  "execErrState": "Error",
+  "annotations": {
+    "summary": "Hosted redirect p95",
+    "description": "Observed redirect p95 exceeds 500 ms. Check DB pool, cache misses and cold starts."
+  },
+  "labels": {
+    "project": "relaymark",
+    "severity": "warning"
+  },
+  "isPaused": false,
+  "data": [
+    {
+      "refId": "A",
+      "relativeTimeRange": {
+        "from": 600,
+        "to": 0
+      },
+      "datasourceUid": "REPLACE_PROMETHEUS_UID",
+      "model": {
+        "refId": "A",
+        "expr": "histogram_quantile(0.95, sum by (le) (rate(relaymark_request_duration_seconds_bucket{route=\"/{code}\"}[5m])))",
+        "instant": true,
+        "range": false,
+        "intervalMs": 60000,
+        "maxDataPoints": 43200
+      }
+    },
+    {
+      "refId": "C",
+      "relativeTimeRange": {
+        "from": 0,
+        "to": 0
+      },
+      "datasourceUid": "__expr__",
+      "model": {
+        "refId": "C",
+        "type": "threshold",
+        "expression": "A",
+        "conditions": [
+          {
+            "type": "query",
+            "query": {
+              "params": [
+                "C"
+              ]
+            },
+            "reducer": {
+              "type": "last",
+              "params": []
+            },
+            "evaluator": {
+              "type": "gt",
+              "params": [
+                0.5
+              ]
+            },
+            "operator": {
+              "type": "and"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

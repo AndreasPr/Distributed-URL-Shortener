@@ -52,3 +52,12 @@ results do not establish durable delivery on Render Free.
 |---|---|---|
 | Explicit peer-only mode ignores spoofed forwarding headers and avoids shared anonymous bucket lockouts | PARTIAL | `app/core/config.py`, `app/middleware/rate_limiter.py`, `app/api/trust.py`, `render.yaml`, `tests/test_peer_ip_mode.py`; local checks in [verification](peer-ip-mode-verification.md), no live Render test |
 | Hosted per-visitor IP attribution or anonymous per-visitor rate limiting | NOT YET | Deliberately not provided in peer_only mode; principal quotas, verified-owner creation and report CAPTCHA remain |
+
+### Hosted cloud observability
+
+| Claim | Status | Evidence and reproduction |
+|---|---|---|
+| OTLP traces and bounded-cardinality metrics, privacy filtering and safe exporter diagnostics | VERIFIED (offline) | `app/observability/`, `tests/test_cloud_observability.py`; `make check`. Head sampling plus independent error summaries, not recovery of unsampled error traces. |
+| Grafana Cloud hosted dashboards, alerts and email delivery | PARTIAL | `grafana/cloud/` contains dashboard and provisioning templates; [import steps](../grafana/cloud/README.md). Live ingestion, import compatibility and notifications require operator verification. |
+| Hosted stdout logs available in Grafana Cloud | NOT YET | No log exporter; stdout remains in Render. |
+| Hosted always-on 99.9% availability | NOT YET | Free-tier sleep/cold starts; hosted objectives are best effort. Hourly one-probe Synthetic Monitoring is a manual setup, not a completed live check. |

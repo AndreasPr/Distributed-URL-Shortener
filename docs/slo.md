@@ -112,3 +112,20 @@ fail provisioning when the existing name has a different UID. Dashboard panels
 use the default datasource so both existing generated UIDs and fresh installations
 work without deleting or recreating datasource records. After updating these
 files, run `docker compose restart grafana`; preserve the Grafana volume.
+
+## Hosted free-tier scope
+
+The hosted baseline is **best effort** because Render Free sleeps. The 30-day
+99.9% and latency/freshness objectives above remain engineering targets for the
+continuously running stack; they are not a hosted availability promise.
+`relaymark_requests_total` and `relaymark_request_duration_seconds` measure only
+requests reaching a running API (excluding health probes), with all status
+classes and route templates. The hosted histogram does not split hit/miss latency
+cohorts, and no hosted freshness SLI is claimed. Trace sampling does not sample
+these metrics. Missing periods are unknown, never counted as 100% available.
+
+[Hosted alert templates](../grafana/cloud/README.md) use 5xx >1%, redirect p95 >500ms,
+Redis degradation, and no heartbeat for 10 minutes. They are operational alerts,
+not the local multi-window burn-rate rules. Hourly one-probe `/health` Synthetic
+Monitoring is configured manually; cold starts/sleep affect results. No live
+Cloud SLO, notification delivery or 30-day compliance has been verified here.

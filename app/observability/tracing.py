@@ -1,6 +1,7 @@
 """OTLP/HTTP export and shared privacy controls for every process."""
 
 import logging
+from threading import Thread
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI
@@ -16,10 +17,18 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from requests import PreparedRequest
 
 from app.core.config import settings
+from app.observability.cloud_metrics import init_cloud_metrics, shutdown_cloud_metrics
+from app.observability.export_health import (
+    install_export_throttle,
+    sdk_disabled,
+    startup_check,
+)
 from app.observability.privacy import PrivacySpanProcessor
+from app.observability.sampling import RequestSampler
 
 logger = logging.getLogger(__name__)
 _provider: TracerProvider | None = None
+_check_started = False
 
 
 def _redact_redis_arguments(span: trace.Span, instance, args, kwargs) -> None:
@@ -44,14 +53,33 @@ def instrument_app(app: FastAPI) -> None:
     FastAPIInstrumentor.instrument_app(
         app,
         client_response_hook=_response_hook,
-        excluded_urls="",
+        excluded_urls=r"/livez(?:\?.*)?$,/health(?:\?.*)?$",
     )
 
 
 def init_tracing(service_name: str = "api"):
-    global _provider
+    global _provider, _check_started
     if _provider is None:
-        _provider = TracerProvider(resource=Resource({"service.name": service_name}))
+        install_export_throttle()
+        if not _check_started:
+            _check_started = True
+            Thread(
+                target=startup_check,
+                args=(settings.OTEL_EXPORTER_OTLP_ENDPOINT,),
+                daemon=True,
+            ).start()
+        if sdk_disabled():
+            return trace.get_tracer(__name__)
+        resource = Resource(
+            {
+                "service.name": service_name,
+                "deployment.environment": settings.ENVIRONMENT,
+            }
+        )
+        _provider = TracerProvider(resource=resource, sampler=RequestSampler())
+        # Local Jaeger accepts traces, not OTLP metrics; keep local Prometheus.
+        if service_name == "api" and settings.ENVIRONMENT == "production":
+            init_cloud_metrics(resource, settings.OTEL_EXPORTER_OTLP_ENDPOINT)
         exporter = OTLPSpanExporter(
             endpoint=settings.OTEL_EXPORTER_OTLP_ENDPOINT.rstrip("/") + "/v1/traces",
             timeout=5,
@@ -68,6 +96,7 @@ def init_tracing(service_name: str = "api"):
 
 
 def shutdown_tracing() -> None:
+    shutdown_cloud_metrics()
     if _provider is not None:
         _provider.force_flush(timeout_millis=5000)
         _provider.shutdown()

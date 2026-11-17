@@ -34,7 +34,6 @@ SAFE_ATTRIBUTES = {
     "messaging.operation",
     "url.scheme",
     "url.host",
-    "url.code",
 }
 
 
@@ -72,7 +71,8 @@ class PrivacySpanProcessor(SpanProcessor):
                 {
                     key: redact(str(value))
                     for key, value in span.resource.attributes.items()
-                    if key in {"service.name", "service.version"}
+                    if key
+                    in {"service.name", "service.version", "deployment.environment"}
                 }
             ),
             attributes=attributes,

@@ -24,7 +24,11 @@ services:
       - key: LLM_DAILY_BUDGET
         value: '0'
       - key: OTEL_SDK_DISABLED
-        value: 'true'
+        sync: false
+      - key: OTEL_EXPORTER_OTLP_ENDPOINT
+        sync: false
+      - key: OTEL_EXPORTER_OTLP_HEADERS
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: REDIS_URL
