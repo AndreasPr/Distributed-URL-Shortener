@@ -1,0 +1,38 @@
+name: Encrypted nightly backup
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: encrypted-nightly-backup
+  cancel-in-progress: false
+jobs:
+  backup:
+    if: vars.BACKUPS_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: production
+    container: postgres:18.7-bookworm
+    steps:
+      - name: Install encryption and orchestration tools
+        run: apt-get update -qq && apt-get install -y --no-install-recommends age python3 ca-certificates git
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.repository.default_branch }}
+      - name: Compress and encrypt database stream
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: python3 scripts/backup.py create --file "$RUNNER_TEMP/relaymark.dump.age"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: encrypted-database-${{ github.run_id }}
+          path: ${{ runner.temp }}/relaymark.dump.age
+          retention-days: 14
+          if-no-files-found: error
+          compression-level: 0
+      - name: Remove encrypted temporary file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/relaymark.dump.age" "$RUNNER_TEMP/relaymark.dump.age.partial"

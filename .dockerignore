@@ -58,3 +58,8 @@ chaos
 
 # Disposable demo credentials and state
 .demo/
+
+# Backup material never belongs in the backend build context.
+backups/
+*.dump
+*.age

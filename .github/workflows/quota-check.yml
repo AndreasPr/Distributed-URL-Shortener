@@ -1,0 +1,30 @@
+name: Hosted quota guard
+on:
+  schedule:
+    - cron: '37 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: hosted-quota-issues
+  cancel-in-progress: false
+jobs:
+  quota:
+    if: vars.QUOTA_CHECK_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    environment: production
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.repository.default_branch }}
+      - name: Check measured limits; open or escalate one issue per resource
+        env:
+          API_ORIGIN: ${{ vars.API_ORIGIN }}
+          USAGE_API_KEY: ${{ secrets.USAGE_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/hosted_monitor.py quota

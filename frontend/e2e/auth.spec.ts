@@ -130,7 +130,7 @@ test("signup and recovery submit CAPTCHA without real provider traffic", async (
   expect((await signup).postDataJSON().gotrue_meta_security.captcha_token).toBe(
     "fixture-captcha",
   );
-  await expect(page.getByRole("status")).toContainText("Check your email");
+  await expect(page.getByRole("status").filter({ hasText: "Check your email" })).toBeVisible();
   await page.goto("/forgot-password");
   await page.getByLabel("Email", { exact: true }).fill("new@example.test");
   const recovery = page.waitForRequest((request) =>
@@ -140,7 +140,7 @@ test("signup and recovery submit CAPTCHA without real provider traffic", async (
   expect(
     (await recovery).postDataJSON().gotrue_meta_security.captcha_token,
   ).toBe("fixture-captcha");
-  await expect(page.getByRole("status")).toContainText("If an account exists");
+  await expect(page.getByRole("status").filter({ hasText: "If an account exists" })).toBeVisible();
 });
 
 test("password update and global sign-out use the provider contracts", async ({
@@ -152,7 +152,7 @@ test("password update and global sign-out use the provider contracts", async ({
     .getByLabel("Password", { exact: true })
     .fill("new-fixture-password");
   await page.getByRole("button", { name: "Update password" }).click();
-  await expect(page.getByRole("status")).toContainText("Password updated");
+  await expect(page.getByRole("status").filter({ hasText: "Password updated" })).toBeVisible();
   await page.goto("/account");
   const logout = page.waitForRequest((request) =>
     request.url().includes("/auth/v1/logout"),

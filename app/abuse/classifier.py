@@ -49,9 +49,13 @@ class Classifier:
     def classify(self, url: str) -> Assessment:
         features = analyze(url)
         score = features.score
-        if self.variant == "heuristics" or (
-            self.variant == "combined"
-            and (score < self.gray_low or score >= self.gray_high)
+        if (
+            not settings.LLM_ENABLED
+            or self.variant == "heuristics"
+            or (
+                self.variant == "combined"
+                and (score < self.gray_low or score >= self.gray_high)
+            )
         ):
             llm_calls_saved_total.inc()
             return Assessment(

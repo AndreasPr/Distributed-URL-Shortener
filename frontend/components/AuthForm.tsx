@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { serviceSnapshot, subscribeService } from "../lib/reliability";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { browserAuth } from "../lib/auth/browser";
 import { safeNext } from "../lib/auth/redirect";
@@ -24,6 +25,8 @@ export function AuthForm({
   action: AuthAction;
   nonce: string;
 }) {
+  const controls = useSyncExternalStore(subscribeService, serviceSnapshot, serviceSnapshot).controls;
+  const signupClosed = action === "signup" && controls?.signups_enabled === false;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [captchaGeneration, setCaptchaGeneration] = useState(0);
@@ -34,6 +37,7 @@ export function AuthForm({
   const needsCaptcha =
     action !== "login" || !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   async function oauth(provider: "github" | "google") {
+    if (signupClosed) { setMessage("New accounts are temporarily disabled."); return; }
     setBusy(true);
     setMessage("");
     try {
@@ -58,6 +62,7 @@ export function AuthForm({
   }
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    if (signupClosed) { setMessage("New accounts are temporarily disabled."); return; }
     setBusy(true);
     setMessage("");
     try {
@@ -125,12 +130,12 @@ export function AuthForm({
       <h1 className="text-3xl font-semibold">{titles[action]}</h1>
       {(action === "login" || action === "signup") && (
         <div className="grid gap-3">
-          <Button disabled={busy} onClick={() => oauth("github")}>
+          <Button disabled={busy || signupClosed} onClick={() => oauth("github")}>
             Continue with GitHub
           </Button>
           <Button
             variant="outline"
-            disabled={busy}
+            disabled={busy || signupClosed}
             onClick={() => oauth("google")}
           >
             Continue with Google
@@ -175,7 +180,7 @@ export function AuthForm({
               onToken={setCaptcha}
             />
           )}
-          <Button disabled={busy || (needsCaptcha && !captcha)} type="submit">
+          <Button disabled={busy || signupClosed || (needsCaptcha && !captcha)} type="submit">
             {action === "login"
               ? "Sign in"
               : action === "signup"

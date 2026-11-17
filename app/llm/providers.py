@@ -41,6 +41,8 @@ class Provider:
     def classify_json(
         self, system_prompt: str, user_content: str, schema: type[T]
     ) -> Classification[T]:
+        if not settings.LLM_ENABLED:
+            raise NotConfigured("LLM calls are disabled")
         started = time.monotonic()
         acquired = self.limits.slots.acquire(timeout=settings.LLM_TIMEOUT_SECONDS)
         if not acquired:

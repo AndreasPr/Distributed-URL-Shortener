@@ -48,6 +48,10 @@ def user_principal(
     if db.get(DeletedIdentity, subject_hash(subject)) is not None:
         raise InvalidToken("disabled_user")
     now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if db.get(User, subject) is None:
+        from app.services.reliability import require_signup_enabled
+
+        require_signup_enabled()
     created = insert_once(
         db,
         User,

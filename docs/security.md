@@ -335,3 +335,15 @@ is not a substitute for volumetric protection: valid CAPTCHA farming, anonymous
 read floods and repeated invalid authentication can consume resources. Platform
 edge controls and resource limits remain important, with no DDoS guarantee.
 See [ADR 0044](adr/0044-explicit-peer-ip-mode.md).
+
+## Reliability controls and backup boundary
+
+`/admin/usage` alone accepts an admin-scope key owned by an active, verified user
+whose email remains in PLATFORM_ADMIN_EMAILS; revocation/membership are checked on
+every call. Human access still requires platform_admin. Other global admin routes
+are unchanged. Quota issues contain aggregate numbers, never tenant IDs or secrets.
+`/status` is public boolean configuration only. Read-only mode gates product writes,
+not authentication bookkeeping, consumers or purge jobs. Supabase signup must also
+be disabled in its dashboard to prevent upstream identities being created.
+Backups upload only age ciphertext; the private identity never enters CI. See
+[backups](backups.md) for data scope, local restore constraints and key rotation.

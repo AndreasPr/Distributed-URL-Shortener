@@ -71,3 +71,36 @@ request ratios, and the heartbeat identifies missing telemetry while idle.
 Render sleep yields missing metrics/traces and can trigger the 10-minute no-data
 alert; it can also time out an hourly synthetic check. This is best effort, not
 an always-on SLO or free-tier capacity claim. No live Cloud delivery was tested.
+
+## Free-tier operating limits (checked 2026-11-16)
+
+Account dashboards and current provider terms are authoritative; included amounts
+can change. No automatic paid upgrade or overage permission is introduced. Advisory
+70%/90% issues cover API-measured limits only. Unknown provider billing usage is
+not reported as zero. Sources: [Render Free](https://render.com/docs/free),
+[Render pricing](https://render.com/pricing),
+[Supabase pricing](https://supabase.com/pricing),
+[Supabase database/disk distinction](https://supabase.com/docs/guides/platform/database-size),
+[Grafana pricing](https://grafana.com/pricing/),
+[Grafana usage limits](https://grafana.com/docs/grafana-cloud/platform/pricing-and-usage/usage-limits/).
+
+| Resource / included allowance | What happens at the boundary | Operator response / evidence |
+|---|---|---|
+| Render Free web service: 750 running instance-hours/workspace/month | Exhaustion suspends free web services until reset. One always-running service consumes up to 744 hours in a 31-day month; multiple services share hours. | Check Render usage; stop unnecessary services/monitors. No app API measurement. |
+| Render free service idle spin-down: about 15 minutes | Next request cold-starts; probes can time out. Maintenance/restarts still occur. | Browser 90s readiness UX; inspect health. Monitoring is not an SLA or guarantee against suspension. |
+| Render Hobby included outbound bandwidth: currently 5 GB/month; confirm your account | Additional usage may be billed when a payment method permits it, or service suspended without one. | Inspect workspace usage/billing controls; reduce traffic before exhaustion. Do not authorize paid overages. Not measured by `/admin/usage`. |
+| Render Free Key Value: 25 MB RAM, 50 connections, one free instance/workspace | With `noeviction`, memory pressure rejects writes; disconnects/maintenance degrade service. Restarts lose all data. | API memory estimate and 70/90% issues; reduce retained Streams/cache data cautiously. DB outbox survives; accepted click events in ephemeral Streams may not. |
+| Render Key Value commands | No published fixed daily/monthly command quota for this tier; do not invent an Upstash quota for Render. | INFO recent ops/s and daily extrapolation are estimates. Set a command budget explicitly if changing providers; default 0 = unconfigured. |
+| Supabase Free database: 500 MB included/project | Database-size quota differs from disk capacity; disk 95% read-only protection is a separate limit. Do not assume 500 MB is the precise read-only trigger. | Measure database size, inspect dashboard warnings, export/clean eligible old data before the limit. No automatic deletion. |
+| Supabase Free inactivity: low activity over 7 days | Project can pause; API becomes unavailable until resumed. Health queries alone are not a provider guarantee of sufficient activity. | Inspect dashboard, resume manually; monitor real usage and last backup. |
+| Supabase Free egress 5 GB, storage 1 GB, 50,000 MAU (current advertised allowances) | Provider limits/enforcement apply; database backups also consume network transfer. | Check Supabase billing/usage; these are not measured by the app quota endpoint. No storage-file backup claim. |
+| Grafana Cloud Free metrics: 10,000 active series, 14-day retention | Ingestion limits can reject data; data older than retention expires. Account limits may differ. | Inspect `grafanacloud-usage`, native limit alerts and exporter failures. App cardinality tests do not measure total Cloud usage. |
+| Grafana Cloud Free traces/logs: current advertised 50 GB/month each, 14-day retention | Excess ingestion may be rejected; older data expires. This app exports traces, not hosted logs. | Review Cloud usage. Lower trace volume/disable SDK before exceeding allowance; no log-shipping claim. |
+| LLM process budget: `LLM_DAILY_BUDGET`; hosted default 0 | Admission refuses calls; real provider RPM/TPM/RPD limits may reject sooner. Restart resets in-process counts. | Turn `LLM_ENABLED=false` for heuristics only; inspect provider's actual quotas. Estimate is not provider billing evidence. |
+| Free application plan: 20 links/user/day, 200 active links/workspace by default | API returns 429 daily / 402 workspace-cap responses. | Delete eligible links or pause creation; largest-workspace usage is monitored without publishing tenant identifiers. |
+| Nightly artifacts: 14-day retention; storage subject to GitHub account limits | Older artifacts expire; failed scheduled jobs leave no new backup. | Inspect last successful encrypted artifact; private-key recovery test; account storage dashboard. |
+
+See [uptime and controls](uptime.md) for monitor command arithmetic, opt-in GitHub
+workflows, API-key authorization and kill switches. See [backups](backups.md) for
+encrypted dump setup and limitations. The tiny live smoke is manual only and has
+20 requests, not a free-tier load test.

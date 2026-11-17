@@ -90,9 +90,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(200, result)
         if path.path == "/ready":
             return self.reply(200, {})
+        if path.path == "/status":
+            return self.reply(200, {"signups_enabled": True, "link_creation_enabled": True, "llm_enabled": True, "read_only_mode": False})
         if path.path == "/health":
             return self.reply(
-                200, {"status": "healthy", "redis": "ok", "total_urls": 1}
+                200, {"status": "ok", "db": "reachable", "redis": "reachable", "total_urls": 1}
             )
         if path.path == "/auth/v1/authorize":
             q = parse_qs(path.query)
@@ -153,7 +155,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(403, {"detail": "Platform administrator required"})
         if path.path == "/api-keys":
             return self.reply(200, [])
-        return self.reply(200, {"status": "healthy", "redis": "ok", "total_urls": 1})
+        return self.reply(200, {"status": "ok", "db": "reachable", "redis": "reachable", "total_urls": 1})
 
     def do_POST(self):
         path = urlparse(self.path)

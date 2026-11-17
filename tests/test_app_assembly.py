@@ -19,6 +19,7 @@ from app.middleware.rate_limiter import rate_limit_middleware
 @pytest.fixture
 def client(monkeypatch, db_session, auth_key):
     from cache_fakes import FakeRedis
+
     fake = Mock()
     fake.eval.side_effect = FakeRedis().eval
     fake.get.return_value = None
@@ -47,6 +48,7 @@ def test_middleware_and_metrics(client):
         "PrometheusInstrumentatorMiddleware",
         "BaseHTTPMiddleware",
         "BodyLimitMiddleware",
+        "ReliabilityControls",
         "CloudRequestMetrics",
     }
     cors = next(m for m in middleware if m.cls is CORSMiddleware)
@@ -55,7 +57,12 @@ def test_middleware_and_metrics(client):
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "X-API-Key", "Authorization", "X-Workspace-ID"],
-        expose_headers=["RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset", "Retry-After"],
+        expose_headers=[
+            "RateLimit-Limit",
+            "RateLimit-Remaining",
+            "RateLimit-Reset",
+            "Retry-After",
+        ],
     )
     response = client.get("/metrics")
     assert response.status_code == 200
@@ -129,7 +136,9 @@ def test_service_failures_are_503(client, monkeypatch, caplog, path, service, me
     assert response.status_code == 503
     assert set(response.json()) == {"detail"}
     assert "sensitive connection details" not in response.text
-    assert caplog.records  # Production JSON logging deliberately omits exception payloads.
+    assert (
+        caplog.records
+    )  # Production JSON logging deliberately omits exception payloads.
 
 
 @pytest.mark.parametrize("dependency", ["db", "redis", "both"])

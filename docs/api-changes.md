@@ -175,3 +175,15 @@ and JWT auth 15.3; their implementation/history is retained.
 POST /shorten now returns 403 for an ownerless key or inactive/unverified owner, 429 (Retry-After) for the UTC daily cap, 402 for workspace capacity, and 422 for configured own/denied domains. Successful response shapes are unchanged. Suspicious redirect 307 now targets the frontend warning page; a confirmed Continue resolves the stored destination after a fresh policy check. Malicious/blocked remains 451; deletion remains 404 and expiry 410.
 
 New public warning/report endpoints and authenticated moderation/export/audit endpoints are documented in [trust controls](trust-controls.md). Unconfigured/unavailable CAPTCHA returns 503; invalid CAPTCHA 400; report rate limits 429; accepted reports 202. DELETE /me allows a sole personal-workspace owner, retaining 409 for the last owner of a shared workspace.
+
+## Free-tier reliability
+
+- Public `GET /status`: effective boolean admission switches, no secrets, no-store.
+  `status` is now a reserved alias; existing aliases named `status` require operator
+  review because that path serves configuration rather than redirecting.
+- `GET /admin/usage`: aggregate measurements, platform-admin humans or a verified,
+  active platform-admin-owned admin key on this endpoint only. Unknown measurements
+  are explicit; no cross-tenant identifiers are returned.
+- Disabled creation and read-only mutation requests return 503 with structured
+  `detail.code` and Retry-After. New local provisioning returns 503 when signup is
+  disabled. Existing-user login and public redirect policies remain intact.

@@ -61,3 +61,12 @@ results do not establish durable delivery on Render Free.
 | Grafana Cloud hosted dashboards, alerts and email delivery | PARTIAL | `grafana/cloud/` contains dashboard and provisioning templates; [import steps](../grafana/cloud/README.md). Live ingestion, import compatibility and notifications require operator verification. |
 | Hosted stdout logs available in Grafana Cloud | NOT YET | No log exporter; stdout remains in Render. |
 | Hosted always-on 99.9% availability | NOT YET | Free-tier sleep/cold starts; hosted objectives are best effort. Hourly one-probe Synthetic Monitoring is a manual setup, not a completed live check. |
+
+### Free-tier reliability
+
+| Claim | Status | Evidence |
+|---|---|---|
+| Bounded cold-start readiness UX without replaying writes | PARTIAL | `frontend/lib/reliability.ts`, `frontend/tests/reliability.test.cjs`, `frontend/e2e/reliability.spec.ts`; live cold starts remain operator verification. |
+| Dependency health and opt-in monitoring / quota issues | PARTIAL | `scripts/hosted_monitor.py`, uptime/quota workflows, `tests/test_free_tier_reliability.py`; provider billing-only limits remain manual; no uptime guarantee. |
+| Encrypted logical backup and disposable PostgreSQL restore | PARTIAL | `scripts/backup.py`, `scripts/backup_restore_drill.sh`, [drill results](backup-restore-verification.md). Local synthetic recovery is distinct from hosted Supabase restoration. |
+| Admission kill switches preserve redirects | PARTIAL | `app/services/reliability.py`, classifier/provider guards and tests; Supabase signup configuration is separately manual. |
