@@ -75,3 +75,5 @@ Current overview: [engineering design](../design.md).
 - [0045 — Hosted cloud observability](0045-hosted-cloud-observability.md)
 
 - [0046 — Free-tier reliability](0046-free-tier-reliability.md)
+
+- [0047: Quarantined design reference](0047-quarantined-design-reference.md)

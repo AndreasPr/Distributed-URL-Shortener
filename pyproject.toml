@@ -1,10 +1,13 @@
 [tool.black]
+force-exclude = "/docs/design-reference/"
 target-version = ["py311"]
 
 [tool.isort]
+extend_skip = ["docs/design-reference"]
 profile = "black"
 
 [tool.mypy]
+exclude = ["^docs/design-reference/"]
 python_version = "3.11"
 check_untyped_defs = true
 warn_unused_ignores = true
