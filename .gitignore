@@ -76,3 +76,10 @@ frontend/playwright-report/
 backups/*.age
 backups/*identity*
 backups/*key.txt
+
+# Unshipped design prototype: never retain its server/data/secrets.
+docs/design-reference/**/server.ts
+docs/design-reference/**/server.js
+docs/design-reference/**/db.json
+docs/design-reference/**/.env*
+docs/design-reference/dist/

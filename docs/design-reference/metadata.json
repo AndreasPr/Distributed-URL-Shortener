@@ -1,0 +1,6 @@
+{
+  "name": "Relaymark - Premium URL Shortener & Analytics Dashboard",
+  "description": "A high-performance, beautiful, and secure URL shortener dashboard with real-time analytics, bulk generation, QR codes, link customization, and developer API tools.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

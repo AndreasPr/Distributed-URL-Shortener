@@ -63,3 +63,6 @@ chaos
 backups/
 *.dump
 *.age
+
+# Unshipped prototype (also covered by docs above).
+docs/design-reference/
