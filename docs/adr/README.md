@@ -77,3 +77,5 @@ Current overview: [engineering design](../design.md).
 - [0046 — Free-tier reliability](0046-free-tier-reliability.md)
 
 - [0047: Quarantined design reference](0047-quarantined-design-reference.md)
+
+- [0048: Design-page token scope](0048-design-page-token-scope.md)
