@@ -6,7 +6,7 @@ const vm = require('node:vm')
 const ts = require('typescript')
 
 // Execute the actual TypeScript client with an isolated network fake.
-function clientUnderTest(env = {}) {
+function clientUnderTest(env = {}, response = null) {
   const requests = []
   const source = fs.readFileSync(path.join(__dirname, '../lib/api.ts'), 'utf8')
   const compiled = ts.transpileModule(source, {
@@ -17,7 +17,7 @@ function clientUnderTest(env = {}) {
     AbortSignal, exports: {}, process: { env },
     fetch: async (url, options = {}) => {
       requests.push({ url, options })
-      return { ok: true, json: async () => ({ short_code: 'example', access_token: 'local-test-token', expires_in: 900 }) }
+      return response || { ok: true, json: async () => ({ short_code: 'example', access_token: 'local-test-token', expires_in: 900 }) }
     },
   }
   vm.runInNewContext(compiled, context)
@@ -102,4 +102,12 @@ test('workspace header is sent with bearer credentials', async () => {
   client.setWorkspace('workspace-two')
   await client.listUrls()
   assert.equal(requests[0].options.headers['X-Workspace-ID'], 'workspace-two')
+})
+
+test('listUrls preserves expiry and delete exposes 404 without changing its message', async () => {
+  const rows = [{ short_code: 'one', long_url: 'https://example.com', created_at: '2030-01-01T00:00:00Z', expires_at: null, click_count: 0 }]
+  const { client } = clientUnderTest({}, { ok: true, status: 200, json: async () => rows })
+  assert.deepEqual(await client.listUrls(), rows)
+  const missing = clientUnderTest({}, { ok: false, status: 404, json: async () => ({ detail: 'Not found' }) })
+  await assert.rejects(missing.client.deleteUrl('one'), error => error.status === 404 && error.message.includes('not found in your workspace'))
 })

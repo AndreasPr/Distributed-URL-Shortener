@@ -31,12 +31,12 @@ test("cookie login, workspace switch, forbidden role and rate limit message", as
   context,
 }) => {
   await login(page);
-  await expect(page.getByText("personal-code", { exact: true })).toBeVisible();
+  await expect(page.getByText("http://127.0.0.1:3199/personal-code", { exact: true })).toBeVisible();
   await page
     .getByLabel("Workspace", { exact: true })
     .selectOption({ label: "Team" });
-  await expect(page.getByText("team-code", { exact: true })).toBeVisible();
-  await expect(page.getByText("personal-code", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("http://127.0.0.1:3199/team-code", { exact: true })).toBeVisible();
+  await expect(page.getByText("http://127.0.0.1:3199/personal-code", { exact: true })).toHaveCount(0);
   await page.getByLabel("Long URL").fill("https://example.com/test");
   await page.getByRole("button", { name: "Shorten", exact: true }).click();
   await expect(

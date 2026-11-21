@@ -38,7 +38,12 @@ export interface HealthResponse {
   total_urls?: number;
 }
 
+export class APIError extends Error {
+  constructor(message: string, public readonly status: number) { super(message); }
+}
+
 export interface URLEntry {
+  expires_at: string | null;
   short_code: string;
   long_url: string;
   created_at: string;
@@ -172,7 +177,7 @@ export class APIClient {
             : "You do not have permission to perform this action.",
         );
       if (response.status === 404)
-        throw new Error("This resource was not found in your workspace.");
+        throw new APIError("This resource was not found in your workspace.", 404);
       if (response.status === 429) {
         const retry = response.headers.get("Retry-After");
         throw new Error(

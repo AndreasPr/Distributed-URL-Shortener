@@ -6,7 +6,7 @@ export class DemoAPIClient implements URLClient {
   private rows: URLEntry[] = Array.from({ length: 30 }, (_, i) => ({
     short_code: `sample${String(i + 1).padStart(2, '0')}`,
     long_url: `https://example.com/${['articles', 'guides', 'events', 'projects', 'news'][i % 5]}/${i + 1}`,
-    created_at: '2026-01-01T12:00:00Z', click_count: (i * 17 + 12) % 100,
+    expires_at: null, created_at: '2026-01-01T12:00:00Z', click_count: (i * 17 + 12) % 100,
   }))
   private flagged: FlaggedURL[] = this.rows.slice(0, 3).map((row, i) => ({
     ...row, verdict: i === 2 ? 'malicious' : 'suspicious', score: 0.6 + i * 0.15,
@@ -25,8 +25,8 @@ export class DemoAPIClient implements URLClient {
     if (expiresAt && (!Number.isFinite(Date.parse(expiresAt)) || Date.parse(expiresAt) <= Date.now())) throw new Error('Expiry must be in the future.')
     const code = customAlias || `demo${++this.sequence}`
     if (this.rows.some(row => row.short_code === code)) throw new Error('Alias is already taken in this tab.')
-    const row = { short_code: code, long_url: url.href, created_at: new Date().toISOString(), click_count: 0 }
-    this.rows.push(row)
+    const row = { expires_at: expiresAt || null, short_code: code, long_url: url.href, created_at: new Date().toISOString(), click_count: 0 }
+    this.rows.unshift(row)
     return { ...row }
   }
   async listUrls() { return this.rows.map(row => ({ ...row })) }

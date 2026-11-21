@@ -83,3 +83,5 @@ Current overview: [engineering design](../design.md).
 - [0049: Evidence-backed public pages](0049-evidence-backed-public-pages.md)
 
 - [0050: Shared shell identity](0050-shared-shell-identity.md) — navigation and workspace switching share the shell's initial `/me`; backend authorization remains authoritative.
+
+- [0051: Dashboard list expiry](0051-dashboard-list-expiry.md) — workspace-list statistics and additive expiry without per-row status requests.
