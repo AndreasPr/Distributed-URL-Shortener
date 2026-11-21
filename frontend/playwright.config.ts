@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
+  snapshotPathTemplate: "{testDir}/{testFilePath}-snapshots/{arg}{ext}",
   retries: 0,
   use: { baseURL: "http://127.0.0.1:3100", trace: "retain-on-failure" },
   webServer: [

@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import './globals.css'
 import '@fontsource-variable/inter'
 import { Providers } from '../components/Providers'
+import { LegacyFooter } from '../components/public/LegacyFooter'
 import { AppShell } from '../components/AppShell'
 import Link from "next/link"
 import React from 'react'
@@ -20,7 +21,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className="font-sans" suppressHydrationWarning>
       <body>
-        <Providers nonce={(await headers()).get('x-nonce') || ''}><AppShell>{children}<footer className="flex gap-4 p-6 text-sm"><Link href="/terms">Terms</Link><Link href="/privacy">Privacy</Link><Link href="/abuse">Abuse contact</Link></footer></AppShell></Providers>
+        <Providers nonce={(await headers()).get('x-nonce') || ''}><AppShell>{children}<LegacyFooter><footer className="flex gap-4 p-6 text-sm"><Link href="/terms">Terms</Link><Link href="/privacy">Privacy</Link><Link href="/abuse">Abuse contact</Link></footer></LegacyFooter></AppShell></Providers>
       </body>
     </html>
   )
