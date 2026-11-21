@@ -13,6 +13,10 @@ import {
   Search,
   Palette,
   Plus,
+  PanelLeftClose,
+  PanelLeftOpen,
+  UserRound,
+  Info,
 } from "lucide-react";
 import { BrandMark } from "./Brand";
 import { ThemeToggle } from "./ThemeToggle";
@@ -35,6 +39,9 @@ import {
 import { publicPaths } from "../lib/content/public-pages";
 import { SessionLink } from "./SessionLink";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
+import { WorkspaceIdentityProvider, useWorkspaceIdentity } from "./WorkspaceIdentity";
+import { ShellAccountMenu } from "./ShellAccountMenu";
+import { designFont } from "../lib/design-font";
 const pages = [
   { href: "/dashboard", label: "Links", icon: Link2 },
   { href: "/analytics", label: "Analytics", icon: ChartNoAxesCombined },
@@ -44,12 +51,24 @@ const pages = [
   { href: "/health", label: "Health", icon: Activity },
   { href: "/design", label: "Design system", icon: Palette },
 ];
+const isLegacy = (path: string) => ['/login', '/signup', '/forgot-password', '/reset-password', '/terms', '/privacy', '/abuse'].includes(path) || path.startsWith('/warn/') || path.startsWith('/report/');
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const path = usePathname();
+  const realShell = !publicPaths.includes(path) && !isLegacy(path) && path !== '/demo' && !path.startsWith('/demo/');
+  const shell = <Shell>{children}</Shell>;
+  return realShell ? <WorkspaceIdentityProvider>{shell}</WorkspaceIdentityProvider> : shell;
+}
+function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const demo = pathname === '/demo' || pathname.startsWith('/demo/');
   const publicPage = pathname === '/' || ['/login', '/signup', '/forgot-password', '/reset-password', '/terms', '/privacy', '/abuse'].includes(pathname) || pathname.startsWith('/warn/') || pathname.startsWith('/report/');
   const pathFor = (href: string) => demo ? '/demo' + (href === '/' ? '' : href) : href;
+  const shared = useWorkspaceIdentity();
+  const visiblePages = pages.filter(page => page.href !== '/flagged' || demo || shared?.identity?.platform_admin === true);
+  const [collapsed, setCollapsed] = useState(false);
+  const scope = demo ? {} : { 'data-design': 'v2' };
+  const font = demo ? '' : designFont.variable;
   const [generation, setGeneration] = useState(0);
   useEffect(() => { const change = () => setGeneration(v => v + 1); window.addEventListener("workspace-changed", change); return () => window.removeEventListener("workspace-changed", change) }, []);
   const [menu, setMenu] = useState(false);
@@ -66,7 +85,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
   if (publicPaths.includes(pathname)) return <>{children}</>;
   if (publicPage) return <><header className="flex items-center justify-between border-b p-4"><Link href="/" className="font-semibold">Relaymark</Link><SessionLink /></header><div id="main-content">{children}</div></>;
-  const navigation = (
+  const navigation = (compact = false) => (
     <>
       <Link
         href="/"
@@ -74,13 +93,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onClick={() => setMenu(false)}
       >
         <BrandMark />
-        Relaymark
+        <span className={compact ? "sr-only" : undefined}>Relaymark</span>
       </Link>
-      <p className="px-3 pb-3 text-xs font-semibold tracking-widest text-muted-foreground">
+      <p className={`${compact ? "sr-only" : ""} px-3 pb-3 text-xs font-semibold tracking-widest text-muted-foreground`}>
         LINK WORKSPACE
       </p>
       <nav aria-label="Main navigation" className="space-y-1">
-        {pages.map(({ href, label, icon: Icon }) => (
+        {visiblePages.map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={pathFor(href)}
@@ -89,11 +108,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium ${pathname === pathFor(href) ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
           >
             <Icon size={18} aria-hidden />
-            {label}
+            <span className={compact ? "sr-only" : undefined}>{label}</span>
           </Link>
         ))}
       </nav>
-      <p className="mt-8 border-t px-3 pt-4 text-xs leading-relaxed text-muted-foreground">
+      <p className={`${compact ? "sr-only" : ""} mt-8 border-t px-3 pt-4 text-xs leading-relaxed text-muted-foreground`}>
         Small links.
         <br />A clearer picture.
       </p>
@@ -107,11 +126,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         Skip to content
       </a>
-      <aside className="fixed inset-y-0 left-0 hidden w-60 border-r bg-sidebar px-4 md:block">
-        {navigation}
+      <div className={demo ? undefined : "flex items-start"}>
+      <aside {...scope} className={`${font} ${demo ? "fixed inset-y-0 left-0" : "sticky top-0 h-dvh shrink-0"} hidden overflow-y-auto border-r px-4 md:block ${!demo && collapsed ? "w-20" : "w-60"} ${demo ? "bg-sidebar" : "bg-background"}`}>
+        {navigation(!demo && collapsed)}
+        {!demo && <Button variant="ghost" size="icon" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed} onClick={() => setCollapsed(!collapsed)}>{collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}</Button>}
       </aside>
-      <div className="min-h-screen md:pl-60">
-        <header className="sticky top-0 z-30 flex h-18 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur sm:px-8">
+      <div className={`min-h-screen min-w-0 ${demo ? "md:pl-60" : "flex-1"}`}>
+        <header {...scope} className={`${font} sticky top-0 z-30 flex items-center gap-3 border-b bg-background/95 px-4 backdrop-blur sm:px-8 ${demo ? "h-18" : "min-h-18 flex-wrap py-3"}`}>
           <Dialog open={menu} onOpenChange={setMenu}>
             <DialogTrigger asChild>
               <Button
@@ -123,12 +144,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Menu />
               </Button>
             </DialogTrigger>
-            <DialogContent className="top-0 left-0 h-dvh w-72 max-w-[85vw] translate-x-0 translate-y-0 content-start rounded-none sm:max-w-72">
+            <DialogContent {...scope} className={`${font} top-0 left-0 h-dvh w-72 max-w-[85vw] translate-x-0 translate-y-0 content-start overflow-y-auto rounded-none sm:max-w-72 motion-reduce:animate-none`}>
               <DialogTitle className="sr-only">Navigation</DialogTitle>
               <DialogDescription className="sr-only">
                 Choose a workspace page.
               </DialogDescription>
-              {navigation}
+              {navigation()}
             </DialogContent>
           </Dialog>
           <Dialog open={command} onOpenChange={setCommand}>
@@ -139,14 +160,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 aria-label="Open command palette"
               >
                 <Search size={16} />
-                <span className="hidden sm:inline">Search workspace</span>
+                <span className="hidden sm:inline">Go to page</span>
                 <kbd className="ml-auto hidden text-xs sm:inline">
                   Ctrl / ⌘ K
                 </kbd>
               </Button>
             </DialogTrigger>
-            <DialogContent className="p-0 pt-5 sm:max-w-lg">
-              <DialogTitle className="px-4">Go anywhere</DialogTitle>
+            <DialogContent {...scope} className={`${font} p-0 pt-5 sm:max-w-lg motion-reduce:animate-none`}>
+              <DialogTitle className="px-4">Go to page</DialogTitle>
               <DialogDescription className="sr-only">
                 Search pages. Use arrow keys and Enter to navigate.
               </DialogDescription>
@@ -159,14 +180,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <CommandEmpty>No matching pages.</CommandEmpty>
                   <CommandGroup heading="Workspace">
                     {[
-                      { href: "/", label: "Create link", icon: Plus },
-                      ...pages,
+                      { href: "/dashboard", label: "Create link", icon: Plus },
+                      ...visiblePages,
+                      { href: "/account", label: "Account", icon: UserRound },
+                      { href: "/pricing", label: "Free plan limits", icon: Info },
                     ].map(({ href, label, icon: Icon }) => (
                       <CommandItem
-                        key={href}
+                        key={label}
                         onSelect={() => {
                           setCommand(false);
-                          router.push(pathFor(href));
+                          router.push(["/account", "/pricing"].includes(href) ? href : pathFor(href));
                         }}
                       >
                         <Icon size={16} aria-hidden />
@@ -179,7 +202,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </DialogContent>
           </Dialog>
           {!demo && <WorkspaceSwitcher />}
-          {demo ? <Link href="/login">Sign in</Link> : <SessionLink />}
+          {demo ? <Link href="/login">Sign in</Link> : <ShellAccountMenu />}
           <ThemeToggle />
           <Button asChild className="hidden sm:inline-flex">
             <Link href={pathFor("/dashboard")}>
@@ -200,6 +223,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div key={generation} id="main-content" tabIndex={-1}>
           {children}
         </div>
+      </div>
       </div>
     </>
   );

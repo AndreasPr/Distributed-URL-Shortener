@@ -3,12 +3,10 @@ import Image from "next/image";
 import Link from "next/link";
 import localFont from "next/font/local";
 import type { Metadata } from "next";
-import { SessionLink } from "../SessionLink";
-import { ThemeToggle } from "../ThemeToggle";
+import { PublicHeader } from "./PublicHeader";
 import { Button } from "../ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import { CodeBlock } from "../ui/code-block";
-import { BrandMark } from "../Brand";
 import { contentFor, publicCopy, evidenceUrl, siteOrigin, repository } from "../../lib/content/public-pages";
 import { changelog } from "../../lib/content/changelog";
 const font = localFont({ src: "../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2", variable: "--font-design", display: "swap", weight: "100 900" });
@@ -29,16 +27,7 @@ export function PublicPage({ path, children }: { path: string; children?: ReactN
   const apiOrigin = process.env.NEXT_PUBLIC_API_URL;
   return <div data-design="v2" data-public-page={path} className={`${font.variable} min-h-screen`}>
     <a href="#public-content" className="sr-only fixed left-4 top-4 z-50 rounded-md bg-primary p-3 text-primary-foreground focus:not-sr-only">{publicCopy.skip}</a>
-    <header className="border-b">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-5 px-5 py-5 sm:px-8">
-        <Link href="/" className="flex items-center gap-2 text-xl font-semibold" aria-label="Relaymark home"><BrandMark />{publicCopy.brand}</Link>
-        <nav aria-label="Public navigation" className="flex flex-wrap items-center gap-x-5 gap-y-3 text-sm font-medium">
-          {publicCopy.nav.map(item => <Link key={item.href} href={item.href} aria-current={path === item.href ? "page" : undefined} className="underline-offset-4 hover:underline">{item.label}</Link>)}
-          <SessionLink />
-          <ThemeToggle />
-        </nav>
-      </div>
-    </header>
+    <PublicHeader path={path} />
     <main id="public-content" tabIndex={-1} className="mx-auto max-w-6xl px-5 py-12 sm:px-8 sm:py-16">
       <header className={`mb-12 ${home ? "max-w-4xl" : "max-w-3xl"}`}>
         <p className="mb-5 text-xs font-semibold tracking-widest text-primary">{content.eyebrow}</p>
