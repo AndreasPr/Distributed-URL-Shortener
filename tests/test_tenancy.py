@@ -390,3 +390,20 @@ def test_new_route_names_cannot_be_claimed_as_aliases(client, tenants, alias):
         ).status_code
         == 422
     )
+
+
+def test_url_list_expiry_is_additive_and_tenant_scoped(client, db_session, tenants):
+    from datetime import datetime, timezone
+
+    _, raw, _, _ = tenants
+    client.headers["X-API-Key"] = raw
+    row = client.get("/urls").json()[0]
+    assert set(row) == {"short_code", "long_url", "created_at", "click_count", "expires_at"}
+    assert row["expires_at"] is None
+    ours = db_session.query(URL).filter_by(short_code="ours").one()
+    ours.expires_at = datetime(2030, 3, 10, 7)
+    db_session.commit()
+    rows = client.get("/urls").json()
+    assert [row["short_code"] for row in rows] == ["ours"]
+    assert datetime.fromisoformat(rows[0]["expires_at"]) == datetime(2030, 3, 10, 7, tzinfo=timezone.utc)
+    assert rows[0]["click_count"] == 1

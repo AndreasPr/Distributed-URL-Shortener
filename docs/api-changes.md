@@ -187,3 +187,10 @@ New public warning/report endpoints and authenticated moderation/export/audit en
 - Disabled creation and read-only mutation requests return 503 with structured
   `detail.code` and Retry-After. New local provisioning returns 503 when signup is
   disabled. Existing-user login and public redirect policies remain intact.
+
+## Step 15.12e — list expiry (additive)
+
+Each `GET /urls` item now includes `expires_at`: an ISO 8601 UTC timestamp
+(e.g. `2030-03-10T07:00:00+00:00`) or `null`. Existing fields, default limit 20,
+ordering, workspace scope and soft-delete exclusion are unchanged. No status
+field is added; expiry is not a claim about abuse/review status.

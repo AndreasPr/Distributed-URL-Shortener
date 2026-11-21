@@ -119,6 +119,7 @@ class URLRepository:
                 URL.short_code,
                 URL.long_url,
                 URL.created_at,
+                URL.expires_at,
                 func.count(Analytics.id).label("click_count"),
             )
             .outerjoin(
@@ -141,6 +142,11 @@ class URLRepository:
                 "long_url": row.long_url,
                 "created_at": row.created_at.isoformat() if row.created_at else None,
                 "click_count": int(row.click_count or 0),
+                "expires_at": (
+                    row.expires_at.replace(tzinfo=timezone.utc).isoformat()
+                    if row.expires_at
+                    else None
+                ),
             }
             for row in rows
         ]

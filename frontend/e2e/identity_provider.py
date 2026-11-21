@@ -148,6 +148,7 @@ class Handler(BaseHTTPRequestHandler):
                         "long_url": "https://example.com",
                         "created_at": "2026-01-01",
                         "click_count": 0,
+                        "expires_at": None,
                     }
                 ],
             )

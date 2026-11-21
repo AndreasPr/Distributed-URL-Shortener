@@ -39,3 +39,12 @@ test('local shortening validates input and collisions, without network', async (
   await assert.rejects(api.shorten('https://example.com', undefined, '2020-01-01'), /future/)
   await assert.rejects(api.reviewFlagged('missing', 'allow'), /not found/)
 })
+test('expiry is present and create/delete stays in memory', async () => {
+  const api = client()
+  assert.ok((await api.listUrls()).every(row => row.expires_at === null))
+  const expiry = '2099-01-01T12:00:00Z'
+  const row = await api.shorten('https://example.com', 'expiry-test', expiry)
+  assert.equal((await api.listUrls())[0].expires_at, expiry)
+  await api.deleteUrl(row.short_code)
+  assert.ok(!(await api.listUrls()).some(item => item.short_code === row.short_code))
+})

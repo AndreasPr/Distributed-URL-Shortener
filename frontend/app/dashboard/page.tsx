@@ -1,126 +1,51 @@
 'use client'
-
+import Link from 'next/link'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDemoMode } from '../../lib/auth/demo-route'
-import React, { useEffect, useState } from 'react'
-import { apiClient, HealthResponse, URLEntry } from '../../lib/api'
+import { apiClient, type URLEntry } from '../../lib/api'
+import { designFont } from '../../lib/design-font'
+import { linkStats } from '../../lib/link-dates'
 import { Card } from '../../components/ui/card'
+import { StatCard } from '../../components/ui/stat-card'
 import { Onboarding } from '../../components/Onboarding'
 import ShortenForm from '../../components/ShortenForm'
 import URLTable from '../../components/URLTable'
-
 export default function DashboardPage() {
   const demo = useDemoMode()
-  const [health, setHealth] = useState<HealthResponse | null>(null)
+  const [status, setStatus] = useState('Checking')
   const [urls, setUrls] = useState<URLEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [urlsError, setUrlsError] = useState<string | null>(null)
-
+  const [now, setNow] = useState(Date.now)
+  const request = useRef({ generation: 0 })
+  const reload = useCallback(async () => {
+    const generation = ++request.current.generation
+    setLoading(true); setError(null)
+    try { const rows = await apiClient.listUrls(); if (generation === request.current.generation) setUrls(rows.slice(0, 20)); }
+    catch (error) { if (generation === request.current.generation) setError(error instanceof Error ? error.message : 'Could not load links.'); }
+    finally { if (generation === request.current.generation) { setLoading(false); setNow(Date.now()); } }
+  }, [])
   useEffect(() => {
     let active = true
-    const fetchDashboardData = async () => {
-      const [healthResult, urlsResult] = await Promise.allSettled([
-        apiClient.getHealth(),
-        apiClient.listUrls(),
-      ])
-
-      if (!active) return
-      if (healthResult.status === 'fulfilled') {
-        setHealth(healthResult.value)
-      } else {
-        const message =
-          healthResult.reason instanceof Error
-            ? healthResult.reason.message
-            : 'Failed to fetch health data'
-        setError(message)
-      }
-
-      if (urlsResult.status === 'fulfilled') {
-        setUrls(urlsResult.value)
-      } else {
-        const message =
-          urlsResult.reason instanceof Error
-            ? urlsResult.reason.message
-            : 'Failed to fetch URL list'
-        setUrlsError(message)
-      }
-
-      setLoading(false)
-    }
-
-    fetchDashboardData()
-    return () => { active = false }
-  }, [])
-
-  return (
-    <main className="p-4 sm:p-8">
-      <section className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8 text-foreground">Dashboard</h1>
-
-        <section className="mb-8 space-y-4" aria-label="Get started"><Onboarding /><ShortenForm /></section>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <Card className="p-6">
-            <h3 className="text-sm font-medium text-muted-foreground mb-2">
-              API Status
-            </h3>
-            <p className="text-2xl font-bold text-foreground">
-              {loading ? '...' : health?.status || 'Unknown'}
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">{demo ? 'Bundled sample status' : 'Status at page load'}</p>
-          </Card>
-
-          <Card className="p-6">
-            <h3 className="text-sm font-medium text-muted-foreground mb-2">
-              Redis Status
-            </h3>
-            <p className="text-2xl font-bold text-foreground">
-              {loading ? '...' : health?.redis || 'Unknown'}
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">Cache system</p>
-          </Card>
-
-          <Card className="p-6">
-            <h3 className="text-sm font-medium text-muted-foreground mb-2">
-              Database Size
-            </h3>
-            <p className="text-2xl font-bold text-foreground">
-              {loading ? '...' : health?.total_urls ?? 0}
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">Stored URLs</p>
-          </Card>
-        </div>
-
-        {error && (
-          <div className="p-4 mb-8 bg-muted border border-destructive rounded text-destructive">
-            {error}
-          </div>
-        )}
-
-        {/* URL Table Section */}
-        <Card className="p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4 text-foreground">
-            Recent URLs
-          </h2>
-          <URLTable entries={urls} loading={loading} error={urlsError} />
-        </Card>
-
-        {/* Performance Metrics */}
-        <Card className="p-6 bg-background">
-          <h2 className="text-xl font-semibold mb-4 text-foreground">
-            Performance Metrics
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 bg-card rounded border border-slate-200">
-              <h3 className="text-sm font-medium text-muted-foreground">Avg Response Time</h3>
-              <p className="text-xl font-semibold text-foreground mt-2">Not measured here</p>
-            </div>
-            <div className="p-4 bg-card rounded border border-slate-200">
-              <h3 className="text-sm font-medium text-muted-foreground">API Uptime</h3>
-              <p className="text-xl font-semibold text-foreground mt-2">See local monitoring</p>
-            </div>
-          </div>
-        </Card>
+    const tracker = request.current
+    void Promise.resolve().then(() => { if (active) void reload() })
+    apiClient.getHealth().then(health => { if (active) setStatus(health.status) }).catch(() => { if (active) setStatus('Unavailable') })
+    const refresh = () => { void reload() }
+    window.addEventListener('links-changed', refresh)
+    const timer = setInterval(() => setNow(Date.now()), 30000)
+    return () => { active = false; tracker.generation++; clearInterval(timer); window.removeEventListener('links-changed', refresh) }
+  }, [reload])
+  const stats = linkStats(urls, now)
+  const subset = urls.length === 20 ? 'Latest 20 links only' : 'Across shown links only'
+  return <main data-design="v2" className={`${designFont.variable} min-h-screen p-4 sm:p-8`}>
+    <div className="mx-auto max-w-6xl space-y-8">
+      <h1 className="text-3xl font-semibold">Dashboard</h1>
+      <section aria-label="Get started" className="space-y-6"><Onboarding /><Card className="p-4 sm:p-6"><ShortenForm /></Card></section>
+      <section aria-label="Link statistics" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {([['Links shown',stats.links],['Clicks across shown links',stats.clicks],['Expiring within 7 days',stats.expiring],['Expired',stats.expired]] as const).map(([title,value]) => <StatCard key={title} title={title} value={loading ? '…' : error ? 'Unavailable' : String(value)} description={subset} />)}
       </section>
-    </main>
-  )
+      <Card className="p-4 sm:p-6"><h2 className="mb-4 text-xl font-semibold">Recent URLs</h2><URLTable entries={urls} loading={loading} error={error} reload={() => { void reload() }} /></Card>
+      <Card className="p-4"><h2 className="font-semibold">Service status</h2><p>{status}</p><p className="text-sm text-muted-foreground">Status at page load</p><Link href={demo ? '/demo/health' : '/health'} className="underline">View health</Link></Card>
+    </div>
+  </main>
 }

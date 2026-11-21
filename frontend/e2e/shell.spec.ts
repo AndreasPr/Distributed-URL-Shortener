@@ -217,7 +217,7 @@ test('viewer workspace switch preserves headers and failure rollback', async ({ 
   await expect(select).toBeEnabled();
   const personal = await select.inputValue();
   await select.selectOption({ label: 'Team' });
-  await expect(page.getByText('team-code', { exact: true })).toBeVisible();
+  await expect(page.getByText('http://127.0.0.1:3199/team-code', { exact: true })).toBeVisible();
   const team = await select.inputValue();
   expect(headers.at(-1)).toBe(team);
   denySwitch = true;

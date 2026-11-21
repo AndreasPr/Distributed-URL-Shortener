@@ -28,10 +28,10 @@ test('shorten, copy, navigate and reload without API traffic or persistence', as
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('local-demo')
   await page.getByRole('link', { name: 'Links', exact: true }).click()
   await expect(page.getByText('local-demo', { exact: true })).toBeVisible()
-  await expect(page.locator('tbody tr')).toHaveCount(31)
+  await expect(page.locator('tbody tr')).toHaveCount(20)
   expect(await page.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0])
   await page.reload()
-  await expect(page.locator('tbody tr')).toHaveCount(30)
+  await expect(page.locator('tbody tr')).toHaveCount(20)
   expect(forbidden).toEqual([])
 })
 
