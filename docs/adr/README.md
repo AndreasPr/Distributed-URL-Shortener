@@ -81,3 +81,5 @@ Current overview: [engineering design](../design.md).
 - [0048: Design-page token scope](0048-design-page-token-scope.md)
 
 - [0049: Evidence-backed public pages](0049-evidence-backed-public-pages.md)
+
+- [0050: Shared shell identity](0050-shared-shell-identity.md) — navigation and workspace switching share the shell's initial `/me`; backend authorization remains authoritative.

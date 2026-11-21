@@ -1,19 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useWorkspaceIdentity } from "./WorkspaceIdentity";
 import { realClient, Workspace } from "../lib/api";
 export function WorkspaceSwitcher() {
   const [rows, setRows] = useState<Workspace[]>([]);
-  const [current, setCurrent] = useState("");
+  const shared = useWorkspaceIdentity();
+  const current = shared?.identity?.workspace_id ?? "";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
-    Promise.all([realClient.me(), realClient.workspaces()])
-      .then(([me, rows]) => {
-        setRows(rows);
-        setCurrent(me.workspace_id);
-        realClient.setWorkspace(me.workspace_id);
-      })
-      .catch((error) => setError(error.message));
+    let active = true;
+    realClient.workspaces().then(rows => { if (active) setRows(rows); })
+      .catch(error => { if (active) setError(error.message); });
+    return () => { active = false; };
   }, []);
   async function switchTo(id: string) {
     setBusy(true);
@@ -21,8 +20,7 @@ export function WorkspaceSwitcher() {
     const previous = current;
     realClient.setWorkspace(id);
     try {
-      await realClient.me();
-      setCurrent(id);
+      await shared?.refresh();
       window.dispatchEvent(new Event("workspace-changed"));
     } catch (error) {
       realClient.setWorkspace(previous);
@@ -41,7 +39,7 @@ export function WorkspaceSwitcher() {
       <select
         className="w-full rounded border bg-background p-2"
         id="workspace"
-        disabled={busy}
+        disabled={busy || !current}
         value={current}
         onChange={(e) => switchTo(e.target.value)}
       >
@@ -51,9 +49,9 @@ export function WorkspaceSwitcher() {
           </option>
         ))}
       </select>
-      {error && (
+      {(error || shared?.error) && (
         <p role="alert" className="text-xs">
-          {error}
+          {error || shared?.error}
         </p>
       )}
     </div>
