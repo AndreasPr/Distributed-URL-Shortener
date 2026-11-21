@@ -32,6 +32,7 @@ import {
   CommandGroup,
   CommandItem,
 } from "./ui/command";
+import { publicPaths } from "../lib/content/public-pages";
 import { SessionLink } from "./SessionLink";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 const pages = [
@@ -63,6 +64,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
+  if (publicPaths.includes(pathname)) return <>{children}</>;
   if (publicPage) return <><header className="flex items-center justify-between border-b p-4"><Link href="/" className="font-semibold">Relaymark</Link><SessionLink /></header><div id="main-content">{children}</div></>;
   const navigation = (
     <>

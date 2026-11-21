@@ -261,3 +261,9 @@ Replacing Next with BrowserRouter breaks proxy/session/SSR/metadata/CSP assumpti
 ## Step 15.12b status (2026-11-19)
 
 Tokens, typography and button/badge/card/input/table/tabs/dialog/skeleton: **implemented for /design review only** via scoped styles on existing primitives. EmptyState, StatCard and CodeBlock: **implemented UI-only /design examples**. DesignSystemPage mapping is now an implemented opt-in gallery; all other route mappings above remain proposed. `/demo/design` stays v1. No production route migration, PageStateSimulator, backend feature or prototype dependency was adopted. See [token documentation](design-tokens.md) and [verification](design-tokens-verification.md).
+
+## Step 15.12c status (2026-11-20)
+
+**Implemented public UI:** `/`, `/features`, `/docs`, `/developers`, `/use-cases`, `/about`, `/changelog`, `/security`, `/contact`, `/pricing` (labelled Free plan limits). These map to the corresponding reference pages above but use original typed, evidence-backed copy and existing primitives, not imports. V2 scope and bundled local font apply through PublicPage. Shared shell/footer bypass is exact-route-only; no private/demo/legal page source or API client changed.
+
+Changelog uses selected actual merge PRs #70, #72–77, #79–83 and their original step labels; no release/deployment dates are inferred. API docs link to repository notes because hosted reachability was not checked. Contact uses the existing server-only mailbox setting, no form. Plan caps are documented defaults, not live usage. No SDK, payment, CRM, blog, customer, DPA, refund or subprocessor page was added. See [public-page verification](design-public-pages-verification.md) and ADR 0049. Later chrome/private-page work remains proposed.

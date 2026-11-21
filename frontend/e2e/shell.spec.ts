@@ -91,7 +91,7 @@ for (const theme of ['light', 'dark']) test(`v2 design isolation, contrast and p
   expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations).toEqual([])
   await page.setViewportSize({ width: 390, height: 844 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
-  for (const path of ['/', '/login', '/demo', '/demo/design']) {
+  for (const path of ['/login', '/demo', '/demo/design']) {
     await page.goto(path)
     await expect(page.locator('[data-design="v2"]')).toHaveCount(0)
     const primary = await page.locator('body').evaluate(el => getComputedStyle(el).getPropertyValue('--primary').trim())
