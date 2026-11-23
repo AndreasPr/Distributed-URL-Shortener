@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiClient, APIError, type URLEntry } from '../lib/api';
@@ -46,7 +47,7 @@ export default function URLTable({ entries, loading, error, reload }: Props) {
       : <table className="block w-full md:table md:table-fixed">
         <thead className="sr-only md:not-sr-only md:table-header-group"><tr>{['Short link','Destination','Clicks','Created','Expires','Actions'].map(label => <th key={label} scope="col" className="p-3 text-left text-sm">{label}</th>)}</tr></thead>
         <tbody className="block space-y-4 md:table-row-group md:space-y-0">{entries.map(entry => <tr key={entry.short_code} className="block rounded-lg border p-3 md:table-row md:rounded-none md:p-0">
-          <td className="block break-all p-3 md:table-cell"><span className="block text-xs text-muted-foreground md:hidden">Short link</span><span className="font-mono text-sm">{demo ? entry.short_code : shortLink(entry.short_code)}</span><Button size="sm" variant="outline" className="mt-2" aria-label={`Copy ${entry.short_code}`} onClick={() => copy(entry)}>Copy</Button>{demo && <p className="text-xs">This is not a working redirect link.</p>}</td>
+          <td className="block break-all p-3 md:table-cell"><span className="block text-xs text-muted-foreground md:hidden">Short link</span><Link className="font-mono text-sm underline" href={`${demo ? "/demo" : ""}/links/${encodeURIComponent(entry.short_code)}`}>{demo ? entry.short_code : shortLink(entry.short_code)}</Link><Button size="sm" variant="outline" className="mt-2" aria-label={`Copy ${entry.short_code}`} onClick={() => copy(entry)}>Copy</Button>{demo && <p className="text-xs">This is not a working redirect link.</p>}</td>
           <td className="block break-all p-3 text-sm md:table-cell"><span className="block text-xs text-muted-foreground md:hidden">Destination</span>{entry.long_url}</td>
           <td className="block p-3 md:table-cell"><span className="text-xs text-muted-foreground md:hidden">Clicks: </span>{entry.click_count}</td>
           <td className="block p-3 text-sm md:table-cell"><span className="block text-xs text-muted-foreground md:hidden">Created</span>{formatDate(entry.created_at)}</td>

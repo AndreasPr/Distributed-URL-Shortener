@@ -13,12 +13,12 @@ function client() {
 }
 test('deterministic fixtures, clicks, health and independent tab state', async () => {
   const api = client()
-  assert.equal((await api.listUrls()).length, 30)
+  assert.equal((await api.listUrls(100)).length, 30)
   assert.equal((await api.listFlagged()).length, 3)
   const history = await api.getAnalytics('sample01')
   assert.equal(history.total_clicks, 12)
   assert.equal(history.timestamps.length, 12)
-  assert.equal((await api.getHealth()).total_urls, 30)
+  assert.equal('total_urls' in await api.getHealth(), false)
   await api.reviewFlagged('sample01', 'allow')
   await api.reviewFlagged('sample02', 'block')
   assert.equal((await api.listFlagged()).length, 1)
@@ -48,3 +48,14 @@ test('expiry is present and create/delete stays in memory', async () => {
   await api.deleteUrl(row.short_code)
   assert.ok(!(await api.listUrls()).some(item => item.short_code === row.short_code))
 })
+
+test('demo status and bounded lists mirror real contracts without fetch', async () => {
+ const api=client(); assert.equal((await api.listUrls()).length,20); assert.equal((await api.listUrls(1)).length,1);
+ for(const limit of [0,-1,101]) await assert.rejects(api.listUrls(limit),/Limit/);
+ assert.equal((await api.getUrlStatus('sample04')).status,'active');
+ assert.equal((await api.getUrlStatus('sample03')).status,'blocked');
+ await api.reviewFlagged('sample03','allow'); assert.equal((await api.getUrlStatus('sample03')).status,'active');
+ await api.deleteUrl('sample04'); assert.equal((await api.getUrlStatus('sample04')).status,'deleted');
+ await assert.rejects(api.getUrlStatus('missing'),error => error.status===404);
+ assert.equal((await api.getControls()).read_only_mode,false);
+});

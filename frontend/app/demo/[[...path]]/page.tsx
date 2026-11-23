@@ -1,3 +1,4 @@
+import LinkDetail from "../../../components/LinkDetail";
 import Settings from "../../settings/page";
 import Design from "../../design/page";
 import Dashboard from "../../dashboard/page";
@@ -19,6 +20,7 @@ export default async function Demo({
         <ShortenForm />
       </main>
     );
+  if (path.startsWith("links/") && path.split("/").length === 2) return <LinkDetail code={path.split("/")[1]} />;
   if (path === "dashboard") return <Dashboard />;
   if (path === "analytics") return <Analytics />;
   if (path === "flagged") return <Flagged />;

@@ -74,3 +74,12 @@ def test_redis_health_failure(monkeypatch):
     except HTTPException as exc:
         assert exc.status_code == 503
         assert "Redis unavailable" in exc.detail
+
+
+def test_public_health_never_queries_global_counts(monkeypatch):
+    from fastapi import FastAPI, Request
+    db = MagicMock()
+    monkeypatch.setattr(routes.redis_client, "ping", lambda: True)
+    result = routes.health(Request({"type": "http", "app": FastAPI()}), db)
+    assert set(result) == {"status", "db", "redis"}
+    db.query.assert_not_called()

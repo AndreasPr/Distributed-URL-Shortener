@@ -87,3 +87,5 @@ Earlier runs, recorded rather than hidden:
 - Public `/health.total_urls` remains the explicit follow-up above. A service-status card is a page-load snapshot, not an uptime claim.
 - Browser expiry display depends on client time and is not a blocked/review verdict. Backend redirects enforce lifecycle independently.
 - No commit, push or deployment was performed. Generated coverage files, logs, database data and build output remain ignored/untracked artifacts, not changes to commit.
+
+Follow-up: step 15.12f removes public `/health.total_urls`, bounds `GET /urls` and adds detail navigation. The output above remains the historical step 15.12e record; see [analytics/detail verification](design-analytics-detail-verification.md) for the new contract.

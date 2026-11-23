@@ -13,7 +13,7 @@ function clientUnderTest(env = {}, response = null) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
   const context = {
-    require: (name) => { if (name === './reliability') return { unavailableMessage: 'The server is taking longer than expected.' }; if (name === './demo-api') return { DemoAPIClient: class {} }; if (name === './auth/browser') return { accessToken: async () => '', signOut: async () => {} }; throw new Error(name) },
+    require: (name) => { if (name === './reliability') return { unavailableMessage: 'The server is taking longer than expected.', probeHealth: async base => (await context.fetch(base + '/health', {headers:{}})).json() }; if (name === './demo-api') return { DemoAPIClient: class {} }; if (name === './auth/browser') return { accessToken: async () => '', signOut: async () => {} }; throw new Error(name) },
     AbortSignal, exports: {}, process: { env },
     fetch: async (url, options = {}) => {
       requests.push({ url, options })
@@ -111,3 +111,12 @@ test('listUrls preserves expiry and delete exposes 404 without changing its mess
   const missing = clientUnderTest({}, { ok: false, status: 404, json: async () => ({ detail: 'Not found' }) })
   await assert.rejects(missing.client.deleteUrl('one'), error => error.status === 404 && error.message.includes('not found in your workspace'))
 })
+
+test('bounded list, encoded status and public controls use the intended contracts', async () => {
+  const {client,requests}=clientUnderTest();
+  await client.listUrls(100); await client.getUrlStatus('a/b'); await client.getControls();
+  assert.equal(requests[0].url,'http://test/urls?limit=100');
+  assert.equal(requests[1].url,'http://test/urls/a%2Fb/status');
+  assert.equal(requests[2].url,'http://test/status');
+  assert.equal(requests[2].options.headers.Authorization,undefined);
+});

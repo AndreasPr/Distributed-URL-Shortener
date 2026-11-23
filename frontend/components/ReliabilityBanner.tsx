@@ -2,7 +2,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { realClient } from "../lib/api";
-import { Controls, serviceSnapshot, subscribeService, updateService } from "../lib/reliability";
+import { serviceSnapshot, subscribeService, updateService } from "../lib/reliability";
 
 export function ReliabilityBanner() {
   const path = usePathname();
@@ -15,7 +15,7 @@ export function ReliabilityBanner() {
       if (document.visibilityState === "hidden") return;
       try {
         const health = await realClient.getHealth();
-        const controls = await realClient.request<Controls>("/status", {}, false);
+        const controls = await realClient.getControls();
         if (active) updateService({ health: health.status === "ok" ? "ok" : "degraded", controls });
       } catch { if (active) updateService({ health: "degraded" }); }
     }
