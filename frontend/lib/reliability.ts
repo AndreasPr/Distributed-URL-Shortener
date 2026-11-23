@@ -75,3 +75,33 @@ export function readiness(base: string) {
   if (!gate) { gate = createReadiness(); gates.set(base, gate); }
   return gate;
 }
+
+/** Health display accepts a real degraded body; mutation readiness still requires ok. */
+export function createHealthProbe(
+  fetcher: typeof fetch = fetch,
+  now = () => Date.now(),
+  wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)),
+  notify = updateService,
+) {
+  return async (base: string): Promise<{ status: string; db?: string; redis: string; workers?: Record<string, { healthy?: boolean }>; migrations?: string }> => {
+    const deadline = now() + 90000;
+    const timer = setTimeout(() => notify({ phase: 'waking' }), 3000);
+    let delay = 1000;
+    try {
+      while (now() < deadline) {
+        try {
+          const response = await fetcher(base + '/health', { cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(Math.max(1, Math.min(10000, deadline - now()))) });
+          const body = await response.json();
+          if ((response.ok || response.status === 503) && ['ok', 'degraded'].includes(body.status) && typeof body.redis === 'string') {
+            notify({ phase: body.status === 'ok' ? 'healthy' : 'idle', health: body.status });
+            return body;
+          }
+        } catch { /* Retry transient transport/cold-start failures, never expose raw details. */ }
+        await wait(Math.min(delay, Math.max(0, deadline - now()))); delay = Math.min(delay * 2, 10000);
+      }
+      notify({ phase: 'unavailable', health: 'degraded' });
+      throw new Error(unavailableMessage);
+    } finally { clearTimeout(timer); }
+  };
+}
+export const probeHealth = createHealthProbe();

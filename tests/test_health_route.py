@@ -3,8 +3,8 @@ from app.models.url import URL
 from fastapi import FastAPI, Request
 
 
-def test_health_endpoint_includes_total_urls(monkeypatch, db_session):
-    # Create a URL row so the endpoint reports a non-zero URL count.
+def test_health_endpoint_excludes_global_counts(monkeypatch, db_session):
+    # A stored URL must not leak its count through public readiness.
     url = URL(long_url="https://example.com/test")
     db_session.add(url)
     db_session.commit()
@@ -17,4 +17,4 @@ def test_health_endpoint_includes_total_urls(monkeypatch, db_session):
     assert result["status"] == "ok"
     assert result["db"] == "reachable"
     assert result["redis"] == "reachable"
-    assert result["total_urls"] == 1
+    assert set(result) == {"status", "db", "redis"}

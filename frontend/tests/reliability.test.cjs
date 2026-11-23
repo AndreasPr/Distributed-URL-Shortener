@@ -49,3 +49,13 @@ test('a timed-out write is never replayed after readiness recovery', async () =>
   await assert.rejects(new context.exports.APIClient('https://api.test').shorten('https://example.com'), /Check the result/);
   assert.equal(writes, 1); assert.equal(probes, 2);
 });
+test('status probe exposes a genuine degraded 503 immediately without changing readiness policy',async()=>{
+ const mod=moduleWithClock();let calls=0;
+ const probe=mod.createHealthProbe(async()=>{calls++;return {ok:false,status:503,json:async()=>({status:'degraded',db:'reachable',redis:'unreachable'})};},mod.now,async ms=>mod.advance(ms),()=>{});
+ assert.equal((await probe('https://api.test')).redis,'unreachable');assert.equal(calls,1);assert.equal(mod.now(),0);
+});
+test('status probe keeps transport failures private for the full 90-second cold start window',async()=>{
+ const mod=moduleWithClock(),states=[];
+ const probe=mod.createHealthProbe(async()=>{throw new Error('private network');},mod.now,async ms=>mod.advance(ms),state=>states.push(state));
+ await assert.rejects(probe('https://api.test'),/taking longer than expected/);assert.equal(mod.now(),90000);assert.ok(states.some(state=>state.phase==='waking'));assert.ok(!JSON.stringify(states).includes('private'));
+});

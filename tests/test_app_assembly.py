@@ -112,7 +112,6 @@ def test_main_routes(client):
         "status": "ok",
         "db": "reachable",
         "redis": "reachable",
-        "total_urls": 1,
     }
     assert client.get("/health").status_code == 200
     assert client.get("/health/redis").status_code == 200
@@ -155,7 +154,6 @@ def test_health_dependency_failures(client, db_session, monkeypatch, dependency)
         "status": "degraded",
         "db": "unreachable" if dependency in ("db", "both") else "reachable",
         "redis": "unreachable" if dependency in ("redis", "both") else "reachable",
-        "total_urls": 0,
     }
 
 

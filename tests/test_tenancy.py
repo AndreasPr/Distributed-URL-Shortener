@@ -407,3 +407,22 @@ def test_url_list_expiry_is_additive_and_tenant_scoped(client, db_session, tenan
     assert [row["short_code"] for row in rows] == ["ours"]
     assert datetime.fromisoformat(rows[0]["expires_at"]) == datetime(2030, 3, 10, 7, tzinfo=timezone.utc)
     assert rows[0]["click_count"] == 1
+
+
+@pytest.mark.parametrize("limit,status", [(0,422),(-1,422),(101,422),(1,200),(100,200)])
+def test_url_limit_bounds(client, db_session, tenants, limit, status):
+    _, raw, _, _ = tenants
+    client.headers["X-API-Key"] = raw
+    response = client.get(f"/urls?limit={limit}")
+    assert response.status_code == status
+    if status == 200:
+        assert [row["short_code"] for row in response.json()] == ["ours"]
+
+
+def test_url_default_limit_is_twenty(client, db_session, tenants):
+    _, raw, _, _ = tenants
+    client.headers["X-API-Key"] = raw
+    for i in range(25):
+        db_session.add(URL(short_code=f"limit{i}", long_url="https://example.com", workspace_id=DEFAULT_WORKSPACE_ID))
+    db_session.commit()
+    assert len(client.get("/urls").json()) == 20

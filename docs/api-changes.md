@@ -2,7 +2,7 @@
 
 Successful response shapes are unchanged. Error responses use FastAPI's existing
 `{"detail": "..."}` convention. The readiness body retains
-`status`, `db`, `redis`, and `total_urls`.
+`status`, `db`, and `redis` (the former global `total_urls` was removed in step 15.12f).
 
 | Request / condition | Previous status | New status |
 | --- | --- | --- |
@@ -194,3 +194,9 @@ Each `GET /urls` item now includes `expires_at`: an ISO 8601 UTC timestamp
 (e.g. `2030-03-10T07:00:00+00:00`) or `null`. Existing fields, default limit 20,
 ordering, workspace scope and soft-delete exclusion are unchanged. No status
 field is added; expiry is not a claim about abuse/review status.
+
+## Step 15.12f — public health and bounded lists
+
+- GET /health no longer returns `total_urls` or performs a global URL count. Its existing 200/503 status policy, `status`, `db`, `redis`, and optional `workers`/`migrations` remain. The separate `/health/redis` endpoint is unchanged and is not used by the status UI.
+- GET /urls defaults to 20; `limit` must be an integer from 1 through 100. Zero, negative and over-100 values now return 422. Workspace filtering and newest-first ordering are unchanged.
+- Analytics and URL status responses are unchanged. The frontend detail page looks up destination/created date only within the latest 100 links and reports when absent. Analytics timestamps remain unbounded.

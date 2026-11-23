@@ -8,7 +8,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import func, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.abuse.persistence import LinkBlockedError, LinkWarningError, flagged, review
@@ -103,7 +103,7 @@ def analytics(
 
 @router.get("/urls", summary="List recent links, excluding soft-deleted entries")
 def list_urls(
-    limit: int = 20,
+    limit: int = Query(default=20, ge=1, le=100),
     key: Principal = Depends(require_read),
     db: Session = Depends(get_db),
 ):
@@ -131,13 +131,11 @@ def get_health_db() -> Iterator[Session | None]:
 @router.get("/health")
 def health(request: Request, db: Session | None = Depends(get_health_db)):
     db_status = "reachable"
-    total_urls = 0
 
     try:
         if db is None:
             raise RuntimeError("Database session unavailable")
         db.execute(text("SELECT 1"))
-        total_urls = db.query(func.count(URL.id)).scalar() or 0
     except Exception:
         logger.exception("Database health check failed")
         db_status = "unreachable"
@@ -152,11 +150,10 @@ def health(request: Request, db: Session | None = Depends(get_health_db)):
         "ok" if db_status == "reachable" and redis_status == "reachable" else "degraded"
     )
 
-    body = {
+    body: dict[str, object] = {
         "status": overall_status,
         "db": db_status,
         "redis": redis_status,
-        "total_urls": int(total_urls),
     }
 
     supervisor = getattr(request.app.state, "supervisor", None)

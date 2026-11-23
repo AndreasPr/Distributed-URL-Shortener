@@ -342,3 +342,47 @@ def test_abuse_outbox_worker_review_enforcement_with_fake(stack, monkeypatch):
     )
     assert stack.redis.get(code) is None
     assert stack.client.get("/" + code, follow_redirects=False).status_code == 451
+
+
+def test_public_health_and_bounded_workspace_list(stack):
+    from uuid import uuid4
+
+    from app.models.identity import DEFAULT_WORKSPACE_ID, Workspace
+
+    with stack.db() as db:
+        foreign = str(uuid4())
+        db.add(Workspace(id=foreign, slug=foreign, name="Other workspace"))
+        db.flush()
+        for index in range(25):
+            db.add(
+                URL(
+                    short_code=f"bounded{index}",
+                    long_url="https://example.com/",
+                    workspace_id=DEFAULT_WORKSPACE_ID,
+                    created_at=datetime(2030, 1, 1) + timedelta(minutes=index),
+                )
+            )
+        db.add(
+            URL(
+                short_code="foreign-bound",
+                long_url="https://example.com/",
+                workspace_id=foreign,
+                created_at=datetime(2031, 1, 1),
+            )
+        )
+        db.commit()
+    default = stack.client.get("/urls").json()
+    assert len(default) == 20
+    assert default[0]["short_code"] == "bounded24"
+    assert [
+        row["short_code"] for row in stack.client.get("/urls?limit=100").json()
+    ] == [f"bounded{index}" for index in range(24, -1, -1)]
+    health = stack.client.get("/health")
+    assert health.status_code == 200
+    assert "total_urls" not in health.json()
+    for limit in (0, -1, 101):
+        assert stack.client.get(f"/urls?limit={limit}").status_code == 422
+    for limit in (1, 100):
+        response = stack.client.get(f"/urls?limit={limit}")
+        assert response.status_code == 200
+        assert len(response.json()) <= limit

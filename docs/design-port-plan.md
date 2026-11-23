@@ -26,16 +26,16 @@ Statuses: **exists-restyle** keeps an existing contract; **exists-differs** has 
 | `pages/QrCodesPage.tsx` | future local QR UI | new-UI-only | Generate locally from real short URL; no external QR service |
 | `pages/ReportPage.tsx` | /report/[code] | exists-differs | POST /reports requires Turnstile; never mock submission success |
 | `pages/SecurityPage.tsx` | /abuse and security docs | exists-differs | No PGP endpoint, no unverified compliance guarantees |
-| `pages/StatusPage.tsx` | /health | exists-differs | GET /health, /status; no historical incidents or uptime SLA feed |
+| `pages/StatusPage.tsx` | /health | exists-differs (implemented 15.12f) | GET /health, /status; dependency words and controls only; no totals, historical incidents or uptime SLA feed |
 | `pages/UseCasesPage.tsx` | public content / repository docs | new-UI-only | Curate factual content; contact uses configured abuse contact/report; no fake submission backend |
 | `pages/admin/AdminCustomersPage.tsx` | none | out-of-scope | No customer CRM/list/support-note API; do not expose user data |
 | `pages/admin/AdminFlaggedPage.tsx` | /flagged | exists-differs | GET /admin/flagged; POST /admin/flagged/{code}/review; reports/disable/suspend endpoints in trust.py |
 | `pages/admin/AdminFlagsPage.tsx` | none | out-of-scope | GET /status exposes effective flags; no toggle API, configure env on host |
 | `pages/admin/AdminOverviewPage.tsx` | future admin overview | new-needs-backend | /admin/usage and /admin/activity/{code} partial only; no cluster/customer aggregates |
-| `pages/app/AnalyticsPage.tsx` | /analytics | exists-differs | GET /analytics/{short_code}; no geographic/device/unique-visitor attribution |
+| `pages/app/AnalyticsPage.tsx` | /analytics | exists-differs (implemented 15.12f) | Timestamp-only GET /analytics/{short_code}, latest-100 selector, local calendar chart/table; no visitor dimensions |
 | `pages/app/BioPage.tsx` | none | new-needs-backend | No profile/link-in-bio persistence or published handle route |
 | `pages/app/DashboardPage.tsx` | /dashboard | exists-differs | GET /urls; prototype aggregate metrics are simulated |
-| `pages/app/LinkDetailPage.tsx` | future detail UI | new-needs-backend | GET /urls/{code}/status and /analytics/{code} cover status/clicks; update/rules/password require new contracts |
+| `pages/app/LinkDetailPage.tsx` | /links/[code], /demo/links/[code] | exists-differs (read-only detail implemented 15.12f) | Status/clicks plus latest-100 destination lookup; absent destination labelled. Edit/rules/password still need new contracts and are out of this step. |
 | `pages/app/LinksPage.tsx` | /dashboard | exists-differs | GET /urls, POST /shorten, DELETE /urls/{code}; edit/bulk/tags unavailable |
 | `pages/app/McpPage.tsx` | MCP docs/UI | new-UI-only | Existing separate MCP server via HTTP API; no hosted MCP registration API |
 | `pages/app/settings/AccountPage.tsx` | /account | exists-differs | GET /me, GET /me/export, DELETE /me; Supabase profile/session operations |
@@ -277,3 +277,9 @@ Changelog uses selected actual merge PRs #70, #72–77, #79–83 and their origi
 ## Step 15.12e status (2026-11-21)
 
 **Implemented links/dashboard:** the dashboard's own main opts into v2, including the demo dashboard, while the shell content parent and other pages remain unchanged. The six-column/phone-stacked list supports copy and confirmed deletion; viewer controls use shared identity. Create keeps alias/expiry, onboarding signals and API errors, then refreshes the list. Statistics use only the shown workspace list (up to 20), not global health totals. The sole backend response addition is nullable UTC `expires_at` on GET /urls. No row-status fanout or prototype-only controls were added. Analytics still calls listUrls unchanged. See [verification](design-links-verification.md); detail/review status presentation remains step 15.12f.
+
+## Step 15.12f status (2026-11-23)
+
+**Implemented exists-restyle:** `/analytics` and `/health` (and demo equivalents) opt their own main into v2. Analytics uses latest-100 selection, manual/query code, local calendar windows, one chart plus table, and timestamp-only statistics. Health shows dependency words, aggregate worker readiness and public controls, including degraded 503 responses; no global totals or simulated uptime.
+
+**Implemented exists-differs:** `/links/[code]` and `/demo/links/[code]` combine existing status/analytics/list contracts, with explicit missing-destination text beyond the latest 100, text-only destinations, copy and confirmed deletion for non-viewers. Dashboard short links navigate to detail. No edit/rules/password/visitor dimensions were ported. The only backend changes remove public global counts and constrain list limits. See [verification](design-analytics-detail-verification.md) and [ADR 0052](adr/0052-analytics-detail-health-contracts.md). Remaining review/account/legal migrations stay proposed.

@@ -1,7 +1,8 @@
-import type { URLClient, URLEntry, FlaggedURL, Analytics } from './api'
+import type { URLClient, URLEntry, FlaggedURL, Analytics, UrlStatus } from './api'
 
 // Per-tab module memory only: no storage, network, real keys or real destinations.
 export class DemoAPIClient implements URLClient {
+  private deleted = new Map<string, URLEntry>()
   private sequence = 30
   private rows: URLEntry[] = Array.from({ length: 30 }, (_, i) => ({
     short_code: `sample${String(i + 1).padStart(2, '0')}`,
@@ -29,13 +30,15 @@ export class DemoAPIClient implements URLClient {
     this.rows.unshift(row)
     return { ...row }
   }
-  async listUrls() { return this.rows.map(row => ({ ...row })) }
+  async listUrls(limit = 20) { if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error("Limit must be 1–100."); return this.rows.slice(0, limit).map(row => ({ ...row })) }
   async getAnalytics(code: string): Promise<Analytics> {
     const row = this.rows.find(row => row.short_code === code)
     if (!row) throw new Error('Sample code not found. Try sample01.')
     return { short_code: code, total_clicks: row.click_count, timestamps: Array.from({ length: row.click_count }, (_, i) => new Date(Date.UTC(2026, 0, 2, 12, i)).toISOString()) }
   }
   async deleteUrl(code: string) {
+    const row = this.rows.find(row => row.short_code === code)
+    if (row) this.deleted.set(code, row)
     this.rows = this.rows.filter(row => row.short_code !== code)
     this.flagged = this.flagged.filter(row => row.short_code !== code)
   }
@@ -44,5 +47,13 @@ export class DemoAPIClient implements URLClient {
     if (!this.flagged.some(row => row.short_code === code)) throw new Error('Sample code not found.')
     this.reviews.set(code, decision)
   }
-  async getHealth() { return { status: 'sample healthy', db: 'sample healthy', redis: 'sample healthy', total_urls: this.rows.length, dbsize: this.rows.length } }
+  async getHealth() { return { status: 'sample healthy', db: 'sample healthy', redis: 'sample healthy' } }
+  async getControls() { return {signups_enabled:true, link_creation_enabled:true, llm_enabled:false, read_only_mode:false} }
+  async getUrlStatus(code: string): Promise<UrlStatus> {
+    const row = this.rows.find(row => row.short_code === code) || this.deleted.get(code)
+    if (!row) throw Object.assign(new Error('Sample code not found.'), {status:404})
+    const verdict = this.flagged.find(row => row.short_code === code)?.verdict ?? 'clean'
+    const blocked = this.reviews.get(code) === 'block' || (verdict === 'malicious' && this.reviews.get(code) !== 'allow')
+    return {short_code:code, status:this.deleted.has(code) ? 'deleted' : row.expires_at && Date.parse(row.expires_at) <= Date.now() ? 'expired' : blocked ? 'blocked' : 'active', expires_at:row.expires_at, verdict}
+  }
 }

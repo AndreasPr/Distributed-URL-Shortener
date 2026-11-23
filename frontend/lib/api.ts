@@ -1,4 +1,4 @@
-import { readiness, unavailableMessage } from "./reliability";
+import { readiness, unavailableMessage, probeHealth, type Controls } from "./reliability";
 import { DemoAPIClient } from "./demo-api";
 import { accessToken, signOut } from "./auth/browser";
 export function isDemoRoute() {
@@ -34,12 +34,19 @@ export interface HealthResponse {
   status: string;
   db?: string;
   redis: string;
-  dbsize?: number;
-  total_urls?: number;
+  workers?: Record<string, { healthy?: boolean }>;
+  migrations?: string;
 }
 
 export class APIError extends Error {
   constructor(message: string, public readonly status: number) { super(message); }
+}
+
+export interface UrlStatus {
+  short_code: string;
+  status: "active" | "expired" | "blocked" | "deleted";
+  expires_at: string | null;
+  verdict: string | null;
 }
 
 export interface URLEntry {
@@ -135,9 +142,10 @@ export class APIClient {
     path: string,
     options: RequestInit = {},
     authenticated = true,
+    skipReadiness = false,
   ): Promise<T> {
     // Wake using a safe health probe before auth/provisioning or a mutation.
-    if (typeof window !== "undefined") await readiness(this.baseUrl).ensure(this.baseUrl);
+    if (!skipReadiness && typeof window !== "undefined") await readiness(this.baseUrl).ensure(this.baseUrl);
     const response = await timedFetch(this.baseUrl + path, {
       ...options,
       headers: {
@@ -146,7 +154,7 @@ export class APIClient {
         ...options.headers,
       },
     }).catch(async () => {
-      if (typeof window !== "undefined") {
+      if (!skipReadiness && typeof window !== "undefined") {
         readiness(this.baseUrl).reset();
         await readiness(this.baseUrl).ensure(this.baseUrl);
       }
@@ -231,10 +239,12 @@ export class APIClient {
     );
   }
   getHealth(): Promise<HealthResponse> {
-    return this.request("/health", {}, false);
+    return probeHealth(this.baseUrl);
   }
-  listUrls(): Promise<URLEntry[]> {
-    return this.request("/urls");
+  getControls(): Promise<Controls> { return this.request("/status", {}, false, true); }
+  getUrlStatus(code: string): Promise<UrlStatus> { return this.request(`/urls/${encodeURIComponent(code)}/status`); }
+  listUrls(limit?: number): Promise<URLEntry[]> {
+    return this.request(limit === undefined ? "/urls" : `/urls?limit=${limit}`);
   }
   me(): Promise<Identity> {
     return this.request("/me");
@@ -277,6 +287,8 @@ export type URLClient = Pick<
   | "reviewFlagged"
   | "getHealth"
   | "listUrls"
+  | "getUrlStatus"
+  | "getControls"
 >;
 export const realClient = new APIClient();
 const demoClient = new DemoAPIClient();
