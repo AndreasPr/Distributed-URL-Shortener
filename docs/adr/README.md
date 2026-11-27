@@ -87,3 +87,5 @@ Current overview: [engineering design](../design.md).
 - [0051: Dashboard list expiry](0051-dashboard-list-expiry.md) — workspace-list statistics and additive expiry without per-row status requests.
 
 - [0052 — Timestamp analytics, bounded detail lookup and public health](0052-analytics-detail-health-contracts.md)
+
+- [0053 — Settings navigation and page-local key secrets](0053-settings-and-key-secret-lifecycle.md)

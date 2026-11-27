@@ -120,3 +120,8 @@ test('bounded list, encoded status and public controls use the intended contract
   assert.equal(requests[2].url,'http://test/status');
   assert.equal(requests[2].options.headers.Authorization,undefined);
 });
+
+test('key listing retains a typed 403 without changing the user-facing message', async () => {
+  const {client}=clientUnderTest({}, {ok:false,status:403,json:async()=>({detail:'Forbidden'})});
+  await assert.rejects(client.keys(),error=>error.status===403 && error.message==='You do not have permission to perform this action.');
+});
