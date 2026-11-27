@@ -1,10 +1,13 @@
 "use client";
+import { SettingsNav } from "../../components/SettingsNav";
+import { designFont } from "../../lib/design-font";
 import { useTheme } from "next-themes";
 import { Button } from "../../components/ui/button";
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   return (
-    <main className="mx-auto max-w-5xl space-y-6 p-4 sm:p-4 sm:p-8">
+    <main data-design="v2" className={`${designFont.variable} mx-auto max-w-5xl space-y-6 p-4 sm:p-8`}>
+      <SettingsNav />
       <h1 className="text-3xl font-semibold">Settings</h1>
       <section className="space-y-4 rounded-xl border bg-card p-6">
         <h2 className="text-xl font-semibold">Appearance</h2>

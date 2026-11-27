@@ -81,6 +81,8 @@ export interface Workspace {
   slug: string;
 }
 export interface ProgrammaticKey {
+  created_at: string;
+  last_used_at: string | null;
   id: number;
   name: string;
   prefix: string;
@@ -179,10 +181,11 @@ export class APIClient {
       if (response.status === 402)
         throw new Error("Your plan limit has been reached.");
       if (response.status === 403)
-        throw new Error(
+        throw new APIError(
           body?.detail?.code === "email_unverified"
             ? "Confirm your email before making changes."
             : "You do not have permission to perform this action.",
+          403,
         );
       if (response.status === 404)
         throw new APIError("This resource was not found in your workspace.", 404);
@@ -261,7 +264,7 @@ export class APIClient {
   createKey(
     name: string,
     scopes: string[],
-  ): Promise<ProgrammaticKey & { key: string }> {
+  ): Promise<Pick<ProgrammaticKey, "id" | "name" | "prefix" | "scopes"> & { key: string }> {
     return this.request("/api-keys", {
       method: "POST",
       body: JSON.stringify({ name, scopes }),

@@ -158,6 +158,7 @@ test("password update and global sign-out use the provider contracts", async ({
     request.url().includes("/auth/v1/logout"),
   );
   await page.getByRole("button", { name: "Sign out everywhere" }).click();
+  await page.getByRole("button", { name: "Confirm sign out everywhere" }).click();
   expect((await logout).url()).toContain("scope=global");
   await expect(page).toHaveURL(/login/);
 });

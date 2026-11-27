@@ -38,12 +38,12 @@ Statuses: **exists-restyle** keeps an existing contract; **exists-differs** has 
 | `pages/app/LinkDetailPage.tsx` | /links/[code], /demo/links/[code] | exists-differs (read-only detail implemented 15.12f) | Status/clicks plus latest-100 destination lookup; absent destination labelled. Edit/rules/password still need new contracts and are out of this step. |
 | `pages/app/LinksPage.tsx` | /dashboard | exists-differs | GET /urls, POST /shorten, DELETE /urls/{code}; edit/bulk/tags unavailable |
 | `pages/app/McpPage.tsx` | MCP docs/UI | new-UI-only | Existing separate MCP server via HTTP API; no hosted MCP registration API |
-| `pages/app/settings/AccountPage.tsx` | /account | exists-differs | GET /me, GET /me/export, DELETE /me; Supabase profile/session operations |
+| `pages/app/settings/AccountPage.tsx` | /account | exists-differs (implemented 15.12g) | Trusted shared /me; profile, export, confirmed global sign-out and existing typed DELETE gate; no fabricated fields |
 | `pages/app/settings/AuditPage.tsx` | workspace audit UI | new-UI-only | GET /workspaces/{workspace_id}/audit; admin permission required |
 | `pages/app/settings/BillingPage.tsx` | none | out-of-scope | No paid plans, invoices or payment provider |
-| `pages/app/settings/KeysPage.tsx` | /app/keys, /api-keys | exists-differs | GET/POST /api-keys, DELETE /api-keys/{key_id}; real secret shown once |
+| `pages/app/settings/KeysPage.tsx` | /app/keys, /api-keys | exists-differs (implemented 15.12g) | Real list/create/revoke; UTC metadata, role explanation and workspace-local one-time secret dialog |
 | `pages/app/settings/MembersPage.tsx` | workspace UI extension | new-UI-only | GET/POST /workspaces/{workspace_id}/members; PATCH/DELETE member; pending invitations only, no sending |
-| `pages/app/settings/SettingsLayout.tsx` | shared layout | exists-restyle | Next layout/components only; preserve auth guards |
+| `pages/app/settings/SettingsLayout.tsx` | SettingsNav on /settings, /account, /app/keys | exists-differs (implemented 15.12g) | Appearance/Account/API keys only; demo Appearance only; existing auth guards retained |
 | `pages/app/settings/UsagePage.tsx` | usage UI | exists-differs | GET /admin/usage is PLATFORM ADMIN ONLY; tenant usage endpoint needed for ordinary users |
 | `pages/app/settings/WebhooksPage.tsx` | none | new-needs-backend | No webhook subscriptions/delivery logs/retry API |
 | `pages/auth/LoginPage.tsx` | /login | exists-differs | Supabase SSR/PKCE; /me, not prototype mock login |
@@ -283,3 +283,10 @@ Changelog uses selected actual merge PRs #70, #72–77, #79–83 and their origi
 **Implemented exists-restyle:** `/analytics` and `/health` (and demo equivalents) opt their own main into v2. Analytics uses latest-100 selection, manual/query code, local calendar windows, one chart plus table, and timestamp-only statistics. Health shows dependency words, aggregate worker readiness and public controls, including degraded 503 responses; no global totals or simulated uptime.
 
 **Implemented exists-differs:** `/links/[code]` and `/demo/links/[code]` combine existing status/analytics/list contracts, with explicit missing-destination text beyond the latest 100, text-only destinations, copy and confirmed deletion for non-viewers. Dashboard short links navigate to detail. No edit/rules/password/visitor dimensions were ported. The only backend changes remove public global counts and constrain list limits. See [verification](design-analytics-detail-verification.md) and [ADR 0052](adr/0052-analytics-detail-health-contracts.md). Remaining review/account/legal migrations stay proposed.
+
+
+## Step 15.12g status (2026-11-27)
+
+**Implemented account and keys:** each page's main and new Radix dialog portals use v2 tokens and the existing local font. SettingsNav links existing Appearance, Account and API keys routes, with aria-current and wrapping phone layout; demo shows Appearance only and retains the static keys note. Profile, data export, sessions and deletion preserve real contracts, trusted verification, LocalAuth behavior and the 30-day purge wording.
+
+Keys display metadata only outside their one-time secret dialog. Create/revoke are confirmed flows; roles come from shared identity, server 403 is explanatory, and secrets are cleared on dismiss, workspace change or page unmount. Scope mapping is unchanged. No backend, dependency, OAuth/CSP, billing, members, audit, usage or plan feature was added. See [verification](design-account-keys-verification.md) and [ADR 0053](adr/0053-settings-and-key-secret-lifecycle.md).
